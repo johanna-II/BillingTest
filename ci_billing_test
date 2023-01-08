@@ -1,0 +1,82 @@
+import java.text.SimpleDateFormat
+
+timestamps {
+    properties([[$class: 'RebuildSettings', autoRebuild: false, rebuildDisabled: false],
+                parameters([choice(choices: ['alpha'], description: 'Billing test should be executed at alpha only.', name: 'env'),
+                            choice(choices: ['kr'], description: 'Select member country (KR, JP, ETC)', name: 'member'),
+                            string(defaultValue: '', description: 'test target month', name: 'month', trim: false),
+                            string(defaultValue: '', description: 'test case file or test case item (ex. test_contract_only.py or test_prjAdjTC1', name: 'singlefile', trim: false)
+                            ])
+                ])
+    def env = params.env
+    def member = params.member
+    def month = params.month
+    def singlefile = params.singlefile
+
+    manager.addShortText("${env}")
+    manager.addShortText("${member}")
+    manager.addShortText("${month}")
+    manager.addShortText("${singlefile}")
+
+    node('real_env') {
+        checkout scm
+
+        check_contract(month, singlefile)
+        check_credit(member, singlefile)
+
+        warnError('something failed') {
+            dir('BillingTest') {
+                sh '''
+                    docker build . -t test/credit
+                   '''
+                timeout(60) {
+                    docker.image("test/credit").inside {
+                        sh ''' #!/bin/sh
+                                mkdir -p ./report
+                                if [ ${singlefile} ]; then
+                                    python -u -m pytest --env ${env} --member ${member} --month ${month} -k ${singlefile} --html=./report/reports_${BUILD_NUMBER}.html
+                                else
+                                    python -u -m pytest --env ${env} --member ${member} --month ${month} --html=./report/reports_${BUILD_NUMBER}.html
+                                fi
+                            '''
+                    }
+                }
+            }
+        }
+        publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: 'BillingTest/report/',
+                        reportFiles: 'reports_${BUILD_NUMBER}.html', reportName: 'billing-test', reportTitles: 'billing test report'])
+
+    }
+}
+
+def check_contract(params, singlefile) {
+    if (singlefile ==~ /.*contract.*/) {
+        def dateFormat = new SimpleDateFormat("yyyy-MM")
+        def date = new Date()
+        today = dateFormat.format(date)
+
+        def splitTodayDate = today.split('-')
+        def splitParamDate = params.split('-')
+
+        if (splitParamDate[0] != splitTodayDate[0]) {
+            echo "테스트 하려는 연도가 현재 연도와 동일하지 않아 약정 테스트 불가합니다. (약정은 현재 월만 가능)"
+            error('Aborting the build.')
+        }
+        if (splitParamDate[1] != splitTodayDate[1]) {
+            echo "테스트 하려는 월이 현재 월과 동일하지 않아 약정 테스트 불가합니다. (약정은 현재 월만 가능)"
+            error('Aborting the build.')
+        }
+    } else {
+        println "Skipped the check contract"
+    }
+}
+
+
+def check_credit(member, singlefile) {
+    if (member != "kr" && singlefile ==~ /.*credit.*/) {
+        echo "크레딧 테스트는 현재 KR 회원만 가능합니다. KR 계정으로 테스트 해주세요."
+        error('Aborting the build.')
+    } else {
+        println "Skipped the check credit"
+    }
+}
