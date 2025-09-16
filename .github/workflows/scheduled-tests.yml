@@ -1,0 +1,118 @@
+name: Scheduled Full Test Suite
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day (11 AM KST)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  determine-month:
+    name: Determine Test Month
+    runs-on: ubuntu-latest
+    outputs:
+      month: ${{ steps.month.outputs.value }}
+    steps:
+      - name: Get current month
+        id: month
+        run: echo "value=$(date +%Y-%m)" >> $GITHUB_OUTPUT
+
+  full-test-suite:
+    name: Full Test Suite (${{ matrix.member }})
+    needs: determine-month
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        member: [kr, jp, etc]
+        test_type: [unpaid, credit, contracts, adjustments]
+        exclude:
+          # Credit tests only for KR
+          - member: jp
+            test_type: credit
+          - member: etc
+            test_type: credit
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: billing-test:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run ${{ matrix.test_type }} tests
+        run: |
+          mkdir -p ./report
+          
+          docker run --rm \
+            -v ${{ github.workspace }}/report:/app/report \
+            -e PYTHONUNBUFFERED=1 \
+            billing-test:latest \
+            python -m pytest \
+              --env alpha \
+              --member ${{ matrix.member }} \
+              --month ${{ needs.determine-month.outputs.month }} \
+              -k "test_${{ matrix.test_type }}" \
+              --html=./report/report-${{ matrix.member }}-${{ matrix.test_type }}.html \
+              --self-contained-html \
+              --junit-xml=./report/junit-${{ matrix.member }}-${{ matrix.test_type }}.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.member }}-${{ matrix.test_type }}
+          path: report/
+          retention-days: 7
+
+  test-summary:
+    name: Test Summary Report
+    needs: full-test-suite
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-reports
+
+      - name: Generate summary
+        run: |
+          echo "# 📊 Daily Billing Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Month**: $(date +%Y-%m)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Process test results
+          for report in all-reports/*/junit-*.xml; do
+            if [ -f "$report" ]; then
+              member=$(basename "$report" | sed 's/junit-\(.*\)-.*\.xml/\1/')
+              test_type=$(basename "$report" | sed 's/junit-.*-\(.*\)\.xml/\1/')
+              echo "- **$member - $test_type**: Processing..." >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Send notification
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: |
+            Daily Billing Tests Failed!
+            Check the results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

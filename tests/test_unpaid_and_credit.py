@@ -15,7 +15,9 @@ class TestUnpaidWithCredit:
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
         if member == "etc":
-            pytest.skip("Credit test should be skipped if member country is not KR or JP")
+            pytest.skip(
+                "Credit test should be skipped if member country is not KR or JP"
+            )
         self.config = creditutil.InitializeConfig(env, member, month)
         self.config.beforeTest()
         self.cleanAllMonthResources()
@@ -44,28 +46,53 @@ class TestUnpaidWithCredit:
         self.sendPaymentsChange(month=0)
         self.credit.cancelCredit()
         adjObj = adj.Adjustments(self.config.month)
-        adjlist = adjObj.inquiryAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0])
+        adjlist = adjObj.inquiryAdjustment(
+            adjustmentTarget="Project", projectId=self.config.project_id[0]
+        )
         adjObj.deleteAdjustment(adjlist)
-        adjlist = adjObj.inquiryAdjustment(adjustmentTarget="BillingGroup", billingGroupid=self.config.billing_group_id[0])
+        adjlist = adjObj.inquiryAdjustment(
+            adjustmentTarget="BillingGroup",
+            billingGroupid=self.config.billing_group_id[0],
+        )
         adjObj.deleteAdjustment(adjlist)
-        contractObj = contract.Contract(self.config.month, self.config.billing_group_id[0])
+        contractObj = contract.Contract(
+            self.config.month, self.config.billing_group_id[0]
+        )
         contractObj.deleteContract()
 
     def test_unpaid_and_credit_TC1(self):
         self.config.month = self.calcPrevMonth(month=0)
         self.sendPrevMonthMetering(month=0)
-        contractObj = contract.Contract(self.config.month, self.config.billing_group_id[0])
+        contractObj = contract.Contract(
+            self.config.month, self.config.billing_group_id[0]
+        )
         contractObj.contractId = "<contractID>"
         contractObj.applyContract()
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="PERCENT_DISCOUNT", adjustment=10)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=2000)
-        adjObj.applyAdjustment(adjustmentTarget="BillingGroup", billingGroupId=self.config.billing_group_id[0],
-                               adjustmentType="STATIC_DISCOUNT", adjustment=1000)
-        adjObj.applyAdjustment(adjustmentTarget="BillingGroup", billingGroupId=self.config.billing_group_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=2000)
+        adjObj.applyAdjustment(
+            adjustmentTarget="Project",
+            projectId=self.config.project_id[0],
+            adjustmentType="PERCENT_DISCOUNT",
+            adjustment=10,
+        )
+        adjObj.applyAdjustment(
+            adjustmentTarget="Project",
+            projectId=self.config.project_id[0],
+            adjustmentType="STATIC_EXTRA",
+            adjustment=2000,
+        )
+        adjObj.applyAdjustment(
+            adjustmentTarget="BillingGroup",
+            billingGroupId=self.config.billing_group_id[0],
+            adjustmentType="STATIC_DISCOUNT",
+            adjustment=1000,
+        )
+        adjObj.applyAdjustment(
+            adjustmentTarget="BillingGroup",
+            billingGroupId=self.config.billing_group_id[0],
+            adjustmentType="STATIC_EXTRA",
+            adjustment=2000,
+        )
         # self.credit.giveCredit("JmqOU3ilVhppkmUM", 2000000)  # 2,000,000 / 무료, 지급형, 이벤트 크레딧
         self.credit.giveCredit("<creditCode>")
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
@@ -74,67 +101,120 @@ class TestUnpaidWithCredit:
         # 전전월 결제 및 영수증 발행
         self.config.month = self.calcPrevMonth(month=2)
         prev_statements, prev_total_payments = self.config.commonTest()
-        prev_total_statements = prev_statements['totalAmount'] - prev_statements['totalCredit']
+        prev_total_statements = (
+            prev_statements["totalAmount"] - prev_statements["totalCredit"]
+        )
         prev_rest_credit, prev_total_credit_amt = self.credit.inquiryRestCredit()
 
         # 전전월 계산 후 결제 금액 및 매출 전표 값 비교 assertion
-        self.config.verifyAssert(statements=prev_total_statements, payments=prev_total_payments,
-                                 expected_result=1324049,
-                                 rest_credit=prev_rest_credit, total_credit=prev_total_credit_amt,
-                                 expected_credit=1815888)
+        self.config.verifyAssert(
+            statements=prev_total_statements,
+            payments=prev_total_payments,
+            expected_result=1324049,
+            rest_credit=prev_rest_credit,
+            total_credit=prev_total_credit_amt,
+            expected_credit=1815888,
+        )
 
         # 당월 결제 및 영수증 발행
         self.config.month = self.calcPrevMonth(month=0)
         statements, total_payments = self.config.commonTest()
-        total_statements = statements['totalAmount'] - statements['totalCredit']
+        total_statements = statements["totalAmount"] - statements["totalCredit"]
         rest_credit, total_credit_amt = self.credit.inquiryRestCredit()
 
         # 당월 계산 후 결제 금액 및 매출 전표 값 비교 assertion
-        self.config.verifyAssert(statements=total_statements, payments=total_payments, expected_result=1171359)
-        self.config.verifyAssert(rest_credit=rest_credit, total_credit=total_credit_amt,
-                                 expected_credit=1649776)
+        self.config.verifyAssert(
+            statements=total_statements,
+            payments=total_payments,
+            expected_result=1171359,
+        )
+        self.config.verifyAssert(
+            rest_credit=rest_credit,
+            total_credit=total_credit_amt,
+            expected_credit=1649776,
+        )
 
     def test_unpaid_and_credit_TC2(self):
         self.sendPrevMonthMetering(month=0)
         self.config.month = self.calcPrevMonth(month=0)
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="PERCENT_DISCOUNT", adjustment=10)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=2000)
-        adjObj.applyAdjustment(adjustmentTarget="BillingGroup", billingGroupId=self.config.billing_group_id[0],
-                               adjustmentType="STATIC_DISCOUNT", adjustment=1000)
-        adjObj.applyAdjustment(adjustmentTarget="BillingGroup", billingGroupId=self.config.billing_group_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=2000)
-        self.credit.giveCredit("<creditCode>", 2000000)  # 2,000,000 / 무료, 지급형, 이벤트 크레딧
+        adjObj.applyAdjustment(
+            adjustmentTarget="Project",
+            projectId=self.config.project_id[0],
+            adjustmentType="PERCENT_DISCOUNT",
+            adjustment=10,
+        )
+        adjObj.applyAdjustment(
+            adjustmentTarget="Project",
+            projectId=self.config.project_id[0],
+            adjustmentType="STATIC_EXTRA",
+            adjustment=2000,
+        )
+        adjObj.applyAdjustment(
+            adjustmentTarget="BillingGroup",
+            billingGroupId=self.config.billing_group_id[0],
+            adjustmentType="STATIC_DISCOUNT",
+            adjustment=1000,
+        )
+        adjObj.applyAdjustment(
+            adjustmentTarget="BillingGroup",
+            billingGroupId=self.config.billing_group_id[0],
+            adjustmentType="STATIC_EXTRA",
+            adjustment=2000,
+        )
+        self.credit.giveCredit(
+            "<creditCode>", 2000000
+        )  # 2,000,000 / 무료, 지급형, 이벤트 크레딧
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
         calcObj.recalculationAll()
 
         # 전전월 결제 및 영수증 발행
         self.config.month = self.calcPrevMonth(month=2)
         prev_statements, prev_total_payments = self.config.commonTest()
-        prev_total_statements = prev_statements['totalAmount'] - prev_statements['totalCredit']
+        prev_total_statements = (
+            prev_statements["totalAmount"] - prev_statements["totalCredit"]
+        )
         prev_rest_credit, prev_total_credit_amt = self.credit.inquiryRestCredit()
 
         # 전전월 계산 후 결제 금액 및 매출 전표 값 비교 assertion
-        self.config.verifyAssert(statements=prev_total_statements, payments=prev_total_payments, expected_result=1324049)
-        self.config.verifyAssert(rest_credit=prev_rest_credit, total_credit=prev_total_credit_amt, expected_credit=1815888)
+        self.config.verifyAssert(
+            statements=prev_total_statements,
+            payments=prev_total_payments,
+            expected_result=1324049,
+        )
+        self.config.verifyAssert(
+            rest_credit=prev_rest_credit,
+            total_credit=prev_total_credit_amt,
+            expected_credit=1815888,
+        )
 
         # 당월 결제 및 영수증 발행
         self.config.month = self.calcPrevMonth(month=0)
         statements, total_payments = self.config.commonTest()
-        total_statements = statements['totalAmount'] - statements['totalCredit']
+        total_statements = statements["totalAmount"] - statements["totalCredit"]
         prev_rest_credit, prev_total_credit_amt = self.credit.inquiryRestCredit()
 
         # 당월 계산 후 결제 금액 및 매출 전표 값 비교 assertion
-        self.config.verifyAssert(statements=total_statements, payments=total_payments, expected_result=1171359)
-        self.config.verifyAssert(rest_credit=prev_rest_credit, total_credit=prev_total_credit_amt, expected_credit=1631776)
+        self.config.verifyAssert(
+            statements=total_statements,
+            payments=total_payments,
+            expected_result=1171359,
+        )
+        self.config.verifyAssert(
+            rest_credit=prev_rest_credit,
+            total_credit=prev_total_credit_amt,
+            expected_credit=1631776,
+        )
 
     @staticmethod
     def calcPrevMonth(month):
         prev_month = datetime.now() - relativedelta(months=month)
         year, month = prev_month.year, prev_month.month
-        month = "0" + prev_month.month.__str__() if prev_month.month < 10 else prev_month.month
+        month = (
+            "0" + prev_month.month.__str__()
+            if prev_month.month < 10
+            else prev_month.month
+        )
         month_return = year.__str__() + "-" + month.__str__()
         print(f"+ 전전월/전월 계산 {month_return}")
         return month_return
@@ -144,10 +224,30 @@ class TestUnpaidWithCredit:
         meteringObj = metering.Metering(month)
         meteringObj.month = self.config.month = month
         meteringObj.appkey = self.config.appkey[0]
-        meteringObj.sendIaaSMetering(counterName="compute.c2.c8m8", counterType="DELTA", counterUnit="HOURS", counterVolume="720")
-        meteringObj.sendIaaSMetering(counterName="storage.volume.ssd", counterType="DELTA", counterUnit="KB", counterVolume="524288000")
-        meteringObj.sendIaaSMetering(counterName="network.floating_ip", counterType="DELTA", counterUnit="HOURS", counterVolume="720")
-        meteringObj.sendIaaSMetering(counterName="compute.g2.t4.c8m64", counterType="GAUGE", counterUnit="HOURS", counterVolume="720")
+        meteringObj.sendIaaSMetering(
+            counterName="compute.c2.c8m8",
+            counterType="DELTA",
+            counterUnit="HOURS",
+            counterVolume="720",
+        )
+        meteringObj.sendIaaSMetering(
+            counterName="storage.volume.ssd",
+            counterType="DELTA",
+            counterUnit="KB",
+            counterVolume="524288000",
+        )
+        meteringObj.sendIaaSMetering(
+            counterName="network.floating_ip",
+            counterType="DELTA",
+            counterUnit="HOURS",
+            counterVolume="720",
+        )
+        meteringObj.sendIaaSMetering(
+            counterName="compute.g2.t4.c8m64",
+            counterType="GAUGE",
+            counterUnit="HOURS",
+            counterVolume="720",
+        )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
         calcObj.recalculationAll()
 
@@ -187,7 +287,9 @@ class TestUnpaidWithCredit:
         paymentsObj = payments.Payments(cur_month)
         paymentsObj.uuid = self.config.uuid
         cur_unpaid = paymentsObj.unpaid()
-        print(f'{prev_month}월 미납 금액: {prev_unpaid}, {cur_month}월 미납 금액: {cur_unpaid}')
+        print(
+            f"{prev_month}월 미납 금액: {prev_unpaid}, {cur_month}월 미납 금액: {cur_unpaid}"
+        )
         return prev_unpaid, cur_unpaid
 
     def paymentPrevMonth(self, month):

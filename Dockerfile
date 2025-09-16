@@ -1,16 +1,39 @@
-FROM  python:3.8-slim-buster
+FROM python:3.12-slim
 
-USER root
+# Install system dependencies
 RUN apt-get update && \
-apt-get install python3-dev default-libmysqlclient-dev \
-build-essential libffi6 -y
+    apt-get install -y --no-install-recommends \
+    python3-dev \
+    default-libmysqlclient-dev \
+    build-essential \
+    libffi-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# pip upgrade and install poetry
-RUN pip install --upgrade pip
-RUN pip install poetry
+# Set working directory
+WORKDIR /app
 
-# install packages via poetry
-COPY poetry.lock ./poetry.lock
-COPY pyproject.toml ./pyproject.toml
-RUN poetry config virtualenvs.create false
-RUN poetry install --no-interaction
+# Install Poetry
+ENV POETRY_VERSION=1.7.1
+ENV POETRY_HOME=/opt/poetry
+ENV POETRY_VENV=/opt/poetry-venv
+ENV POETRY_CACHE_DIR=/opt/.cache
+
+RUN python3 -m venv $POETRY_VENV && \
+    $POETRY_VENV/bin/pip install --upgrade pip && \
+    $POETRY_VENV/bin/pip install poetry==$POETRY_VERSION
+
+ENV PATH="${PATH}:${POETRY_VENV}/bin"
+
+# Copy dependency files
+COPY poetry.lock pyproject.toml ./
+
+# Install dependencies
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi --no-root
+
+# Copy application code
+COPY . .
+
+# Install project in editable mode
+RUN poetry install --no-interaction --no-ansi

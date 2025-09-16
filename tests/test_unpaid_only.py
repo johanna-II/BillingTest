@@ -41,22 +41,30 @@ class TestUnpaidOnly:
         prev_unpaid, cur_unpaid = self.compareUnpaid()
         # 결제 요청된 값, 실제 결제값(매출전표) 체크 및 전월 미납과 당일 미납 같은 지 체크
         statements, total_payments = self.config.commonTest()
-        total_statements = statements['totalAmount'] - statements['totalCredit']
-        supply_amount = (statements['charge'] + math.floor(statements['charge'] * 0.1))
+        total_statements = statements["totalAmount"] - statements["totalCredit"]
+        supply_amount = statements["charge"] + math.floor(statements["charge"] * 0.1)
         expect_unpaid_total = supply_amount + math.floor(supply_amount * 0.02)
 
         # 결제 금액 및 매출 전표 값 비교 assertion
-        self.config.verifyAssert(statements=total_statements, payments=total_payments, expected_result=1500611,
-                                 unpaid=True,
-                                 prev_unpaid=prev_unpaid,
-                                 current_unpaid=cur_unpaid,
-                                 expect_unpaid_total=expect_unpaid_total)
+        self.config.verifyAssert(
+            statements=total_statements,
+            payments=total_payments,
+            expected_result=1500611,
+            unpaid=True,
+            prev_unpaid=prev_unpaid,
+            current_unpaid=cur_unpaid,
+            expect_unpaid_total=expect_unpaid_total,
+        )
 
     @staticmethod
     def calcPrevMonth(month):
         prev_month = datetime.now() - relativedelta(months=month)
         year, month = prev_month.year, prev_month.month
-        month = "0" + prev_month.month.__str__() if prev_month.month < 10 else prev_month.month
+        month = (
+            "0" + prev_month.month.__str__()
+            if prev_month.month < 10
+            else prev_month.month
+        )
         month_return = year.__str__() + "-" + month.__str__()
         return month_return
 
@@ -65,10 +73,30 @@ class TestUnpaidOnly:
         meteringObj = metering.Metering(month)
         meteringObj.month = self.config.month = month
         meteringObj.appkey = self.config.appkey[0]
-        meteringObj.sendIaaSMetering(counterName="compute.c2.c8m8", counterType="DELTA", counterUnit="HOURS", counterVolume="720")
-        meteringObj.sendIaaSMetering(counterName="storage.volume.ssd", counterType="DELTA", counterUnit="KB", counterVolume="524288000")
-        meteringObj.sendIaaSMetering(counterName="network.floating_ip", counterType="DELTA", counterUnit="HOURS", counterVolume="720")
-        meteringObj.sendIaaSMetering(counterName="compute.g2.t4.c8m64", counterType="GAUGE", counterUnit="HOURS", counterVolume="720")
+        meteringObj.sendIaaSMetering(
+            counterName="compute.c2.c8m8",
+            counterType="DELTA",
+            counterUnit="HOURS",
+            counterVolume="720",
+        )
+        meteringObj.sendIaaSMetering(
+            counterName="storage.volume.ssd",
+            counterType="DELTA",
+            counterUnit="KB",
+            counterVolume="524288000",
+        )
+        meteringObj.sendIaaSMetering(
+            counterName="network.floating_ip",
+            counterType="DELTA",
+            counterUnit="HOURS",
+            counterVolume="720",
+        )
+        meteringObj.sendIaaSMetering(
+            counterName="compute.g2.t4.c8m64",
+            counterType="GAUGE",
+            counterUnit="HOURS",
+            counterVolume="720",
+        )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
         calcObj.recalculationAll()
 
@@ -108,5 +136,7 @@ class TestUnpaidOnly:
         paymentsObj = payments.Payments(cur_month)
         paymentsObj.uuid = self.config.uuid
         cur_unpaid = paymentsObj.unpaid()
-        print(f'{prev_month}월 미납 금액: {prev_unpaid}, {cur_month}월 미납 금액: {cur_unpaid}')
+        print(
+            f"{prev_month}월 미납 금액: {prev_unpaid}, {cur_month}월 미납 금액: {cur_unpaid}"
+        )
         return prev_unpaid, cur_unpaid

@@ -1,62 +1,156 @@
-import time
-import config.url as url
-import libs.SessionHandler as sessionHandler
+"""Calculation management for billing system."""
+
+import contextlib
+import logging
+from typing import Any
+
+from config import url
+
+from .constants import BatchJobCode
+from .exceptions import APIRequestException
+from .http_client import BillingAPIClient
+
+logger = logging.getLogger(__name__)
 
 
+class CalculationManager:
+    """Manages billing calculations and resource cleanup."""
+
+    def __init__(self, month: str, uuid: str) -> None:
+        """Initialize calculation manager.
+
+        Args:
+            month: Target month in YYYY-MM format
+            uuid: User UUID for calculations
+        """
+        self.month = month
+        self.uuid = uuid
+        self._client = BillingAPIClient(url.BASE_BILLING_URL)
+
+    def __repr__(self) -> str:
+        return f"CalculationManager(month={self.month}, uuid={self.uuid})"
+
+    def recalculate_all(
+        self, include_usage: bool = True, timeout: int = 300
+    ) -> dict[str, Any]:
+        """Request full recalculation for the month.
+
+        Args:
+            include_usage: Whether to include usage recalculation
+            timeout: Maximum time to wait for completion in seconds
+
+        Returns:
+            API response data
+
+        Raises:
+            APIRequestException: If calculation request fails
+        """
+        endpoint = "billing/admin/calculations"
+        data = {"includeUsage": include_usage, "month": self.month, "uuid": self.uuid}
+
+        logger.info("Requesting full recalculation for {self.uuid} in %s", self.month)
+
+        try:
+            response = self._client.post(endpoint, json_data=data)
+            logger.info("Recalculation request submitted successfully")
+
+            # Wait for calculation to complete
+            if self._wait_for_calculation_completion(timeout):
+                logger.info("Recalculation completed successfully")
+            else:
+                logger.warning("Recalculation did not complete within %s seconds", timeout
+                )
+
+            return response
+
+        except APIRequestException as e:
+            logger.exception("Failed to request recalculation: %s", e)
+            raise
+
+    def _wait_for_calculation_completion(
+        self, timeout: int = 300, check_interval: int = 3
+    ) -> bool:
+        """Wait for calculation to complete.
+
+        Args:
+            timeout: Maximum time to wait in seconds
+            check_interval: Seconds between progress checks
+
+        Returns:
+            True if completed successfully, False if timeout
+        """
+        return self._client.wait_for_completion(
+            check_endpoint="billing/admin/progress",
+            completion_field="progress",
+            max_field="maxProgress",
+            progress_code=BatchJobCode.API_CALCULATE_USAGE_AND_PRICE.value,
+            check_interval=check_interval,
+            max_wait_time=timeout,
+        )
+
+    def delete_resources(self) -> dict[str, Any]:
+        """Delete calculation resources for the month.
+
+        Returns:
+            API response data
+
+        Raises:
+            APIRequestException: If deletion fails
+        """
+        endpoint = "billing/admin/resources"
+        params = {"month": self.month}
+        headers = {"uuid": self.uuid}
+
+        logger.info("Deleting calculation resources for %s", self.month)
+
+        try:
+            response = self._client.delete(endpoint, params=params, headers=headers)
+            logger.info("Resources deleted successfully")
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to delete resources: %s", e)
+            raise
+
+    def get_calculation_status(self) -> dict[str, Any]:
+        """Get current calculation progress status.
+
+        Returns:
+            Progress status data
+
+        Raises:
+            APIRequestException: If status check fails
+        """
+        endpoint = "billing/admin/progress"
+
+        try:
+            return self._client.get(endpoint)
+        except APIRequestException as e:
+            logger.exception("Failed to get calculation status: %s", e)
+            raise
+
+
+# Backward compatibility wrapper
 class Calculation:
-    def __init__(self, month, uuid):
+    """Legacy wrapper for backward compatibility."""
+
+    def __init__(self, month: str, uuid: str) -> None:
+        self._manager = CalculationManager(month, uuid)
         self.month = month
         self.uuid = uuid
 
-    def __repr__(self):
-        return f'Calculation(month: {self.month}, uuid: {self.uuid})'
+    def recalculation_all(self) -> None:
+        """Legacy method for recalculation."""
+        with contextlib.suppress(Exception):
+            self._manager.recalculate_all()
 
-    def recalculationAll(self):
-        calc_url = url.BILLING_ADMIN_URL + "/calculations"
-        data = {
-            'includeUsage': True,
-            'month': self.month,
-            'uuid': self.uuid
-        }
-        session = sessionHandler.SendDataSession("POST", calc_url)
-        session.json = data
-        response = session.request().json()
+    def check_stable(self) -> None:
+        """Legacy method for checking calculation stability."""
+        # This method is called after recalculation in the new implementation
+        completed = self._manager._wait_for_calculation_completion()
+        if completed:
+            pass
 
-        if response['header']['isSuccessful']:
-            print(f"uuid: {self.uuid}에 대한 {self.month}월 전체 재정산 요청이 완료되었습니다. 정산 진행율을 체크합니다.")
-            self.checkStable()
-        else:
-            print("정산이 진행되지 못했습니다. 아래 응답을 참고하세요. ")
-            print(response)
-
-    def checkStable(self):
-        flag = False
-
-        print(f"uuid: {self.uuid}에 대한 {self.month} 정산 진행율을 체크합니다.")
-        while not flag:
-            progress_url = url.BILLING_ADMIN_URL + "/progress"
-            session = sessionHandler.SendDataSession("GET", progress_url)
-            time.sleep(3)
-            response = session.request().json()
-            for item in response['progressStatusList']:
-                if item['progressCode'] == 'API_CALCULATE_USAGE_AND_PRICE':
-                    if item['progress'] == item['maxProgress']:
-                        print('일치', item['progressCode'], item['progress'], item['maxProgress'])
-                        flag = True
-
-    def deleteResources(self):
-        del_res_url = url.BILLING_ADMIN_URL + f"/resources?month={self.month}"
-        headers = {
-            'uuid': self.uuid
-        }
-        session = sessionHandler.SendDataSession("DELETE", del_res_url)
-        session.headers = headers
-        # retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[12007, 31000])
-        # session.mount(del_res_url, HTTPAdapter(max_retries=retries))
-        response = session.request().json()
-
-        if response['header']['isSuccessful']:
-            print(f"{self.month}월의 정산 리소스 삭제 완료")
-        else:
-            print("정산 리소스가 삭제되지 않았습니다. 아래 응답을 참고하세요. ")
-            print(response)
+    def delete_resources(self) -> None:
+        """Legacy method for deleting resources."""
+        with contextlib.suppress(Exception):
+            self._manager.delete_resources()

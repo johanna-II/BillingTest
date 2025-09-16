@@ -10,14 +10,11 @@ config = {
         "<kr_campaignID3>",
         "<kr_campaignID4>",
         "<kr_campaignID5>",
-        "<kr_campaignID6>"
+        "<kr_campaignID6>",
     ],
-    "give_campaign_id": [
-        "<kr_giveCampaignID1>",
-        "<kr_giveCampaignID2>"
-    ],
+    "give_campaign_id": ["<kr_giveCampaignID1>", "<kr_giveCampaignID2>"],
     "paid_campaign_id": [
         "<kr_paidCampaignID1>",
         "<kr_paidCampaignID2>",
-    ]
+    ],
 }

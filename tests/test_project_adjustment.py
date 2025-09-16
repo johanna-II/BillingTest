@@ -1,99 +1,206 @@
-import pytest
-import libs.InitializeConfig as creditutil
-import libs.Metering as metering
-import libs.Calculation as calc
-import libs.Adjustment as adj
+"""Tests for project-level billing adjustments."""
+
 import math
+import pytest
+
+from libs import CounterType
+from .base import BaseAdjustmentTest, MeteringItem
 
 
-class TestProjectAdjustment:
+class TestProjectAdjustment(BaseAdjustmentTest):
+    """Test suite for project-level adjustments (discounts/surcharges)."""
+
+    # Test data constants
+    METERING_DATA = [
+        MeteringItem(
+            counter_name="compute.c2.c8m8",
+            counter_type=CounterType.DELTA,
+            counter_unit="HOURS",
+            counter_volume="720",
+        ),
+        MeteringItem(
+            counter_name="storage.volume.ssd",
+            counter_type=CounterType.DELTA,
+            counter_unit="KB",
+            counter_volume="524288000",
+        ),
+        MeteringItem(
+            counter_name="network.floating_ip",
+            counter_type=CounterType.DELTA,
+            counter_unit="HOURS",
+            counter_volume="720",
+        ),
+        MeteringItem(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type=CounterType.GAUGE,
+            counter_unit="HOURS",
+            counter_volume="720",
+        ),
+    ]
+
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.cleanData()
-        meteringObj = metering.Metering(self.config.month)
-        meteringObj.appkey = self.config.appkey[0]
-        meteringObj.sendIaaSMetering(counterName="compute.c2.c8m8", counterType="DELTA", counterUnit="HOURS", counterVolume="720")
-        meteringObj.sendIaaSMetering(counterName="storage.volume.ssd", counterType="DELTA", counterUnit="KB", counterVolume="524288000")
-        meteringObj.sendIaaSMetering(counterName="network.floating_ip", counterType="DELTA", counterUnit="HOURS", counterVolume="720")
-        meteringObj.sendIaaSMetering(counterName="compute.g2.t4.c8m64", counterType="GAUGE", counterUnit="HOURS", counterVolume="720")
+    def setup_metering_data(self, test_config) -> None:
+        """Set up metering data for all tests in the class."""
+        # Clean existing data
+        test_config.cleanData()
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.beforeTest()  # to change paymentStatus as REGISTERED
+        # Send metering data
+        self.send_metering_data(test_config, self.METERING_DATA)
 
-    @pytest.fixture(scope="function", autouse=True)
-    def teardown(self, env, member, month):
-        yield
-        adjObj = adj.Adjustments(self.config.month)
-        adjlist = adjObj.inquiryAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0])
-        adjObj.deleteAdjustment(adjlist)
+    def test_fixed_discount_adjustment(self, test_config) -> None:
+        """Test fixed amount discount on project."""
+        discount_amount = 100
 
-    # 프로젝트 고정 할인
-    def test_prjAdjTC1(self):
-        adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_DISCOUNT", adjustment=100)
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
-        # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        expect_result = (statements['charge'] - 100) + math.floor((statements['charge'] - 100) * 0.1)
-        self.config.verifyAssert(statements=statements['totalAmount'], payments=total_payments, expected_result=expect_result)
+        # Apply adjustment
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="FIXED_DISCOUNT",
+            adjustment_amount=discount_amount,
+        )
 
-    # 프로젝트 퍼센트 할인
-    def test_prjAdjTC2(self):
-        adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="PERCENT_DISCOUNT", adjustment=10)
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
-        # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        percent_discounted = math.ceil(statements['charge'] * (10 * 0.01))
-        expect_result = (statements['charge'] - percent_discounted) + math.floor((statements['charge'] - percent_discounted) * 0.1)
-        self.config.verifyAssert(statements=statements['totalAmount'], payments=total_payments, expected_result=expect_result)
+        # Perform calculation
+        self.perform_calculation(test_config)
 
-    # 프로젝트 고정 할증
-    def test_prjAdjTC3(self):
-        adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=10000)
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
-        # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        expect_result = (statements['charge'] + 10000) + math.floor((statements['charge'] + 10000) * 0.1)
-        self.config.verifyAssert(statements=statements['totalAmount'], payments=total_payments, expected_result=expect_result)
+        # Get results
+        statements, total_payments = test_config.commonTest()
 
-    # 프로젝트 고정 할인 + 고정 할증
-    def test_prjAdjTC4(self):
-        adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_DISCOUNT", adjustment=100)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=1000)
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
-        # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        originalCharge = (statements['charge'] + 1000 - 100)
-        expect_result = originalCharge + math.floor(originalCharge * 0.1)
-        self.config.verifyAssert(statements=statements['totalAmount'], payments=total_payments, expected_result=expect_result)
+        # Calculate expected total
+        adjusted_charge = statements["charge"] - discount_amount
+        expected_total = self.calculate_total_with_vat(adjusted_charge)
 
-    # 프로젝트 퍼센트 할인 + 고정 할증
-    def test_prjAdjTC5(self):
-        adjObj = adj.Adjustments(self.config.month)
-        adjObj.projectId = self.config.project_id[0]
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="PERCENT_DISCOUNT", adjustment=10)
-        adjObj.applyAdjustment(adjustmentTarget="Project", projectId=self.config.project_id[0],
-                               adjustmentType="STATIC_EXTRA", adjustment=2000)
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
-        # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        originalCharge = (statements['charge'] + 2000) - math.ceil((statements['charge'] + 2000) * 10 * 0.01)
-        expect_result = originalCharge + math.floor(originalCharge * 0.1)
-        self.config.verifyAssert(statements=statements['totalAmount'], payments=total_payments, expected_result=expect_result)
+        # Verify results
+        test_config.verifyAssert(
+            statements=statements["totalAmount"],
+            payments=total_payments,
+            expected_result=expected_total,
+        )
+
+    def test_percentage_discount_adjustment(self, test_config) -> None:
+        """Test percentage discount on project."""
+        discount_percentage = 10
+
+        # Apply adjustment
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="RATE_DISCOUNT",
+            adjustment_amount=discount_percentage,
+        )
+
+        # Perform calculation
+        self.perform_calculation(test_config)
+
+        # Get results
+        statements, total_payments = test_config.commonTest()
+
+        # Calculate expected total
+        discount_amount = math.ceil(statements["charge"] * (discount_percentage * 0.01))
+        adjusted_charge = statements["charge"] - discount_amount
+        expected_total = self.calculate_total_with_vat(adjusted_charge)
+
+        # Verify results
+        test_config.verifyAssert(
+            statements=statements["totalAmount"],
+            payments=total_payments,
+            expected_result=expected_total,
+        )
+
+    def test_fixed_surcharge_adjustment(self, test_config) -> None:
+        """Test fixed amount surcharge on project."""
+        surcharge_amount = 10000
+
+        # Apply adjustment
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="FIXED_SURCHARGE",
+            adjustment_amount=surcharge_amount,
+        )
+
+        # Perform calculation
+        self.perform_calculation(test_config)
+
+        # Get results
+        statements, total_payments = test_config.commonTest()
+
+        # Calculate expected total
+        adjusted_charge = statements["charge"] + surcharge_amount
+        expected_total = self.calculate_total_with_vat(adjusted_charge)
+
+        # Verify results
+        test_config.verifyAssert(
+            statements=statements["totalAmount"],
+            payments=total_payments,
+            expected_result=expected_total,
+        )
+
+    def test_combined_fixed_adjustments(self, test_config) -> None:
+        """Test combination of fixed discount and fixed surcharge."""
+        discount_amount = 100
+        surcharge_amount = 1000
+
+        # Apply both adjustments
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="FIXED_DISCOUNT",
+            adjustment_amount=discount_amount,
+        )
+
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="FIXED_SURCHARGE",
+            adjustment_amount=surcharge_amount,
+        )
+
+        # Perform calculation
+        self.perform_calculation(test_config)
+
+        # Get results
+        statements, total_payments = test_config.commonTest()
+
+        # Calculate expected total
+        adjusted_charge = statements["charge"] - discount_amount + surcharge_amount
+        expected_total = self.calculate_total_with_vat(adjusted_charge)
+
+        # Verify results
+        test_config.verifyAssert(
+            statements=statements["totalAmount"],
+            payments=total_payments,
+            expected_result=expected_total,
+        )
+
+    def test_combined_percentage_and_fixed_adjustments(self, test_config) -> None:
+        """Test combination of percentage discount and fixed surcharge."""
+        discount_percentage = 10
+        surcharge_amount = 2000
+
+        # Apply both adjustments
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="RATE_DISCOUNT",
+            adjustment_amount=discount_percentage,
+        )
+
+        self.apply_adjustment(
+            test_config,
+            adjustment_type="FIXED_SURCHARGE",
+            adjustment_amount=surcharge_amount,
+        )
+
+        # Perform calculation
+        self.perform_calculation(test_config)
+
+        # Get results
+        statements, total_payments = test_config.commonTest()
+
+        # Calculate expected total
+        # Note: The order of operations matters - check business logic
+        total_before_discount = statements["charge"] + surcharge_amount
+        discount_amount = math.ceil(total_before_discount * discount_percentage * 0.01)
+        adjusted_charge = total_before_discount - discount_amount
+        expected_total = self.calculate_total_with_vat(adjusted_charge)
+
+        # Verify results
+        test_config.verifyAssert(
+            statements=statements["totalAmount"],
+            payments=total_payments,
+            expected_result=expected_total,
+        )

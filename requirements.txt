@@ -1,0 +1,18 @@
+# Production dependencies
+requests>=2.32.3
+python-dateutil>=2.9.0
+beautifulsoup4>=4.12.3
+
+# Development dependencies
+black>=24.8.0
+ruff>=0.8.0
+mypy>=1.11.2
+types-requests>=2.32.0
+types-python-dateutil>=2.9.0
+
+# Testing dependencies
+pytest>=8.3.2
+pytest-html>=4.1.1
+pytest-cov>=5.0.0
+pytest-asyncio>=0.24.0
+pytest-xdist>=3.6.1

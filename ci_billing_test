@@ -1,3 +1,7 @@
+// DEPRECATED: This Jenkins pipeline has been replaced by GitHub Actions
+// See .github/workflows/billing-test.yml for the new implementation
+// Migration guide: docs/MIGRATION_TO_GITHUB_ACTIONS.md
+
 import java.text.SimpleDateFormat
 
 timestamps {
