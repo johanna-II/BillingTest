@@ -135,7 +135,7 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for better analysis
 
       - name: Download coverage reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: test-results-*
           merge-multiple: true
@@ -196,7 +196,7 @@ jobs:
     
     steps:
       - name: Download all test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: test-results-*
           merge-multiple: true
