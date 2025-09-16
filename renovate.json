@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    "group:allNonMajor",
+    "schedule:weekly"
+  ],
+  "python": {
+    "ignorePythonConstraints": false
+  },
+  "pip_requirements": {
+    "fileMatch": ["(^|/)requirements[\\w-]*\\.txt$"]
+  },
+  "pip_setup": {
+    "fileMatch": ["(^|/)setup\\.py$", "(^|/)setup\\.cfg$"]
+  },
+  "poetry": {
+    "fileMatch": ["(^|/)pyproject\\.toml$"]
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "matchPackagePatterns": ["^pytest"],
+      "groupName": "pytest packages"
+    },
+    {
+      "matchPackagePatterns": ["^mypy", "^ruff", "^black"],
+      "groupName": "linting tools"
+    }
+  ],
+  "prConcurrentLimit": 5,
+  "prCreation": "immediate",
+  "rangeStrategy": "auto",
+  "labels": ["dependencies", "renovate"],
+  "assignees": [],
+  "reviewers": [],
+  "timezone": "Asia/Seoul",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  }
+}

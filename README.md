@@ -1,13 +1,26 @@
 # BillingTest
 
-[![CI](https://img.shields.io/github/actions/workflow/status/johanna-II/BillingTest/ci.yml?branch=main&label=CI&logo=github)](https://github.com/johanna-II/BillingTest/actions/workflows/ci.yml)
-[![Security](https://img.shields.io/github/actions/workflow/status/johanna-II/BillingTest/security.yml?branch=main&label=Security&logo=github)](https://github.com/johanna-II/BillingTest/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-pytest-brightgreen.svg?logo=pytest)](https://docs.pytest.org/)
-[![Python](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Ruff](https://img.shields.io/badge/linter-ruff-261230.svg)](https://github.com/astral-sh/ruff)
-[![Poetry](https://img.shields.io/badge/dependency%20management-poetry-blue.svg)](https://python-poetry.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
+<!-- CI/CD Badges -->
+<div align="center">
+
+[![CI](https://img.shields.io/github/actions/workflow/status/johanna-II/BillingTest/ci.yml?branch=main&label=CI&logo=github&color=success&logoColor=white&labelColor=0d1117)](https://github.com/johanna-II/BillingTest/actions/workflows/ci.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/johanna-II/BillingTest/security.yml?branch=main&label=Security&logo=github&color=success&logoColor=white&labelColor=0d1117)](https://github.com/johanna-II/BillingTest/actions/workflows/security.yml)
+[![codecov](https://img.shields.io/codecov/c/github/johanna-II/BillingTest?logo=codecov&logoColor=white&labelColor=0d1117)](https://codecov.io/gh/johanna-II/BillingTest)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=BillingTest&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=BillingTest)
+
+<!-- Language & Tools -->
+[![Python](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white&labelColor=0d1117)](https://www.python.org/downloads/)
+[![Poetry](https://img.shields.io/badge/Poetry-1.7.1-blue.svg?logo=poetry&logoColor=white&labelColor=0d1117)](https://python-poetry.org/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?labelColor=0d1117)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/badge/linter-ruff-FCC21B.svg?logo=ruff&logoColor=white&labelColor=0d1117)](https://github.com/astral-sh/ruff)
+[![mypy](https://img.shields.io/badge/type%20checker-mypy-blue.svg?logo=python&logoColor=white&labelColor=0d1117)](http://mypy-lang.org/)
+
+<!-- Dependencies & Maintenance -->
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg?logo=renovatebot&logoColor=white&labelColor=0d1117)](https://renovatebot.com)
+[![Dependencies Status](https://img.shields.io/librariesio/github/johanna-II/BillingTest?logo=libraries.io&logoColor=white&labelColor=0d1117)](https://libraries.io/github/johanna-II/BillingTest)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?labelColor=0d1117)](LICENSE.md)
+
+</div>
 
 Billing Automation Test Suite for payment module verification.
 
@@ -48,18 +61,18 @@ pip install -r requirements.txt
 
 ```
 BillingTest/
-?œâ??€ config/          # Environment configurations
-?œâ??€ libs/            # Core billing modules
-??  ?œâ??€ adjustment.py      # Billing adjustments management
-??  ?œâ??€ Batch.py          # Batch job operations
-??  ?œâ??€ calculation.py    # Price calculations
-??  ?œâ??€ Contract.py       # Contract management
-??  ?œâ??€ Credit.py         # Credit operations
-??  ?œâ??€ Metering.py       # Usage metering
-??  ?œâ??€ Payments.py       # Payment processing
-??  ?”â??€ ...
-?œâ??€ tests/           # Test suites
-?”â??€ Dockerfile       # Container configuration (Python 3.12)
+ã„´ config/          # Environment configurations
+ã„´ libs/            # Core billing modules
+ã„´ã„´ adjustment.py      # Billing adjustments management
+ã„´ã„´ Batch.py          # Batch job operations
+ã„´ã„´ calculation.py    # Price calculations
+ã„´ã„´ Contract.py       # Contract management
+ã„´ã„´ Credit.py         # Credit operations
+ã„´ã„´ Metering.py       # Usage metering
+ã„´ã„´ Payments.py       # Payment processing
+ã„´ã„´ ...
+ã„´ tests/           # Test suites
+Dockerfile       # Container configuration (Python 3.12)
 ```
 
 ## Running Tests
@@ -155,6 +168,11 @@ Place environment-specific configurations in the `config/` directory:
 3. Use Python 3.12+ features where appropriate
 4. Write tests for new functionality
 5. Maintain test coverage above 80%
+
+## ðŸ“š Documentation
+
+- **Initial Setup**: [GitHub Repository Setup Guide](docs/GITHUB_REPOSITORY_SETUP.md)
+- **CI/CD Migration**: [Jenkins to GitHub Actions Migration Guide](docs/MIGRATION_TO_GITHUB_ACTIONS.md)
 
 ## License
 
