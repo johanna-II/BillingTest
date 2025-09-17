@@ -1,12 +1,13 @@
 # BillingTest
 
 <!-- CI/CD Badges -->
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/johanna-II/BillingTest/ci.yml?branch=main&label=CI&logo=github&color=success&logoColor=white&labelColor=0d1117)](https://github.com/johanna-II/BillingTest/actions/workflows/ci.yml)
 [![Security](https://img.shields.io/github/actions/workflow/status/johanna-II/BillingTest/security.yml?branch=main&label=Security&logo=github&color=success&logoColor=white&labelColor=0d1117)](https://github.com/johanna-II/BillingTest/actions/workflows/security.yml)
 [![codecov](https://img.shields.io/codecov/c/github/johanna-II/BillingTest?logo=codecov&logoColor=white&labelColor=0d1117)](https://codecov.io/gh/johanna-II/BillingTest)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=BillingTest&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=BillingTest)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=BillingTest&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=johanna-II_BillingTest)
 
 <!-- Language & Tools -->
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white&labelColor=0d1117)](https://www.python.org/downloads/)
@@ -21,17 +22,19 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg?labelColor=0d1117)](LICENSE.md)
 
 </div>
+<!-- markdownlint-enable MD033 -->
 
 Billing Automation Test Suite for payment module verification.
 
 > [!IMPORTANT]
 > **📌 Portfolio Project Notice**
-> 
+>
 > This is a portfolio demonstration project showcasing CI/CD implementation with GitHub Actions. The workflows are configured but will fail during execution due to:
+>
 > - Missing production API endpoints and credentials
 > - Unavailable internal billing system dependencies
 > - Required secrets that cannot be shared publicly
-> 
+>
 > The code structure, patterns, and CI/CD configuration demonstrate best practices for enterprise billing system automation.
 
 ## Requirements
@@ -69,7 +72,7 @@ pip install -r requirements.txt
 
 ## Project Structure
 
-```
+```text
 BillingTest/
 ㄴ config/          # Environment configurations
 ㄴ libs/            # Core billing modules
@@ -167,6 +170,7 @@ See [Migration Guide](docs/MIGRATION_TO_GITHUB_ACTIONS.md) for detailed instruct
 ## Configuration
 
 Place environment-specific configurations in the `config/` directory:
+
 - `alpha_kr.py` - Korean alpha environment
 - `alpha_jp.py` - Japanese alpha environment
 - `alpha_etc.py` - Other regions alpha environment
@@ -182,8 +186,6 @@ Place environment-specific configurations in the `config/` directory:
 ## 📚 Documentation
 
 - **Technical Architecture**: [System Design & Diagrams](docs/TECHNICAL_DIAGRAMS.md) - Visual guide to how it all works
-- **Initial Setup**: [GitHub Repository Setup Guide](docs/GITHUB_REPOSITORY_SETUP.md)
-- **CI/CD Migration**: [Jenkins to GitHub Actions Migration Guide](docs/MIGRATION_TO_GITHUB_ACTIONS.md)
 
 ## License
 
