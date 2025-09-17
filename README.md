@@ -24,6 +24,16 @@
 
 Billing Automation Test Suite for payment module verification.
 
+> [!IMPORTANT]
+> **📌 Portfolio Project Notice**
+> 
+> This is a portfolio demonstration project showcasing CI/CD implementation with GitHub Actions. The workflows are configured but will fail during execution due to:
+> - Missing production API endpoints and credentials
+> - Unavailable internal billing system dependencies
+> - Required secrets that cannot be shared publicly
+> 
+> The code structure, patterns, and CI/CD configuration demonstrate best practices for enterprise billing system automation.
+
 ## Requirements
 
 - Python 3.12 or higher
@@ -171,6 +181,7 @@ Place environment-specific configurations in the `config/` directory:
 
 ## 📚 Documentation
 
+- **Technical Architecture**: [System Design & Diagrams](docs/TECHNICAL_DIAGRAMS.md) - Visual guide to how it all works
 - **Initial Setup**: [GitHub Repository Setup Guide](docs/GITHUB_REPOSITORY_SETUP.md)
 - **CI/CD Migration**: [Jenkins to GitHub Actions Migration Guide](docs/MIGRATION_TO_GITHUB_ACTIONS.md)
 
