@@ -22,6 +22,7 @@ from .mock_data import (
     generate_credit_data,
     generate_payment_data,
 )
+from .test_data_manager import get_data_manager
 
 try:
     from .openapi_handler import setup_openapi_handler, get_openapi_handler
@@ -50,13 +51,8 @@ app.config['TRAP_HTTP_EXCEPTIONS'] = False
 app.config['JSON_SORT_KEYS'] = False
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
-# In-memory data stores
-batch_jobs = {}
-metering_data = {}
-credit_data = {}
-billing_data = {}
-contracts = {}
-batch_progress = {}
+# Get data manager instance
+data_manager = get_data_manager()
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
@@ -100,27 +96,35 @@ def create_error_response(message: str, code: int = -1) -> tuple[dict[str, Any],
 def create_metering():
     """Create metering data."""
     data = request.json
+    test_uuid = request.headers.get('uuid', 'default')
+    
+    # Get UUID-specific metering store
+    metering_store = data_manager.get_metering_data(test_uuid)
     
     # Handle meterList format (what the actual client sends)
     if "meterList" in data:
+        meter_ids = []
         for meter in data["meterList"]:
             meter_id = str(uuid.uuid4())
-            metering_data[meter_id] = {
+            metering_store[meter_id] = {
                 "id": meter_id,
                 "timestamp": datetime.now().isoformat(),
+                "uuid": test_uuid,
                 **meter
             }
+            meter_ids.append(meter_id)
+        
         with open("mock_metering.log", "a") as f:
-            f.write(f"Created {len(data['meterList'])} meters, total metering data: {len(metering_data)}\n")
-            for meter_id, meter in metering_data.items():
-                f.write(f"  {meter_id}: {meter.get('counterName', 'N/A')}\n")
-        return jsonify(create_success_response({"message": f"Created {len(data['meterList'])} meters"}))
+            f.write(f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n")
+        
+        return jsonify(create_success_response({"message": f"Created {len(data['meterList'])} meters", "meterIds": meter_ids}))
     else:
         # Handle single meter format
         meter_id = str(uuid.uuid4())
-        metering_data[meter_id] = {
+        metering_store[meter_id] = {
             "id": meter_id,
             "timestamp": datetime.now().isoformat(),
+            "uuid": test_uuid,
             **data
         }
         return jsonify(create_success_response({"meterId": meter_id}))
@@ -129,10 +133,13 @@ def create_metering():
 @app.route("/billing/meters/<meter_id>", methods=["GET"])
 def get_metering(meter_id):
     """Get metering data."""
-    if meter_id not in metering_data:
+    test_uuid = request.headers.get('uuid', 'default')
+    metering_store = data_manager.get_metering_data(test_uuid)
+    
+    if meter_id not in metering_store:
         return create_error_response("Meter not found", 404)
     
-    return jsonify(create_success_response({"meter": metering_data[meter_id]}))
+    return jsonify(create_success_response({"meter": metering_store[meter_id]}))
 
 
 # Batch job endpoints
@@ -835,31 +842,13 @@ def reset_test_data():
     uuid_param = data.get("uuid") or request.headers.get("uuid")
     
     if uuid_param:
-        with data_lock:
-            # Reset credit data for specific UUID
-            if uuid_param in credit_data:
-                del credit_data[uuid_param]
-            
-            # Reset billing data for specific UUID
-            keys_to_delete = []
-            for key in billing_data:
-                if key.startswith(f"{uuid_param}:"):
-                    keys_to_delete.append(key)
-            for key in keys_to_delete:
-                del billing_data[key]
+        # Use data manager to clear UUID-specific data
+        data_manager.clear_uuid_data(uuid_param)
+        logger.info(f"Cleared all test data for UUID: {uuid_param}")
         
-        # Reset metering data
+        # Log the action
         with open("mock_metering.log", "a") as f:
-            f.write(f"Clearing {len(metering_data)} metering entries for UUID: {uuid_param}\n")
-        metering_data.clear()
-        
-        # Reset batch progress for specific UUID
-        if uuid_param in batch_progress:
-            del batch_progress[uuid_param]
-            
-        # Reset contracts for specific UUID
-        if uuid_param in contracts:
-            del contracts[uuid_param]
+            f.write(f"Cleared all data for UUID: {uuid_param}\n")
         
         # Clear cache for this UUID
         cache.delete_many(f"*{uuid_param}*")

@@ -146,6 +146,9 @@ markers = [
     "billing: marks tests related to billing operations",
     "adjustment: marks tests related to adjustments",
     "serial: marks tests that must run serially (not in parallel)",
+    "performance: marks performance tests",
+    "benchmark: marks benchmark tests",
+    "security: marks security tests",
 ]
 
 [tool.coverage.run]
@@ -156,6 +159,7 @@ omit = ["*/tests/*", "*/conftest.py"]
 precision = 2
 show_missing = true
 skip_covered = false
+fail_under = 80  # Enforce minimum 80% coverage
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "venv"]

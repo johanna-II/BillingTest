@@ -63,6 +63,22 @@ class MemberCountry(StrEnum):
     ETC = "etc"
 
 
+class ContractType(StrEnum):
+    """Contract types for billing."""
+    
+    VOLUME = "VOLUME"
+    PERIOD = "PERIOD"
+    COMMITMENT = "COMMITMENT"
+    PARTNER = "PARTNER"
+
+
+class DiscountType(StrEnum):
+    """Discount types for contracts."""
+    
+    PERCENTAGE = "PERCENTAGE"
+    FIXED_AMOUNT = "FIXED_AMOUNT"
+
+
 # Default values
 DEFAULT_LOCALE = "ko_KR"
 DEFAULT_TIMEOUT = 60

@@ -1,0 +1,292 @@
+name: Enhanced CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 6 * * MON'  # Weekly run on Monday
+
+env:
+  PYTHON_VERSION: '3.12'
+  POETRY_VERSION: '1.7.1'
+  NODE_VERSION: '20'
+  USE_MOCK_SERVER: 'true'
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-security-${{ hashFiles('requirements.txt') }}
+      
+      - name: Install security tools
+        run: |
+          pip install bandit safety
+      
+      - name: Run Bandit security scan
+        run: |
+          bandit -r libs/ -f json -o bandit-report.json || true
+          bandit -r libs/ -f txt
+      
+      - name: Check dependencies with Safety
+        run: |
+          safety check --json --output safety-report.json || true
+          safety check
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: security-scan
+    strategy:
+      matrix:
+        test-group: ['unit', 'integration', 'contract']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            .venv
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-${{ matrix.test-group }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Start mock server
+        if: matrix.test-group != 'unit'
+        run: |
+          python mock_server/run_server.py &
+          sleep 5
+      
+      - name: Run ${{ matrix.test-group }} tests
+        run: |
+          if [ "${{ matrix.test-group }}" = "unit" ]; then
+            pytest tests/unit -v --cov=libs --cov-report=xml --cov-report=html
+          elif [ "${{ matrix.test-group }}" = "integration" ]; then
+            pytest -m "integration and not slow" -v
+          elif [ "${{ matrix.test-group }}" = "contract" ]; then
+            pytest tests/contracts -v
+          fi
+      
+      - name: Upload coverage
+        if: matrix.test-group == 'unit'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-benchmark
+      
+      - name: Start mock server
+        run: |
+          python mock_server/run_server.py &
+          sleep 5
+      
+      - name: Run performance tests
+        run: |
+          pytest tests/performance -v -m "performance and not slow" --benchmark-only
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: .benchmarks/
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install linting tools
+        run: |
+          pip install black ruff mypy
+      
+      - name: Run Black
+        run: black --check libs/ tests/
+      
+      - name: Run Ruff
+        run: ruff check libs/ tests/
+      
+      - name: Run mypy
+        run: mypy libs/ --strict
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: billing-test:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build mock server image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.mock
+          push: false
+          tags: billing-test-mock:${{ github.sha }}
+
+  integration-test-matrix:
+    name: Integration Tests
+    needs: [unit-tests, docker-build]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        member: [kr, jp]
+        month: ['2024-01', '2024-02']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run integration tests for ${{ matrix.member }}-${{ matrix.month }}
+        run: |
+          docker-compose run --rm \
+            -e MEMBER=${{ matrix.member }} \
+            -e MONTH=${{ matrix.month }} \
+            billing-test \
+            pytest tests -m "integration" -v
+
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage-reports
+      
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: [unit-tests, code-quality]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install mkdocs
+        run: |
+          pip install mkdocs mkdocs-material mkdocstrings[python]
+      
+      - name: Build documentation
+        run: |
+          mkdocs build
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+
+  notify-results:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [security-scan, unit-tests, code-quality, integration-test-matrix]
+    if: always()
+    
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "Security Scan: ${{ needs.security-scan.result }}"
+          echo "Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "Code Quality: ${{ needs.code-quality.result }}"
+          echo "Integration Tests: ${{ needs.integration-test-matrix.result }}"
+      
+      - name: Send notification
+        if: github.event_name == 'push' && contains(needs.*.result, 'failure')
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ CI Pipeline failed! Check the logs for details.'
+            })
