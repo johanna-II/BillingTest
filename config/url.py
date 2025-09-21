@@ -1,6 +1,18 @@
-BASE_BILLING_URL = "https://billingtest.internal.com"
-BASE_METERING_URL = "https://meteringtest.internal.com"
-BASE_CAP_URL = "https://cabtest.internal.com"
+# Check if mock mode is enabled
+try:
+    from .mock_config import USE_MOCK_SERVER
+    if USE_MOCK_SERVER:
+        from .mock_config import BASE_BILLING_URL, BASE_METERING_URL, BASE_CAP_URL
+    else:
+        # Default production URLs
+        BASE_BILLING_URL = "https://billingtest.internal.com"
+        BASE_METERING_URL = "https://meteringtest.internal.com"
+        BASE_CAP_URL = "https://cabtest.internal.com"
+except ImportError:
+    # Fallback to production URLs if mock_config is not available
+    BASE_BILLING_URL = "https://billingtest.internal.com"
+    BASE_METERING_URL = "https://meteringtest.internal.com"
+    BASE_CAP_URL = "https://cabtest.internal.com"
 
 METERING_URL = f"{BASE_METERING_URL}/billing/meters"
 METERING_ADMIN_URL = f"{BASE_METERING_URL}/billing/admin"

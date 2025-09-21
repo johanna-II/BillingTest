@@ -1,0 +1,486 @@
+openapi: 3.0.3
+info:
+  title: Billing API
+  description: API for billing system operations including contracts, credits, metering, and payments
+  version: 1.0.0
+  contact:
+    name: Billing Team
+    email: billing@example.com
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local mock server
+  - url: https://api.billing.example.com/v1
+    description: Production server
+
+tags:
+  - name: contracts
+    description: Contract management operations
+  - name: credits
+    description: Credit and adjustment operations
+  - name: metering
+    description: Usage metering and measurement
+  - name: payments
+    description: Payment processing operations
+  - name: batch
+    description: Batch job operations
+
+paths:
+  /contracts/{contractId}:
+    get:
+      tags:
+        - contracts
+      summary: Get contract details
+      operationId: getContract
+      parameters:
+        - name: contractId
+          in: path
+          required: true
+          description: Contract identifier
+          schema:
+            type: string
+            pattern: '^[0-9]+$'
+            example: "12345"
+      responses:
+        '200':
+          description: Contract details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+        '404':
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /credits:
+    post:
+      tags:
+        - credits
+      summary: Create a new credit transaction
+      operationId: createCredit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditRequest'
+      responses:
+        '201':
+          description: Credit created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credit'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /metering:
+    get:
+      tags:
+        - metering
+      summary: Get metering data
+      operationId: getMeteringData
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          description: Project identifier
+          schema:
+            type: string
+            example: "PROJ001"
+        - name: month
+          in: query
+          required: true
+          description: Month in YYYY-MM format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: "2025-01"
+      responses:
+        '200':
+          description: Metering data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeteringData'
+
+  /payments/{paymentId}:
+    patch:
+      tags:
+        - payments
+      summary: Update payment status
+      operationId: updatePaymentStatus
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          description: Payment identifier
+          schema:
+            type: string
+            example: "PAY001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentStatusUpdate'
+      responses:
+        '200':
+          description: Payment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /batch/jobs:
+    post:
+      tags:
+        - batch
+      summary: Create a new batch job
+      operationId: createBatchJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchJobRequest'
+      responses:
+        '202':
+          description: Batch job accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobResponse'
+
+  /batch/jobs/{jobId}/status:
+    get:
+      tags:
+        - batch
+      summary: Get batch job status
+      operationId: getBatchJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: Batch job identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Batch job status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobStatus'
+
+components:
+  schemas:
+    Contract:
+      type: object
+      required:
+        - id
+        - status
+        - customer
+        - items
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Contract identifier
+          example: "12345"
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+          description: Contract status
+        customer:
+          $ref: '#/components/schemas/Customer'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractItem'
+        created_at:
+          type: string
+          format: date-time
+          description: Contract creation timestamp
+
+    Customer:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: string
+          example: "CUST001"
+        name:
+          type: string
+          example: "Test Customer"
+        email:
+          type: string
+          format: email
+          example: "test@example.com"
+
+    ContractItem:
+      type: object
+      required:
+        - id
+        - description
+        - quantity
+        - unit_price
+      properties:
+        id:
+          type: string
+          example: "ITEM001"
+        description:
+          type: string
+          example: "Compute Instance"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 1
+        unit_price:
+          type: number
+          format: double
+          minimum: 0
+          example: 100.0
+
+    CreditRequest:
+      type: object
+      required:
+        - customer_id
+        - amount
+        - currency
+      properties:
+        customer_id:
+          type: string
+          example: "CUST001"
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 500.0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: "USD"
+        description:
+          type: string
+          example: "Monthly credit"
+        type:
+          type: string
+          enum: [ADJUSTMENT, REFUND, BONUS]
+          default: ADJUSTMENT
+
+    Credit:
+      allOf:
+        - $ref: '#/components/schemas/CreditRequest'
+        - type: object
+          required:
+            - id
+            - status
+            - created_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            status:
+              type: string
+              enum: [PENDING, APPROVED, REJECTED]
+              example: "APPROVED"
+            created_at:
+              type: string
+              format: date-time
+
+    MeteringData:
+      type: object
+      required:
+        - project_id
+        - period
+        - usage
+        - total_cost
+      properties:
+        project_id:
+          type: string
+          example: "PROJ001"
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        usage:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageItem'
+        total_cost:
+          type: number
+          format: double
+          minimum: 0
+
+    UsageItem:
+      type: object
+      required:
+        - resource_type
+        - resource_id
+        - quantity
+        - unit
+        - cost
+      properties:
+        resource_type:
+          type: string
+          example: "compute"
+        resource_id:
+          type: string
+          example: "vm-001"
+        quantity:
+          type: number
+          format: double
+          example: 744.0
+        unit:
+          type: string
+          example: "hours"
+        cost:
+          type: number
+          format: double
+          example: 74.40
+
+    PaymentStatusUpdate:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        transaction_id:
+          type: string
+          example: "TXN123456"
+        completed_at:
+          type: string
+          format: date-time
+
+    Payment:
+      type: object
+      required:
+        - payment_id
+        - status
+        - amount
+        - currency
+      properties:
+        payment_id:
+          type: string
+          example: "PAY001"
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        transaction_id:
+          type: string
+        amount:
+          type: number
+          format: double
+          example: 1000.0
+        currency:
+          type: string
+          example: "USD"
+        updated_at:
+          type: string
+          format: date-time
+
+    BatchJobRequest:
+      type: object
+      required:
+        - job_type
+        - parameters
+      properties:
+        job_type:
+          type: string
+          enum: [BILLING_CALCULATION, INVOICE_GENERATION, PAYMENT_PROCESSING]
+        parameters:
+          type: object
+          additionalProperties: true
+
+    BatchJobResponse:
+      type: object
+      required:
+        - job_id
+        - status
+        - created_at
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, COMPLETED, FAILED]
+        created_at:
+          type: string
+          format: date-time
+
+    BatchJobStatus:
+      allOf:
+        - $ref: '#/components/schemas/BatchJobResponse'
+        - type: object
+          properties:
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            message:
+              type: string
+            completed_at:
+              type: string
+              format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - code
+      properties:
+        error:
+          type: string
+          example: "NOT_FOUND"
+        message:
+          type: string
+          example: "Resource not found"
+        code:
+          type: integer
+          example: 404
+
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            field:
+              type: string
+              description: Field that failed validation
+              example: "amount"
+            details:
+              type: array
+              items:
+                type: string
+              description: Detailed validation errors
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+

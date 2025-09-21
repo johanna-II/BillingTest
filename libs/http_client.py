@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -19,6 +19,13 @@ from .constants import (
     HEADER_SUCCESS_KEY,
 )
 from .exceptions import APIRequestException
+
+try:
+    from .observability import get_telemetry
+    TELEMETRY_AVAILABLE = True
+except ImportError:
+    TELEMETRY_AVAILABLE = False
+    get_telemetry = lambda: None
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +144,30 @@ class BillingAPIClient:
             request_headers.update(headers)
 
         logger.debug("Making {method} request to %s", url)
+        # Log to file for debugging
+        with open("api_calls.log", "a") as f:
+            f.write(f"{method} {url}\n")
+
+        # Get telemetry instance if available
+        telemetry = get_telemetry() if TELEMETRY_AVAILABLE else None
+        span = None
+        start_time = time.time()
 
         try:
+            # Start telemetry span if available
+            if telemetry:
+                parsed_url = urlparse(url)
+                span = telemetry.create_span(
+                    f"http.{method.lower()}",
+                    **{
+                        "http.method": method,
+                        "http.url": url,
+                        "http.host": parsed_url.netloc,
+                        "http.path": parsed_url.path,
+                        "http.scheme": parsed_url.scheme,
+                    }
+                )
+
             response = self.session.request(
                 method=method,
                 url=url,
@@ -149,12 +178,40 @@ class BillingAPIClient:
                 timeout=self.timeout,
             )
 
+            # Record telemetry metrics
+            response_time_ms = (time.time() - start_time) * 1000
+            if telemetry:
+                telemetry.record_api_call(
+                    endpoint=parsed_url.path,
+                    method=method,
+                    status_code=response.status_code,
+                    response_time_ms=response_time_ms
+                )
+                if span:
+                    span.set_attribute("http.status_code", response.status_code)
+                    span.set_attribute("http.response_time_ms", response_time_ms)
+
             return self._handle_response(response)
 
         except requests.RequestException as e:
             logger.exception("Request failed: %s", e)
             msg = f"Request failed: {e}"
+            
+            # Record error in telemetry
+            if span:
+                span.record_exception(e)
+                span.set_status(
+                    telemetry.tracer._tracer.Status(
+                        telemetry.tracer._tracer.StatusCode.ERROR,
+                        str(e)
+                    )
+                )
+            
             raise APIRequestException(msg)
+        finally:
+            # End telemetry span
+            if span:
+                span.end()
 
     def get(
         self,
@@ -255,8 +312,6 @@ class SendDataSession:
         self._headers = {}
 
         # Extract base URL from full URL
-        from urllib.parse import urlparse
-
         parsed = urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         endpoint = parsed.path

@@ -71,7 +71,7 @@ class MeteringManager:
         self,
         app_key: str,
         counter_name: str,
-        counter_type: Union[CounterType, str],
+        counter_type: CounterType | str,
         counter_unit: str,
         counter_volume: str,
         resource_id: str = "test",
@@ -136,7 +136,7 @@ class MeteringManager:
             logger.exception("Failed to send metering data: %s", e)
             raise
 
-    def delete_metering(self, app_keys: Union[str, list[str]]) -> dict[str, Any]:
+    def delete_metering(self, app_keys: str | list[str]) -> dict[str, Any]:
         """Delete metering data for specified app keys.
 
         Args:
@@ -246,13 +246,13 @@ class Metering:
         except Exception:
             pass
 
-    def send_iaa_s_metering(self, **kwargs) -> None:
+    def send_iaas_metering(self, **kwargs) -> None:
         """Legacy method for sending metering."""
         with contextlib.suppress(Exception):
             self._manager.send_metering(
                 app_key=self.appkey,
-                counter_name=kwargs.get("counterName", ""),
-                counter_type=kwargs.get("counterType", ""),
-                counter_unit=kwargs.get("counterUnit", ""),
-                counter_volume=kwargs.get("counterVolume", ""),
+                counter_name=kwargs.get("counter_name", ""),
+                counter_type=kwargs.get("counter_type", ""),
+                counter_unit=kwargs.get("counter_unit", ""),
+                counter_volume=kwargs.get("counter_volume", ""),
             )

@@ -46,7 +46,7 @@ class BaseBillingTest:
     def setup_and_teardown(self, test_config: InitializeConfig) -> None:
         """Common setup and teardown for each test."""
         # Setup: Ensure payment status is REGISTERED
-        test_config.beforeTest()
+        test_config.before_test()
 
         yield
 
@@ -77,11 +77,11 @@ class BaseBillingTest:
         metering_obj.appkey = test_config.appkey[app_key_index]
 
         for item in metering_items:
-            metering_obj.sendIaaSMetering(
-                counterName=item.counter_name,
-                counterType=item.counter_type.value,
-                counterUnit=item.counter_unit,
-                counterVolume=item.counter_volume,
+            metering_obj.send_iaas_metering(
+                counter_name=item.counter_name,
+                counter_type=item.counter_type.value,
+                counter_unit=item.counter_unit,
+                counter_volume=item.counter_volume,
             )
 
     def perform_calculation(
@@ -97,10 +97,10 @@ class BaseBillingTest:
             Calculation object
         """
         calc_obj = Calculation(test_config.month, test_config.uuid)
-        calc_obj.recalculationAll()
+        calc_obj.recalculation_all()
 
         if wait_for_stable:
-            calc_obj.checkStable()
+            calc_obj.check_stable()
 
         return calc_obj
 
@@ -115,7 +115,7 @@ class BaseBillingTest:
         """
         payments_obj = Payments(test_config.month)
         payments_obj.uuid = test_config.uuid
-        return payments_obj.inquiryPayment()
+        return payments_obj.inquiry_payment()
 
     def make_payment(
         self, test_config: InitializeConfig, payment_group_id: str
@@ -203,7 +203,7 @@ class BaseAdjustmentTest(BaseBillingTest):
         else:
             kwargs["billingGroupId"] = target_id
 
-        adj_obj.applyAdjustment(**kwargs)
+        adj_obj.apply_adjustment(**kwargs)
         return adj_obj
 
     def _cleanup_test_data(self, test_config: InitializeConfig) -> None:
@@ -212,18 +212,18 @@ class BaseAdjustmentTest(BaseBillingTest):
 
         # Clean project adjustments
         for project_id in test_config.project_id:
-            adj_list = adj_obj.inquiryAdjustment(
+            adj_list = adj_obj.inquiry_adjustment(
                 adjustmentTarget="Project", projectId=project_id
             )
             if adj_list:
-                adj_obj.deleteAdjustment(adj_list)
+                adj_obj.delete_adjustment(adj_list)  
 
         # Clean billing group adjustments
-        adj_list = adj_obj.inquiryAdjustment(
+        adj_list = adj_obj.inquiry_adjustment(
             adjustmentTarget="BillingGroup", billingGroupid=test_config.billing_group_id
         )
         if adj_list:
-            adj_obj.deleteAdjustment(adj_list)
+            adj_obj.delete_adjustment(adj_list)
 
 
 class BaseContractTest(BaseBillingTest):
@@ -244,13 +244,13 @@ class BaseContractTest(BaseBillingTest):
         """
         contract_obj = Contract(test_config.month, test_config.billing_group_id)
         contract_obj.contractId = contract_id
-        contract_obj.applyContract()
+        contract_obj.apply_contract()
         return contract_obj
 
     def _cleanup_test_data(self, test_config: InitializeConfig) -> None:
         """Clean up contracts after test."""
         contract_obj = Contract(test_config.month, test_config.billing_group_id)
-        contract_obj.deleteContract()
+        contract_obj.delete_contract()
 
 
 class BaseCreditTest(BaseBillingTest):
@@ -277,10 +277,10 @@ class BaseCreditTest(BaseBillingTest):
 
         if amount is None:
             # Coupon-based credit
-            credit_obj.giveCredit(campaign_id)
+            credit_obj.give_credit(campaign_id)
         else:
             # Direct credit grant
-            credit_obj.giveCredit(campaign_id, amount)
+            credit_obj.give_credit(campaign_id, amount)
 
         return credit_obj
 
@@ -291,4 +291,4 @@ class BaseCreditTest(BaseBillingTest):
         credit_obj.campaign_id = getattr(test_config, "campaign_id", [])
         credit_obj.give_campaign_id = getattr(test_config, "give_campaign_id", [])
         credit_obj.paid_campaign_id = getattr(test_config, "paid_campaign_id", [])
-        credit_obj.cancelCredit()
+        credit_obj.cancel_credit()

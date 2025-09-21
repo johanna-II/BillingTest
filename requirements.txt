@@ -16,3 +16,27 @@ pytest-html>=4.1.1
 pytest-cov>=5.0.0
 pytest-asyncio>=0.24.0
 pytest-xdist>=3.6.1
+
+# Contract testing
+pact-python>=2.1.1
+
+# Observability
+opentelemetry-api>=1.21.0
+opentelemetry-sdk>=1.21.0
+opentelemetry-instrumentation-requests>=0.42b0
+opentelemetry-instrumentation-flask>=0.42b0
+opentelemetry-exporter-prometheus>=0.42b0
+opentelemetry-exporter-jaeger>=1.21.0
+pytest-opentelemetry>=0.3.0
+
+# Mock server dependencies
+flask>=3.0.0
+flask-cors>=4.0.0
+waitress>=3.0.0
+flask-caching>=2.3.0
+
+# OpenAPI support
+pyyaml>=6.0.1
+openapi-core>=0.18.2
+openapi-spec-validator>=0.7.1
+jsonschema>=4.20.0

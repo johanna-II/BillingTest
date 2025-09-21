@@ -1,0 +1,333 @@
+{
+  "consumer": {
+    "name": "BillingTest"
+  },
+  "provider": {
+    "name": "BillingAPI"
+  },
+  "interactions": [
+    {
+      "description": "A request for contract details",
+      "providerState": "A contract exists",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/contracts/12345"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "id": "12345",
+          "status": "ACTIVE",
+          "customer": {
+            "id": "CUST001",
+            "name": "Test Customer",
+            "email": "test@example.com"
+          },
+          "items": [
+            {
+              "id": "ITEM001",
+              "description": "Compute Instance",
+              "quantity": 1,
+              "unit_price": 100.0
+            }
+          ],
+          "created_at": "2025-01-01T00:00:00"
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "match": "regex",
+            "regex": "[0-9]+"
+          },
+          "$.body.status": {
+            "match": "regex",
+            "regex": "(ACTIVE|INACTIVE|PENDING)"
+          },
+          "$.body.customer.id": {
+            "match": "type"
+          },
+          "$.body.customer.name": {
+            "match": "type"
+          },
+          "$.body.customer.email": {
+            "match": "regex",
+            "regex": ".+@.+\\..+"
+          },
+          "$.body.items": {
+            "match": "type"
+          },
+          "$.body.items[0].id": {
+            "match": "type"
+          },
+          "$.body.items[0].description": {
+            "match": "type"
+          },
+          "$.body.items[0].quantity": {
+            "match": "type"
+          },
+          "$.body.items[0].unit_price": {
+            "match": "type"
+          },
+          "$.body.created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "A request to create credit",
+      "providerState": "Customer exists",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/credits",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "customer_id": "CUST001",
+          "amount": 500.0,
+          "currency": "USD",
+          "description": "Monthly credit",
+          "type": "ADJUSTMENT"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+        },
+        "body": {
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "customer_id": "CUST001",
+          "amount": 500.0,
+          "currency": "USD",
+          "description": "Monthly credit",
+          "type": "ADJUSTMENT",
+          "status": "APPROVED",
+          "created_at": "2025-01-01T00:00:00"
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "match": "regex",
+            "regex": "[0-9a-f-]+"
+          },
+          "$.body.customer_id": {
+            "match": "type"
+          },
+          "$.body.amount": {
+            "match": "type"
+          },
+          "$.body.currency": {
+            "match": "type"
+          },
+          "$.body.description": {
+            "match": "type"
+          },
+          "$.body.type": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "regex",
+            "regex": "(PENDING|APPROVED|REJECTED)"
+          },
+          "$.body.created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "A request for metering data",
+      "providerState": "Metering data exists for project",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/metering",
+        "query": "project_id=PROJ001&month=2025-01"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "project_id": "PROJ001",
+          "period": {
+            "start": "2025-01-01T00:00:00",
+            "end": "2025-01-31T23:59:59"
+          },
+          "usage": [
+            {
+              "resource_type": "compute",
+              "resource_id": "vm-001",
+              "quantity": 744.0,
+              "unit": "hours",
+              "cost": 74.4
+            }
+          ],
+          "total_cost": 74.4
+        },
+        "matchingRules": {
+          "$.body.project_id": {
+            "match": "type"
+          },
+          "$.body.period.start": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body.period.end": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          },
+          "$.body.usage": {
+            "match": "type"
+          },
+          "$.body.usage[0].resource_type": {
+            "match": "type"
+          },
+          "$.body.usage[0].resource_id": {
+            "match": "type"
+          },
+          "$.body.usage[0].quantity": {
+            "match": "type"
+          },
+          "$.body.usage[0].unit": {
+            "match": "type"
+          },
+          "$.body.usage[0].cost": {
+            "match": "type"
+          },
+          "$.body.total_cost": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "A request to update payment status",
+      "providerState": "Payment exists",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/v1/payments/PAY001",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "status": "COMPLETED",
+          "transaction_id": "TXN123456",
+          "completed_at": "2025-01-15T10:30:00"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "payment_id": "PAY001",
+          "status": "COMPLETED",
+          "transaction_id": "TXN123456",
+          "amount": 1000.0,
+          "currency": "USD",
+          "updated_at": "2025-01-15T10:30:00"
+        },
+        "matchingRules": {
+          "$.body.payment_id": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "type"
+          },
+          "$.body.transaction_id": {
+            "match": "type"
+          },
+          "$.body.amount": {
+            "match": "type"
+          },
+          "$.body.currency": {
+            "match": "type"
+          },
+          "$.body.updated_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "A request for non-existent contract",
+      "providerState": "Contract does not exist",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/contracts/99999"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+        },
+        "body": {
+          "error": "NOT_FOUND",
+          "message": "Contract not found",
+          "code": 404
+        },
+        "matchingRules": {
+          "$.body.error": {
+            "match": "type"
+          },
+          "$.body.message": {
+            "match": "type"
+          },
+          "$.body.code": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "A request with invalid credit amount",
+      "providerState": "Customer exists",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/credits",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "customer_id": "CUST001",
+          "amount": -100.0,
+          "currency": "USD",
+          "description": "Invalid credit"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+        },
+        "body": {
+          "error": "VALIDATION_ERROR",
+          "message": "Invalid credit amount",
+          "field": "amount",
+          "code": 400
+        },
+        "matchingRules": {
+          "$.body.error": {
+            "match": "type"
+          },
+          "$.body.message": {
+            "match": "type"
+          },
+          "$.body.field": {
+            "match": "type"
+          },
+          "$.body.code": {
+            "match": "type"
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}

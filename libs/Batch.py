@@ -182,15 +182,24 @@ class Batches:
         self._manager = BatchManager(month)
 
     def __repr__(self) -> str:
-        return f"Batches(month: {self.month}, batchJobCode: {self.batchJobCode})"
+        return f"Batches(month: {self.month}, batchJobCode: {self._batchJobCode})"
 
     @property
     def batch_job_code(self):
         return self._batchJobCode
 
-    @batchJobCode.setter
+    @batch_job_code.setter
     def batch_job_code(self, batchJobCode) -> None:
         self._batchJobCode = batchJobCode
+    
+    # Backward compatibility alias
+    @property
+    def batchJobCode(self):
+        return self._batchJobCode
+    
+    @batchJobCode.setter
+    def batchJobCode(self, value) -> None:
+        self._batchJobCode = value
 
     def send_batch_request(self) -> None:
         """Legacy method for sending batch request."""

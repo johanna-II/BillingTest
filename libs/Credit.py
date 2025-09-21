@@ -255,6 +255,7 @@ class CreditManager:
 
             logger.info("Total remaining credit: {total_remaining}, Total history: %s", total_history
             )
+            
 
             return total_remaining, total_history
 

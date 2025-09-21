@@ -1,14 +1,14 @@
 import pytest
-import libs.InitializeConfig as creditutil
-import libs.Metering as metering
-import libs.Contract as contract
-import libs.Calculation as calc
-import libs.Adjustment as adj
+from libs import InitializeConfig
+from libs import Metering
+from libs import Contract
+import libs.calculation as calc
+import libs.adjustment as adj
 import math
 import logging
 
 
-def futureDeprecated(func):
+def future_deprecated(func):
     def wrapper(*args):
         logging.warning(
             "주의: 이 테스트에서 사용하는 상품은 기간이 정해진 약정이므로 기간 종료 시 테스트 실패할 수 있습니다."
@@ -21,81 +21,81 @@ def futureDeprecated(func):
 class TestNoContracts:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.cleanData()
+        self.config = InitializeConfig(env, member, month)
+        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.beforeTest()  # to change paymentStatus as REGISTERED
-        self.contractObj = contract.Contract(
+        self.config = InitializeConfig(env, member, month)
+        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
-        self.meteringObj = metering.Metering(self.config.month)
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
         yield
-        self.contractObj.deleteContract()
+        self.contractObj.delete_contract()
         adjObj = adj.Adjustments(self.config.month)
-        adjlist = adjObj.inquiryAdjustment(
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.deleteAdjustment(adjlist)
-        adjlist = adjObj.inquiryAdjustment(
+        adjObj.delete_adjustment(adjlist)
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupid=self.config.billing_group_id[0],
         )
-        adjObj.deleteAdjustment(adjlist)
+        adjObj.delete_adjustment(adjlist)
 
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 고정할인+고정할증
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC1(self):
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -103,41 +103,41 @@ class TestNoContracts:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
+        statements, total_payments = self.config.common_test()
         expected_result = (
             statements["charge"] - 1000 + 2000 - 1000 + 2000
         ) + math.floor((statements["charge"] - 1000 + 2000 - 1000 + 2000) * 0.1)
-        self.config.verifyAssert(
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_result,
         )
 
     # 약정 없음, 프로젝트 퍼센트할인+고정할증, 빌링그룹 고정할인+고정할증
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC2(self):
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -145,9 +145,9 @@ class TestNoContracts:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
+        statements, total_payments = self.config.common_test()
         statements_no_vat = (
             statements["charge"]
             - math.ceil((statements["charge"] + 2000) * 0.1)
@@ -156,35 +156,35 @@ class TestNoContracts:
             + 2000
         )
         expected_result = statements_no_vat + math.floor(statements_no_vat * 0.1)
-        self.config.verifyAssert(
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_result,
         )
 
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 퍼센트할인+고정할증
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC3(self):
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=20,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -192,44 +192,44 @@ class TestNoContracts:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
+        statements, total_payments = self.config.common_test()
         statements_no_vat = (
             (statements["charge"] - 1000 + 2000)
             - math.ceil((statements["charge"] - 1000 + 2000 + 2000) * 0.2)
             + 2000
         )
         expected_result = statements_no_vat + math.floor(statements_no_vat * 0.1)
-        self.config.verifyAssert(
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_result,
         )
 
     # 약정 없음, 프로젝트 퍼센트할인+고정할증, 빌링그룹 퍼센트할인+고정할증
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC4(self):
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=20,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -237,9 +237,9 @@ class TestNoContracts:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
+        statements, total_payments = self.config.common_test()
         project_stats = (
             statements["charge"] - math.ceil((statements["charge"] + 2000) * 0.1) + 2000
         )
@@ -247,7 +247,7 @@ class TestNoContracts:
             project_stats - math.ceil((project_stats + 2000) * 0.2) + 2000
         )
         total_statements = total_stats_no_vat + math.floor(total_stats_no_vat * 0.1)
-        self.config.verifyAssert(
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=total_statements,
@@ -257,83 +257,83 @@ class TestNoContracts:
 class TestPeriodContract:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.cleanData()
+        self.config = InitializeConfig(env, member, month)
+        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.beforeTest()  # to change paymentStatus as REGISTERED
-        self.contractObj = contract.Contract(
+        self.config = InitializeConfig(env, member, month)
+        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
         yield
-        self.contractObj.deleteContract()
-        self.config.cleanMetering()
+        self.contractObj.delete_contract()
+        self.config.clean_metering()
         adjObj = adj.Adjustments(self.config.month)
-        adjlist = adjObj.inquiryAdjustment(
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.deleteAdjustment(adjlist)
-        adjlist = adjObj.inquiryAdjustment(
+        adjObj.delete_adjustment(adjlist)
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupid=self.config.billing_group_id[0],
         )
-        adjObj.deleteAdjustment(adjlist)
+        adjObj.delete_adjustment(adjlist)
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC5(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=500,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -341,47 +341,47 @@ class TestPeriodContract:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=1395561,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC6(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=500,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -389,65 +389,65 @@ class TestPeriodContract:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=110000,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC7(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=50,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -455,47 +455,47 @@ class TestPeriodContract:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=698055,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC8(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=20,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
@@ -503,10 +503,10 @@ class TestPeriodContract:
         )
 
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=110000,
@@ -516,252 +516,252 @@ class TestPeriodContract:
 class TestVolumeContract:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.cleanData()
+        self.config = InitializeConfig(env, member, month)
+        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.beforeTest()  # to change paymentStatus as REGISTERED
-        self.contractObj = contract.Contract(
+        self.config = InitializeConfig(env, member, month)
+        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
         yield
-        self.contractObj.deleteContract()
-        self.config.cleanMetering()
+        self.contractObj.delete_contract()
+        self.config.clean_metering()
         adjObj = adj.Adjustments(self.config.month)
-        adjlist = adjObj.inquiryAdjustment(
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.deleteAdjustment(adjlist)
-        adjlist = adjObj.inquiryAdjustment(
+        adjObj.delete_adjustment(adjlist)
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupid=self.config.billing_group_id[0],
         )
-        adjObj.deleteAdjustment(adjlist)
+        adjObj.delete_adjustment(adjlist)
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC9(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=500,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=110000,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC10(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=500,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=1257269,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC11(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=50,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=110000,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC12(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=20,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=1006254,
@@ -771,252 +771,252 @@ class TestVolumeContract:
 class TestPartnerContract:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.cleanData()
+        self.config = InitializeConfig(env, member, month)
+        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
-        self.config = creditutil.InitializeConfig(env, member, month)
-        self.config.beforeTest()  # to change paymentStatus as REGISTERED
-        self.contractObj = contract.Contract(
+        self.config = InitializeConfig(env, member, month)
+        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
         yield
-        self.contractObj.deleteContract()
-        self.config.cleanMetering()
+        self.contractObj.delete_contract()
+        self.config.clean_metering()
         adjObj = adj.Adjustments(self.config.month)
-        adjlist = adjObj.inquiryAdjustment(
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.deleteAdjustment(adjlist)
-        adjlist = adjObj.inquiryAdjustment(
+        adjObj.delete_adjustment(adjlist)
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupid=self.config.billing_group_id[0],
         )
-        adjObj.deleteAdjustment(adjlist)
+        adjObj.delete_adjustment(adjlist)
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC13(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=500,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=1385661,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC14(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=500,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=110000,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC15(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_DISCOUNT",
             adjustment=1000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=50,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=110000,
         )
 
-    @futureDeprecated
+    @future_deprecated
     def test_contadjTC16(self):
         self.contractObj.contractId = "<contractID>"
-        self.contractObj.applyContract()
-        self.meteringObj = metering.Metering(self.config.month)
+        self.contractObj.apply_contract()
+        self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.c2.c8m8",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="360",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.c2.c8m8",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="360",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="storage.volume.ssd",
-            counterType="DELTA",
-            counterUnit="KB",
-            counterVolume="524288000",
+        self.meteringObj.send_iaas_metering(
+            counter_name="storage.volume.ssd",
+            counter_type="DELTA",
+            counter_unit="KB",
+            counter_volume="524288000",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="network.floating_ip",
-            counterType="DELTA",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="network.floating_ip",
+            counter_type="DELTA",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
-        self.meteringObj.sendIaaSMetering(
-            counterName="compute.g2.t4.c8m64",
-            counterType="GAUGE",
-            counterUnit="HOURS",
-            counterVolume="720",
+        self.meteringObj.send_iaas_metering(
+            counter_name="compute.g2.t4.c8m64",
+            counter_type="GAUGE",
+            counter_unit="HOURS",
+            counter_volume="720",
         )
         adjObj = adj.Adjustments(self.config.month)
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=10,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=2000,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="PERCENT_DISCOUNT",
             adjustment=20,
         )
-        adjObj.applyAdjustment(
+        adjObj.apply_adjustment(
             adjustmentTarget="BillingGroup",
             billingGroupId=self.config.billing_group_id[0],
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculationAll()
+        calcObj.recalculation_all()
         # 결제 후 금액 비교
-        statements, total_payments = self.config.commonTest()
-        self.config.verifyAssert(
+        statements, total_payments = self.config.common_test()
+        self.config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=999126,

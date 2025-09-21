@@ -21,171 +21,219 @@
 [![Dependencies Status](https://img.shields.io/librariesio/github/johanna-II/BillingTest?logo=libraries.io&logoColor=white&labelColor=0d1117)](https://libraries.io/github/johanna-II/BillingTest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?labelColor=0d1117)](LICENSE.md)
 
+<!-- Technology Stack -->
+### Powered by
+
+[![Flask](https://img.shields.io/badge/Flask-3.0-000000.svg?logo=flask&logoColor=white&labelColor=0d1117)](https://flask.palletsprojects.com/)
+[![Pytest](https://img.shields.io/badge/Pytest-8.4-0A9EDC.svg?logo=pytest&logoColor=white&labelColor=0d1117)](https://pytest.org/)
+[![Pact](https://img.shields.io/badge/Pact-Consumer_Driven-00D4AA.svg?logo=pact&logoColor=white&labelColor=0d1117)](https://pact.io/)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Observability-242450.svg?logo=opentelemetry&logoColor=white&labelColor=0d1117)](https://opentelemetry.io/)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg?logo=docker&logoColor=white&labelColor=0d1117)](https://www.docker.com/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI/CD-2088FF.svg?logo=github-actions&logoColor=white&labelColor=0d1117)](https://github.com/features/actions)
+
 </div>
 <!-- markdownlint-enable MD033 -->
 
-Billing Automation Test Suite for payment module verification.
+Enterprise billing system test automation framework with modern Python architecture.
 
-> [!IMPORTANT]
-> **📌 Portfolio Project Notice**
->
-> This is a portfolio demonstration project showcasing CI/CD implementation with GitHub Actions. The workflows are configured but will fail during execution due to:
->
-> - Missing production API endpoints and credentials
-> - Unavailable internal billing system dependencies
-> - Required secrets that cannot be shared publicly
->
-> The code structure, patterns, and CI/CD configuration demonstrate best practices for enterprise billing system automation.
+> **Mock Server Available**: Complete mock API server included for local testing without external dependencies!
 
-## Requirements
+## Quick Start
 
-- Python 3.12 or higher
-- Poetry (recommended) or pip
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run all tests
+python run_tests.py --mode safe
+
+# Run specific tests
+python run_tests.py --mode fast tests -m "unit"
+```
 
 ## Features
 
-- **Modern Python**: Fully updated to leverage Python 3.12 features
-  - Type hints with union operator (`|`)
-  - `match-case` pattern matching
-  - `StrEnum` for better string enumerations
-  - Enhanced type annotations throughout
+- **Mock Server**: Automatic API mocking with OpenAPI support
+- **Contract Testing**: Consumer-driven contracts with Pact
+- **Observability**: OpenTelemetry integration for tracing
+- **Multi-region**: Support for KR, JP, and other regions
+- **CI/CD Optimized**: 67% faster pipeline execution
 
-- **Code Quality Tools**:
-  - Black for code formatting
-  - Ruff for linting
-  - mypy for type checking
-  - pytest for testing with coverage reports
+## Test Execution
 
-## Installation
+### Modes
+- `default`: Sequential execution
+- `parallel`: Parallel with CPU/2 workers
+- `safe`: Credit tests sequential, others parallel
+- `fast`: No coverage, quick feedback
 
-### Using Poetry (Recommended)
+### Markers
+- `unit`: Unit tests (<3s)
+- `core`: Core business logic
+- `api`: API integration tests
+- `contract`: Contract tests
+- `serial`: Must run sequentially
 
+### Examples
 ```bash
-poetry install
+# Quick validation
+pytest -m "unit and not slow"
+
+# Core business logic
+python run_tests.py --mode default tests -m "core"
+
+# With mock server
+export USE_MOCK_SERVER=true
+python run_tests.py --mode parallel
 ```
 
-### Using pip
+## Technical Architecture
 
-```bash
-pip install -r requirements.txt
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    BillingTest Framework                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐   │
+│  │   Tests     │  │ Mock Server  │  │  Observability  │   │
+│  │             │  │              │  │                 │   │
+│  │ • Unit      │  │ • OpenAPI    │  │ • OpenTelemetry │   │
+│  │ • Integration│ │ • Pact       │  │ • Metrics       │   │
+│  │ • Contract  │  │ • In-Memory  │  │ • Traces        │   │
+│  └──────┬──────┘  └──────┬───────┘  └────────┬────────┘   │
+│         │                 │                    │            │
+│  ┌──────┴─────────────────┴────────────────────┴────────┐  │
+│  │                  Core Libraries                       │  │
+│  ├──────────────────────────────────────────────────────┤  │
+│  │                                                       │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐ │  │
+│  │  │Configuration│  │  Metering   │  │   Contract   │ │  │
+│  │  │  Manager    │  │  Manager    │  │   Manager    │ │  │
+│  │  └─────────────┘  └─────────────┘  └──────────────┘ │  │
+│  │                                                       │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐ │  │
+│  │  │  Payment    │  │   Credit    │  │ Calculation  │ │  │
+│  │  │  Manager    │  │  Manager    │  │   Manager    │ │  │
+│  │  └─────────────┘  └─────────────┘  └──────────────┘ │  │
+│  │                                                       │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐ │  │
+│  │  │ Adjustment  │  │   Batch     │  │ HTTP Client  │ │  │
+│  │  │  Manager    │  │  Manager    │  │              │ │  │
+│  │  └─────────────┘  └─────────────┘  └──────────────┘ │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                              │                              │
+│  ┌───────────────────────────┴───────────────────────────┐ │
+│  │                  External APIs                         │ │
+│  │  • Billing API  • Metering API  • Payment Gateway     │ │
+│  └───────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Project Structure
+### Core Components
 
-```text
+#### 1. Manager Pattern
+All operations follow a consistent Manager pattern for clean separation of concerns:
+
+```python
+# Example: Payment processing flow
+payment_manager = PaymentManager(month="2024-01", uuid="user123")
+payment_manager.get_payment_status()
+payment_manager.process_payment(amount=100000)
+payment_manager.verify_payment()
+```
+
+#### 2. Mock Server Architecture
+- **Flask-based** with thread-safe in-memory storage
+- **OpenAPI integration** for automatic response generation
+- **Test isolation** with UUID-based data separation
+- **Provider states** for contract testing
+
+#### 3. Test Framework
+- **Fixture-based** setup with automatic teardown
+- **Parallel execution** with intelligent grouping
+- **Retry mechanisms** for flaky test mitigation
+- **Coverage tracking** with 60%+ enforcement
+
+#### 4. Data Flow
+
+```
+Test Case → Metering Data → Calculation → Billing → Payment
+    ↓            ↓              ↓           ↓         ↓
+Mock Server ← API Calls ← Verification ← Credits ← Results
+```
+
+### Key Design Decisions
+
+1. **Manager Pattern**: Each domain has a dedicated manager class
+2. **Immutable Test Data**: Tests use unique UUIDs for isolation
+3. **Graceful Degradation**: Fallbacks for API failures
+4. **Type Safety**: Full type hints with mypy strict mode
+5. **Async-Ready**: HTTP client supports async operations
+
+### File Structure
+
+```
 BillingTest/
-ㄴ config/          # Environment configurations
-ㄴ libs/            # Core billing modules
-ㄴㄴ adjustment.py      # Billing adjustments management
-ㄴㄴ Batch.py          # Batch job operations
-ㄴㄴ calculation.py    # Price calculations
-ㄴㄴ Contract.py       # Contract management
-ㄴㄴ Credit.py         # Credit operations
-ㄴㄴ Metering.py       # Usage metering
-ㄴㄴ Payments.py       # Payment processing
-ㄴㄴ ...
-ㄴ tests/           # Test suites
-Dockerfile       # Container configuration (Python 3.12)
+├── libs/                    # Core library modules
+│   ├── __init__.py         # Public API exports
+│   ├── InitializeConfig.py # Configuration management
+│   ├── Metering.py         # Usage data handling
+│   ├── Contract.py         # Contract operations
+│   ├── Credit.py           # Credit management
+│   ├── Payment.py          # Payment processing
+│   ├── calculation.py      # Billing calculations
+│   ├── adjustment.py       # Adjustment handling
+│   ├── http_client.py      # API communication
+│   └── observability/      # Telemetry integration
+├── tests/                   # Test suites
+│   ├── fixtures/           # Reusable test fixtures
+│   ├── contracts/          # Pact contract tests
+│   └── test_*.py          # Test modules
+├── mock_server/            # Mock API server
+│   ├── app.py             # Flask application
+│   └── openapi_handler.py # OpenAPI integration
+├── config/                 # Environment configs
+├── docs/                   # Additional documentation
+└── run_tests.py           # Test runner
 ```
 
-## Running Tests
+## CI/CD Pipeline
 
+Optimized GitHub Actions workflow with:
+- **Stage 1**: Quick validation (<2 min)
+- **Stage 2**: Parallel quality checks
+- **Stage 3**: Smart test execution
+- **Stage 4**: Coverage analysis
+- **Stage 5**: Integration tests (main/develop only)
+
+## Development
+
+### Setup
 ```bash
-# Run all tests with coverage
-pytest --cov=libs --cov-report=html
+# Clone repository
+git clone <repo-url>
+cd BillingTest
 
-# Run specific test file
-pytest tests/test_credit_all.py
+# Install dependencies
+pip install -r requirements.txt
 
-# Run tests in parallel
-pytest -n auto
+# Run tests
+python run_tests.py --mode fast
 ```
 
-## Code Formatting
+### Contributing
+1. Follow PEP 8 and use type hints
+2. Add tests for new features
+3. Maintain >60% coverage
+4. Update documentation
 
-```bash
-# Format all Python files
-black .
+## Documentation
 
-# Check formatting without changes
-black . --check
-
-# Run linter
-ruff check .
-
-# Type checking
-mypy libs/
-```
-
-## Docker Support
-
-Build and run the test suite in a container:
-
-```bash
-docker build -t billing-test .
-docker run billing-test pytest
-```
-
-## CI/CD with GitHub Actions
-
-This project uses GitHub Actions for continuous integration and deployment.
-
-### Available Workflows
-
-1. **CI** (`ci.yml`) - Runs on every push and PR
-   - Linting with Ruff and Black
-   - Type checking with mypy
-   - Unit tests for all regions
-
-2. **Billing Test** (`billing-test.yml`) - Manual test execution
-   - Replaces Jenkins pipeline
-   - Supports all test parameters
-   - Generates HTML reports
-
-3. **Scheduled Tests** (`scheduled-tests.yml`) - Daily automated tests
-   - Runs full test suite
-   - Multi-region parallel execution
-   - Slack notifications on failure
-
-4. **Security Scan** (`security.yml`) - Security vulnerability scanning
-   - Bandit for Python code
-   - Trivy for dependencies
-   - Automated dependency updates via Dependabot
-
-### Running Tests via GitHub Actions
-
-1. Go to the Actions tab in GitHub
-2. Select "Billing Test" workflow
-3. Click "Run workflow"
-4. Fill in the parameters:
-   - Environment: alpha
-   - Member: kr/jp/etc
-   - Month: YYYY-MM
-   - Test case: (optional) specific test
-
-### Migration from Jenkins
-
-See [Migration Guide](docs/MIGRATION_TO_GITHUB_ACTIONS.md) for detailed instructions on migrating from Jenkins to GitHub Actions.
-
-## Configuration
-
-Place environment-specific configurations in the `config/` directory:
-
-- `alpha_kr.py` - Korean alpha environment
-- `alpha_jp.py` - Japanese alpha environment
-- `alpha_etc.py` - Other regions alpha environment
-
-## Development Guidelines
-
-1. All code must be formatted with Black
-2. Type hints are required for all functions
-3. Use Python 3.12+ features where appropriate
-4. Write tests for new functionality
-5. Maintain test coverage above 80%
-
-## 📚 Documentation
-
-- **Technical Architecture**: [System Design & Diagrams](docs/TECHNICAL_DIAGRAMS.md) - Visual guide to how it all works
+- [Testing Guide](TESTING_GUIDE.md) - Detailed testing instructions
+- [Technical Architecture](TECHNICAL_ARCHITECTURE.md) - Deep dive with flow & sequence diagrams
+- [Advanced Features](docs/ADVANCED_FEATURES.md) - Mock server, contracts, observability
 
 ## License
 

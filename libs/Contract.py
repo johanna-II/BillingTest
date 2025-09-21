@@ -249,17 +249,35 @@ class Contract:
     def contract_id(self):
         return self._contractId
 
-    @contractId.setter
+    @contract_id.setter
     def contract_id(self, contractId) -> None:
         self._contractId = contractId
+    
+    # Backward compatibility alias
+    @property
+    def contractId(self):
+        return self._contractId
+    
+    @contractId.setter
+    def contractId(self, value) -> None:
+        self._contractId = value
 
     @property
     def counter_name(self):
         return self._counterName
 
-    @counterName.setter
+    @counter_name.setter
     def counter_name(self, counterName) -> None:
         self._counterName = counterName
+    
+    # Backward compatibility alias
+    @property
+    def counterName(self):
+        return self._counterName
+    
+    @counterName.setter
+    def counterName(self, value) -> None:
+        self._counterName = value
 
     def apply_contract(self) -> None:
         """Legacy method for applying contract."""

@@ -89,21 +89,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Run smoke tests
+      - name: Run smoke tests with mock server
         run: |
-          # Run only fast smoke tests for CI
-          docker run --rm \
-            -e PYTHONUNBUFFERED=1 \
-            -v ${{ github.workspace }}:/workspace \
-            billing-test:latest \
-            python -m pytest \
+          # Use docker-compose to run tests with mock server
+          docker-compose run --rm billing-test \
+            pytest \
+              --use-mock \
               --env alpha \
               --member ${{ matrix.member }} \
               --month ${{ steps.set-month.outputs.MONTH }} \
               -m "not slow" \
-              --junit-xml=/workspace/test-results-${{ matrix.member }}.xml \
+              --junit-xml=/workspace/test-results/test-results-${{ matrix.member }}.xml \
               --cov=libs \
-              --cov-report=xml:/workspace/coverage-${{ matrix.member }}.xml \
+              --cov-report=xml:/workspace/coverage-reports/coverage-${{ matrix.member }}.xml \
               --cov-report=term-missing \
               -v
 
@@ -112,12 +110,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.member }}
-          path: test-results-${{ matrix.member }}.xml
+          path: test-results/test-results-${{ matrix.member }}.xml
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:
-          file: ./coverage-${{ matrix.member }}.xml
+          file: ./coverage-reports/coverage-${{ matrix.member }}.xml
           flags: ${{ matrix.member }}
           name: coverage-${{ matrix.member }}
           fail_ci_if_error: false

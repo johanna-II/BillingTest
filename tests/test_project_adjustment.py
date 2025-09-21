@@ -4,7 +4,7 @@ import math
 import pytest
 
 from libs import CounterType
-from .base import BaseAdjustmentTest, MeteringItem
+from tests.base import BaseAdjustmentTest, MeteringItem
 
 
 class TestProjectAdjustment(BaseAdjustmentTest):
@@ -42,7 +42,7 @@ class TestProjectAdjustment(BaseAdjustmentTest):
     def setup_metering_data(self, test_config) -> None:
         """Set up metering data for all tests in the class."""
         # Clean existing data
-        test_config.cleanData()
+        test_config.clean_data()
 
         # Send metering data
         self.send_metering_data(test_config, self.METERING_DATA)
@@ -62,14 +62,14 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         self.perform_calculation(test_config)
 
         # Get results
-        statements, total_payments = test_config.commonTest()
+        statements, total_payments = test_config.common_test()
 
         # Calculate expected total
         adjusted_charge = statements["charge"] - discount_amount
         expected_total = self.calculate_total_with_vat(adjusted_charge)
 
         # Verify results
-        test_config.verifyAssert(
+        test_config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_total,
@@ -90,7 +90,7 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         self.perform_calculation(test_config)
 
         # Get results
-        statements, total_payments = test_config.commonTest()
+        statements, total_payments = test_config.common_test()
 
         # Calculate expected total
         discount_amount = math.ceil(statements["charge"] * (discount_percentage * 0.01))
@@ -98,7 +98,7 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         expected_total = self.calculate_total_with_vat(adjusted_charge)
 
         # Verify results
-        test_config.verifyAssert(
+        test_config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_total,
@@ -119,14 +119,14 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         self.perform_calculation(test_config)
 
         # Get results
-        statements, total_payments = test_config.commonTest()
+        statements, total_payments = test_config.common_test()
 
         # Calculate expected total
         adjusted_charge = statements["charge"] + surcharge_amount
         expected_total = self.calculate_total_with_vat(adjusted_charge)
 
         # Verify results
-        test_config.verifyAssert(
+        test_config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_total,
@@ -154,14 +154,14 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         self.perform_calculation(test_config)
 
         # Get results
-        statements, total_payments = test_config.commonTest()
+        statements, total_payments = test_config.common_test()
 
         # Calculate expected total
         adjusted_charge = statements["charge"] - discount_amount + surcharge_amount
         expected_total = self.calculate_total_with_vat(adjusted_charge)
 
         # Verify results
-        test_config.verifyAssert(
+        test_config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_total,
@@ -189,7 +189,7 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         self.perform_calculation(test_config)
 
         # Get results
-        statements, total_payments = test_config.commonTest()
+        statements, total_payments = test_config.common_test()
 
         # Calculate expected total
         # Note: The order of operations matters - check business logic
@@ -199,7 +199,7 @@ class TestProjectAdjustment(BaseAdjustmentTest):
         expected_total = self.calculate_total_with_vat(adjusted_charge)
 
         # Verify results
-        test_config.verifyAssert(
+        test_config.verify_assert(
             statements=statements["totalAmount"],
             payments=total_payments,
             expected_result=expected_total,

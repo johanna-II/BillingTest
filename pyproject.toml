@@ -29,6 +29,8 @@ pytest-html = "^4.1.1"
 pytest-cov = "^5.0.0"
 pytest-asyncio = "^0.24.0"
 pytest-xdist = "^3.6.1"
+flask = "^3.0.0"
+flask-cors = "^4.0.0"
 
 [tool.poetry.extras]
 test = ["pytest", "pytest-html", "pytest-cov"]
@@ -134,6 +136,16 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "smoke: marks tests as smoke tests for quick CI runs",
+    "provider: marks tests as provider contract verification tests",
+    "contract: marks tests as contract tests using Pact",
+    "core: marks tests as core business logic tests (billing, credit, contract)",
+    "api: marks tests as API integration tests",
+    "observability: marks tests as observability and telemetry tests",
+    "mock_required: marks tests that require mock server to be running",
+    "credit: marks tests related to credit operations",
+    "billing: marks tests related to billing operations",
+    "adjustment: marks tests related to adjustments",
+    "serial: marks tests that must run serially (not in parallel)",
 ]
 
 [tool.coverage.run]

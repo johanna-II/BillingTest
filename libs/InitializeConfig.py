@@ -326,14 +326,14 @@ class InitializeConfig:
 
             paymentsObj = Payments(self.month)
             paymentsObj.uuid = self.uuid
-            pgId, pgStatusCode = paymentsObj.inquiryPayment()
+            pgId, pgStatusCode = paymentsObj.inquiry_payment()
 
             match pgStatusCode:
                 case "PAID":
-                    paymentsObj.cancelPayment(pgId)
-                    paymentsObj.changePayment(pgId)
+                    paymentsObj.cancel_payment(pgId)
+                    paymentsObj.change_payment(pgId)
                 case "READY":
-                    paymentsObj.changePayment(pgId)
+                    paymentsObj.change_payment(pgId)
                 case "REGISTERED":
                     pass
                 case _:
@@ -346,10 +346,10 @@ class InitializeConfig:
                 self._manager.clean_test_data()
         else:
             # Legacy implementation
-            self.cleanMetering()
-            self.cleanContract()
-            self.cleanAdjustment()
-            self.cleanCalculation()
+            self.clean_metering()
+            self.clean_contract()
+            self.clean_adjustment()
+            self.clean_calculation()
 
     def clean_metering(self) -> None:
         """Legacy method for cleaning metering."""
@@ -357,14 +357,14 @@ class InitializeConfig:
 
         meteringObj = Metering(self.month)
         meteringObj.appkey = self.appkey
-        meteringObj.deleteMetering()
+        meteringObj.delete_metering()
 
     def clean_contract(self) -> None:
         """Legacy method for cleaning contracts."""
         from . import Contract
 
         contractObj = Contract(self.month, self.billing_group_id)
-        contractObj.deleteContract()
+        contractObj.delete_contract()
 
     def clean_adjustment(self) -> None:
         """Legacy method for cleaning adjustments."""
@@ -374,25 +374,25 @@ class InitializeConfig:
 
         # Clean project adjustments
         for pid in self.project_id:
-            adjlist = adjObj.inquiryAdjustment(
+            adjlist = adjObj.inquiry_adjustment(
                 adjustmentTarget="Project", projectId=pid
             )
         if adjlist:
-            adjObj.deleteAdjustment(adjlist)
+            adjObj.delete_adjustment(adjlist)
 
         # Clean billing group adjustments
-        adjlist = adjObj.inquiryAdjustment(
+        adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup", billingGroupid=self.billing_group_id
         )
         if adjlist:
-            adjObj.deleteAdjustment(adjlist)
+            adjObj.delete_adjustment(adjlist)
 
     def clean_calculation(self) -> None:
         """Legacy method for cleaning calculations."""
         from . import Calculation
 
         calcObj = Calculation(self.month, self.uuid)
-        calcObj.deleteResources()
+        calcObj.delete_resources()
 
     def common_test(self):
         """Legacy method for common test execution flow."""
@@ -400,25 +400,44 @@ class InitializeConfig:
 
         # Perform calculation
         calcObj = Calculation(self.month, self.uuid)
-        calcObj.checkStable()
+        calcObj.check_stable()
 
         # Get payment info
         paymentsObj = Payments(self.month)
         paymentsObj.uuid = self.uuid
-        pgId, _pgStatusCode = paymentsObj.inquiryPayment()
+        pgId, _pgStatusCode = paymentsObj.inquiry_payment()
 
         # Make payment
         if pgId:
             paymentsObj.payment(pgId)
 
-        # Get statement details
-        # This is a simplified version - actual implementation may vary
+        # Get billing details from API
+        from . import http_client
+        from config.url import BASE_BILLING_URL
+        
+        client = http_client.BillingAPIClient(BASE_BILLING_URL)
+        billing_detail = client.get(
+            f"billing/v5.0/bills/detail",
+            params={"uuid": self.uuid, "month": self.month}
+        )
+        
+        # Extract statement details from billing response
         statements = {
-            "charge": 1000,  # This should come from actual API
-            "totalAmount": 1100,  # This should come from actual API
+            "charge": billing_detail.get("charge", 0),
+            "totalAmount": billing_detail.get("totalAmount", 0),
+            "discountAmount": billing_detail.get("discountAmount", 0),
+            "vat": billing_detail.get("vat", 0),
+            "totalCredit": billing_detail.get("totalCredit", 0)
         }
 
-        total_payments = statements["totalAmount"]
+        # Calculate actual payment amount after credits
+        credit_amount = billing_detail.get("totalCredit", 0)
+        charge = billing_detail.get("charge", 0)
+        total_amount = billing_detail.get("totalAmount", 0)
+        
+        # The totalAmount from API already has credits applied in mock server
+        # So we just use it directly as the payment amount
+        total_payments = total_amount
 
         return statements, total_payments
 

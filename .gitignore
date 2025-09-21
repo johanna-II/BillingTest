@@ -153,6 +153,8 @@ test_reports/
 *.html
 report/
 junit.xml
+test-results/
+coverage-reports/
 
 # GitHub Actions
 .github/workflows/*.log
