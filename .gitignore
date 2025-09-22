@@ -156,5 +156,26 @@ junit.xml
 test-results/
 coverage-reports/
 
+# Logs and temporary files
+*.log
+log/
+logs/
+api_calls.log
+mock_metering.log
+pact-mock-service.log
+
+# Test artifacts
+htmlcov/
+coverage.xml
+.coverage
+.coverage.*
+security_scan_report.json
+
+# Cache directories
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
 # GitHub Actions
 .github/workflows/*.log

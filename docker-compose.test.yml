@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  # Main test runner with full coverage
+  test-full:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+      args:
+        PYTHON_VERSION: 3.12-slim
+    volumes:
+      - .:/app
+      - ./htmlcov:/app/htmlcov
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+      - USE_MOCK_SERVER=true
+      - MOCK_SERVER_PORT=5000
+    command: >
+      python -m pytest
+      --cov=libs
+      --cov-report=term-missing
+      --cov-report=html
+      --cov-report=xml
+      --cov-omit=libs/observability/*,libs/dependency_injection.py
+      tests/unit
+      -v
+    networks:
+      - test-network
+
+  # Quick test runner without coverage
+  test-quick:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test-minimal
+      args:
+        PYTHON_VERSION: 3.12-slim
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m pytest tests/unit -q
+    networks:
+      - test-network
+
+  # Test on Python 3.11
+  test-py311:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+      args:
+        PYTHON_VERSION: 3.11-slim
+    volumes:
+      - .:/app
+      - ./htmlcov:/app/htmlcov
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m pytest tests/unit --cov=libs -q
+    networks:
+      - test-network
+
+  # Test on Python 3.10
+  test-py310:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+      args:
+        PYTHON_VERSION: 3.10-slim
+    volumes:
+      - .:/app
+      - ./htmlcov:/app/htmlcov
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m pytest tests/unit --cov=libs -q
+    networks:
+      - test-network
+
+  # Mock server for integration tests
+  mock-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=mock_server/app.py
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./mock_server:/app/mock_server
+      - ./docs/openapi:/app/docs/openapi
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Integration test runner
+  test-integration:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    depends_on:
+      mock-server:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./htmlcov:/app/htmlcov
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+      - USE_MOCK_SERVER=true
+      - MOCK_SERVER_URL=http://mock-server:5000
+    command: >
+      python -m pytest
+      tests/
+      -m "integration or mock_required"
+      -v
+    networks:
+      - test-network
+
+  # Performance test runner
+  test-performance:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    depends_on:
+      mock-server:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+      - USE_MOCK_SERVER=true
+      - MOCK_SERVER_URL=http://mock-server:5000
+    command: >
+      python -m pytest
+      tests/performance/
+      -v
+    networks:
+      - test-network
+
+  # Security test runner
+  test-security:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    volumes:
+      - .:/app
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      bash -c "
+        bandit -r libs/ -f json -o report/security_scan.json;
+        python -m pytest tests/security/ -v
+      "
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge

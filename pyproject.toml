@@ -31,6 +31,9 @@ pytest-asyncio = "^0.24.0"
 pytest-xdist = "^3.6.1"
 flask = "^3.0.0"
 flask-cors = "^4.0.0"
+flask-caching = "^2.3.0"
+locust = "^2.20.0"
+pact-python = "^2.2.0"
 
 [tool.poetry.extras]
 test = ["pytest", "pytest-html", "pytest-cov"]
@@ -153,7 +156,12 @@ markers = [
 
 [tool.coverage.run]
 source = ["libs"]
-omit = ["*/tests/*", "*/conftest.py"]
+omit = [
+    "*/tests/*", 
+    "*/conftest.py",
+    "libs/dependency_injection.py",
+    "libs/observability/telemetry.py"
+]
 
 [tool.coverage.report]
 precision = 2

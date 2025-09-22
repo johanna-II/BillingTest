@@ -40,15 +40,20 @@ class ContractManager:
     @staticmethod
     def _validate_month_format(month: str) -> None:
         """Validate month format is YYYY-MM."""
+        import re
+        from datetime import datetime
+        
+        # First check the exact format with regex
+        if not re.match(r"^\d{4}-\d{2}$", month):
+            msg = f"Invalid month format: {month}. Expected YYYY-MM"
+            raise ValidationException(msg)
+        
+        # Then validate it's a real date
         try:
-            from datetime import datetime
-
             datetime.strptime(month, "%Y-%m")
         except ValueError:
             msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(
-                msg
-            )
+            raise ValidationException(msg)
 
     def apply_contract(
         self,
@@ -243,7 +248,7 @@ class Contract:
         self._manager = ContractManager(month, bgId)
 
     def __repr__(self) -> str:
-        pass
+        return f"Contract(month: {self.month}, bgId: {self.bgId}, contractId: {self._contractId})"
 
     @property
     def contract_id(self):

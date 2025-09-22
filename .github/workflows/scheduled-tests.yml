@@ -5,114 +5,155 @@ on:
     # Run at 2 AM UTC every day (11 AM KST)
     - cron: '0 2 * * *'
   workflow_dispatch:
+    inputs:
+      test_scope:
+        description: 'Test scope to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+          - performance
+          - contract
+
+env:
+  PYTHON_VERSION: '3.12'
+  POETRY_VERSION: '1.7.1'
 
 jobs:
-  determine-month:
-    name: Determine Test Month
-    runs-on: ubuntu-latest
-    outputs:
-      month: ${{ steps.month.outputs.value }}
-    steps:
-      - name: Get current month
-        id: month
-        run: echo "value=$(date +%Y-%m)" >> $GITHUB_OUTPUT
-
   full-test-suite:
-    name: Full Test Suite (${{ matrix.member }})
-    needs: determine-month
+    name: Full Test Suite
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         member: [kr, jp, etc]
-        test_type: [unpaid, credit, contracts, adjustments]
-        exclude:
-          # Credit tests only for KR
-          - member: jp
-            test_type: credit
-          - member: etc
-            test_type: credit
+        month: ['current', 'previous']
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          load: true
-          tags: billing-test:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Run ${{ matrix.test_type }} tests
+      - name: Set test month
+        id: set-month
         run: |
-          mkdir -p ./report
-          
-          docker run --rm \
-            -v ${{ github.workspace }}/report:/app/report \
-            -e PYTHONUNBUFFERED=1 \
-            billing-test:latest \
-            python -m pytest \
-              --env alpha \
-              --member ${{ matrix.member }} \
-              --month ${{ needs.determine-month.outputs.month }} \
-              -k "test_${{ matrix.test_type }}" \
-              --html=./report/report-${{ matrix.member }}-${{ matrix.test_type }}.html \
-              --self-contained-html \
-              --junit-xml=./report/junit-${{ matrix.member }}-${{ matrix.test_type }}.xml
+          if [ "${{ matrix.month }}" = "current" ]; then
+            echo "MONTH=$(date +%Y-%m)" >> $GITHUB_OUTPUT
+          else
+            echo "MONTH=$(date -d "1 month ago" +%Y-%m)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run full test suite
+        run: |
+          poetry run pytest \
+            --env alpha \
+            --member ${{ matrix.member }} \
+            --month ${{ steps.set-month.outputs.MONTH }} \
+            --cov=libs \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --junit-xml=test-results-${{ matrix.member }}-${{ matrix.month }}.xml \
+            -v
 
       - name: Upload test results
-        if: always()
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: test-results-${{ matrix.member }}-${{ matrix.test_type }}
-          path: report/
-          retention-days: 7
+          name: test-results-${{ matrix.member }}-${{ matrix.month }}
+          path: test-results-*.xml
 
-  test-summary:
-    name: Test Summary Report
-    needs: full-test-suite
-    if: always()
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: scheduled-${{ matrix.member }}
+
+  performance-tests:
+    name: Performance Tests
     runs-on: ubuntu-latest
     
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          path: all-reports
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run performance tests
+        run: |
+          poetry run pytest tests/performance -v \
+            --benchmark-only \
+            --benchmark-json=performance-results.json
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: performance-results.json
+
+  contract-tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run contract tests
+        run: |
+          poetry run pytest tests/contracts -v \
+            -m "contract"
+
+  notification:
+    name: Send Test Report
+    runs-on: ubuntu-latest
+    needs: [full-test-suite, performance-tests, contract-tests]
+    if: always()
+    
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
 
       - name: Generate summary
         run: |
-          echo "# 📊 Daily Billing Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "# Daily Test Report - $(date)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "**Month**: $(date +%Y-%m)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Process test results
-          for report in all-reports/*/junit-*.xml; do
-            if [ -f "$report" ]; then
-              member=$(basename "$report" | sed 's/junit-\(.*\)-.*\.xml/\1/')
-              test_type=$(basename "$report" | sed 's/junit-.*-\(.*\)\.xml/\1/')
-              echo "- **$member - $test_type**: Processing..." >> $GITHUB_STEP_SUMMARY
-            fi
-          done
-
-      - name: Send notification
-        if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          text: |
-            Daily Billing Tests Failed!
-            Check the results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          echo "- Full Test Suite: ${{ needs.full-test-suite.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Contract Tests: ${{ needs.contract-tests.result }}" >> $GITHUB_STEP_SUMMARY

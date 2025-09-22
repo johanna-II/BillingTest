@@ -1,14 +1,19 @@
-"""HTTP client for billing API interactions."""
+"""HTTP client for billing API interactions with retry and telemetry support."""
 
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any
-from urllib.parse import urljoin, urlparse
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from enum import Enum
+from functools import wraps
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, Union
+from urllib.parse import urljoin, urlparse, urlencode
 
 import requests
 from requests.adapters import HTTPAdapter
+from requests.models import Response
 from urllib3.util.retry import Retry
 
 from .constants import (
@@ -20,350 +25,572 @@ from .constants import (
 )
 from .exceptions import APIRequestException
 
-try:
-    from .observability import get_telemetry
-    TELEMETRY_AVAILABLE = True
-except ImportError:
-    TELEMETRY_AVAILABLE = False
-    get_telemetry = lambda: None
+# Type aliases for clarity
+Headers = Dict[str, str]
+Params = Dict[str, Any]
+JsonData = Dict[str, Any]
+RequestData = Union[str, Dict[str, Any]]
+
+# Generic type for decorated functions
+F = TypeVar('F', bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
 
+class HTTPMethod(str, Enum):
+    """HTTP methods enum for type safety."""
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
+    PATCH = "PATCH"
+
+
+@dataclass
+class RetryConfig:
+    """Configuration for retry behavior."""
+    total: int = DEFAULT_RETRY_COUNT
+    backoff_factor: float = 1.0
+    status_forcelist: Tuple[int, ...] = (500, 502, 503, 504)
+    allowed_methods: Tuple[str, ...] = ("GET", "POST", "PUT", "DELETE", "PATCH")
+    respect_retry_after_header: bool = True
+
+
+@dataclass
+class APIResponse:
+    """Structured API response with metadata."""
+    data: JsonData
+    status_code: int
+    headers: Headers
+    elapsed_ms: float
+    
+    @property
+    def is_success(self) -> bool:
+        """Check if response indicates success."""
+        return 200 <= self.status_code < 300
+
+
+class TelemetryManager:
+    """Manages telemetry integration."""
+    
+    def __init__(self):
+        self._telemetry = None
+        self._enabled = False
+        self._initialize_telemetry()
+    
+    def _initialize_telemetry(self) -> None:
+        """Try to initialize telemetry if available."""
+        try:
+            from .observability import get_telemetry
+            self._telemetry = get_telemetry()
+            self._enabled = True
+        except ImportError:
+            logger.debug("Telemetry not available")
+    
+    @contextmanager
+    def span(self, operation: str, attributes: Dict[str, Any]):
+        """Context manager for telemetry spans."""
+        if not self._enabled or not self._telemetry:
+            yield None
+            return
+        
+        span = self._telemetry.create_span(operation, **attributes)
+        try:
+            yield span
+        except Exception as e:
+            if span:
+                span.record_exception(e)
+                span.set_status(
+                    self._telemetry.tracer._tracer.Status(
+                        self._telemetry.tracer._tracer.StatusCode.ERROR,
+                        str(e)
+                    )
+                )
+            raise
+        finally:
+            if span:
+                span.end()
+    
+    def record_api_call(self, **kwargs) -> None:
+        """Record API call metrics."""
+        if self._enabled and self._telemetry:
+            self._telemetry.record_api_call(**kwargs)
+
+
+def retry_on_exception(
+    exceptions: Tuple[type, ...] = (requests.RequestException,),
+    max_retries: int = 3,
+    backoff_factor: float = 1.0
+) -> Callable[[F], F]:
+    """Decorator for retrying functions on specific exceptions."""
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        wait_time = backoff_factor * (2 ** attempt)
+                        logger.warning(
+                            f"Attempt {attempt + 1} failed: {e}. "
+                            f"Retrying in {wait_time}s..."
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(f"All {max_retries} attempts failed")
+            
+            if last_exception:
+                raise last_exception
+                
+        return wrapper
+    return decorator
+
+
 class BillingAPIClient:
-    """HTTP client for billing API requests with retry and error handling."""
+    """
+    HTTP client for billing API requests with retry and error handling.
+    
+    Implements connection pooling, automatic retries, and telemetry integration.
+    """
 
     def __init__(
         self,
         base_url: str,
         timeout: int = DEFAULT_TIMEOUT,
-        retry_count: int = DEFAULT_RETRY_COUNT,
+        retry_config: Optional[RetryConfig] = None,
+        use_mock: bool = False,
     ) -> None:
-        """Initialize API client.
+        """
+        Initialize API client.
 
         Args:
             base_url: Base URL for API endpoints
             timeout: Request timeout in seconds
-            retry_count: Number of retries for failed requests
+            retry_config: Optional retry configuration
+            use_mock: Whether to use mock server (localhost:5000)
         """
-        self.base_url = base_url
+        self.base_url = "http://localhost:5000" if use_mock else base_url
         self.timeout = timeout
-        self.session = self._create_session(retry_count)
-
-    def _create_session(self, retry_count: int) -> requests.Session:
-        """Create session with retry strategy."""
-        session = requests.Session()
-
+        self.retry_config = retry_config or RetryConfig()
+        self.use_mock = use_mock
+        
+        self._session: Optional[requests.Session] = None
+        self._telemetry = TelemetryManager()
+        
+        # Initialize session
+        self._setup_session()
+    
+    def _setup_session(self) -> None:
+        """Set up requests session with retry strategy."""
+        self._session = requests.Session()
+        
         retry_strategy = Retry(
-            total=retry_count,
-            backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods=["GET", "POST", "PUT", "DELETE"],
+            total=self.retry_config.total,
+            backoff_factor=self.retry_config.backoff_factor,
+            status_forcelist=list(self.retry_config.status_forcelist),
+            allowed_methods=list(self.retry_config.allowed_methods),
+            respect_retry_after_header=self.retry_config.respect_retry_after_header,
         )
-
+        
         adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-
-        return session
-
-    def _build_url(self, endpoint: str) -> str:
-        """Build full URL from endpoint."""
-        return urljoin(self.base_url, endpoint)
-
-    def _handle_response(self, response: requests.Response) -> dict[str, Any]:
-        """Handle API response and check for errors.
-
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
+        
+        # Set default headers
+        self._session.headers.update({
+            "Accept": "application/json;charset=UTF-8",
+            "User-Agent": "BillingAPIClient/1.0",
+        })
+    
+    @property
+    def session(self) -> requests.Session:
+        """Get the current session, creating if necessary."""
+        if self._session is None:
+            self._setup_session()
+        return self._session
+    
+    def close(self) -> None:
+        """Close the session and release resources."""
+        if self._session:
+            self._session.close()
+            self._session = None
+    
+    def __enter__(self) -> 'BillingAPIClient':
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - close session."""
+        self.close()
+    
+    def _build_url(self, endpoint: str, params: Optional[Params] = None) -> str:
+        """
+        Build full URL from endpoint and parameters.
+        
+        Args:
+            endpoint: API endpoint path
+            params: Optional query parameters
+            
+        Returns:
+            Full URL with query parameters
+        """
+        # Remove leading slash to avoid double slashes
+        endpoint = endpoint.lstrip('/')
+        url = urljoin(self.base_url, endpoint)
+        
+        if params:
+            # Filter out None values and encode parameters
+            filtered_params = {k: v for k, v in params.items() if v is not None}
+            if filtered_params:
+                query_string = urlencode(filtered_params, doseq=True)
+                url = f"{url}?{query_string}"
+        
+        return url
+    
+    def _validate_response(self, response: Response) -> JsonData:
+        """
+        Validate and parse API response.
+        
         Args:
             response: Raw response from API
-
+            
         Returns:
-            Response data as dictionary
-
+            Parsed response data
+            
         Raises:
             APIRequestException: If response indicates failure
         """
+        # Try to parse JSON response
         try:
             data = response.json()
         except ValueError as e:
-            msg = f"Invalid JSON response: {e}"
+            # For non-JSON responses, check if it's expected
+            if response.headers.get('content-type', '').startswith('text/'):
+                return {"text": response.text}
+            
             raise APIRequestException(
-                msg, status_code=response.status_code
+                f"Invalid JSON response: {e}",
+                status_code=response.status_code
             )
-
-        # Check if response indicates success
+        
+        # Check HTTP status code
         if response.status_code >= 400:
-            msg = f"API request failed with status {response.status_code}"
+            error_msg = self._extract_error_message(data, response.status_code)
             raise APIRequestException(
-                msg,
+                error_msg,
                 status_code=response.status_code,
-                response_data=data,
+                response_data=data
             )
-
+        
         # Check API-specific success indicator
-        header = data.get("header", {})
-        if not header.get(HEADER_SUCCESS_KEY, False):
-            message = header.get(HEADER_MESSAGE_KEY, "Unknown error")
-            msg = f"API returned error: {message}"
-            raise APIRequestException(
-                msg, response_data=data
-            )
-
+        if isinstance(data, dict):
+            header = data.get("header", {})
+            if header and not header.get(HEADER_SUCCESS_KEY, True):
+                message = header.get(HEADER_MESSAGE_KEY, "Unknown API error")
+                raise APIRequestException(
+                    f"API error: {message}",
+                    response_data=data
+                )
+        
         return data
-
+    
+    def _extract_error_message(self, data: Any, status_code: int) -> str:
+        """Extract error message from response data."""
+        if isinstance(data, dict):
+            # Try common error message fields
+            for field in ['error', 'message', 'detail', 'error_message']:
+                if field in data:
+                    return f"HTTP {status_code}: {data[field]}"
+            
+            # Check nested header
+            if 'header' in data and isinstance(data['header'], dict):
+                if HEADER_MESSAGE_KEY in data['header']:
+                    return f"HTTP {status_code}: {data['header'][HEADER_MESSAGE_KEY]}"
+        
+        return f"HTTP {status_code}: Request failed"
+    
     def request(
         self,
-        method: str,
+        method: Union[str, HTTPMethod],
         endpoint: str,
-        headers: dict[str, str] | None = None,
-        params: dict[str, Any] | None = None,
-        json_data: dict[str, Any] | None = None,
-        data: str | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Make HTTP request to API.
-
+        headers: Optional[Headers] = None,
+        params: Optional[Params] = None,
+        json_data: Optional[JsonData] = None,
+        data: Optional[RequestData] = None,
+        **kwargs: Any
+    ) -> JsonData:
+        """
+        Make HTTP request to API.
+        
         Args:
-            method: HTTP method (GET, POST, PUT, DELETE)
+            method: HTTP method
             endpoint: API endpoint path
             headers: Optional request headers
             params: Optional query parameters
             json_data: Optional JSON body data
             data: Optional form data
-
+            **kwargs: Additional arguments passed to requests
+            
         Returns:
             Response data
-
+            
         Raises:
             APIRequestException: If request fails
         """
+        # Validate method
+        method = HTTPMethod(method.upper()) if isinstance(method, str) else method
+        
+        # Build URL without params (they'll be passed separately)
         url = self._build_url(endpoint)
-
-        # Prepare headers
-        request_headers = {"Accept": "application/json;charset=UTF-8"}
+        
+        # Merge headers
+        request_headers = dict(self.session.headers)
         if headers:
             request_headers.update(headers)
-
-        logger.debug("Making {method} request to %s", url)
-        # Log to file for debugging
-        with open("api_calls.log", "a") as f:
-            f.write(f"{method} {url}\n")
-
-        # Get telemetry instance if available
-        telemetry = get_telemetry() if TELEMETRY_AVAILABLE else None
-        span = None
+        
+        # Log request details
+        logger.debug(
+            f"Making {method.value} request to {endpoint} "
+            f"(params: {len(params or {})}, "
+            f"json: {'yes' if json_data else 'no'}, "
+            f"data: {'yes' if data else 'no'})"
+        )
+        
+        # Prepare telemetry attributes
+        parsed_url = urlparse(url)
+        telemetry_attrs = {
+            "http.method": method.value,
+            "http.url": url,
+            "http.host": parsed_url.netloc,
+            "http.path": parsed_url.path,
+            "http.scheme": parsed_url.scheme,
+        }
+        
         start_time = time.time()
-
-        try:
-            # Start telemetry span if available
-            if telemetry:
-                parsed_url = urlparse(url)
-                span = telemetry.create_span(
-                    f"http.{method.lower()}",
-                    **{
-                        "http.method": method,
-                        "http.url": url,
-                        "http.host": parsed_url.netloc,
-                        "http.path": parsed_url.path,
-                        "http.scheme": parsed_url.scheme,
-                    }
+        
+        with self._telemetry.span(f"http.{method.value.lower()}", telemetry_attrs) as span:
+            try:
+                response = self.session.request(
+                    method=method.value,
+                    url=url,
+                    headers=request_headers,
+                    params=params,
+                    json=json_data,
+                    data=data,
+                    timeout=self.timeout,
+                    **kwargs
                 )
-
-            response = self.session.request(
-                method=method,
-                url=url,
-                headers=request_headers,
-                params=params,
-                json=json_data,
-                data=data,
-                timeout=self.timeout,
-            )
-
-            # Record telemetry metrics
-            response_time_ms = (time.time() - start_time) * 1000
-            if telemetry:
-                telemetry.record_api_call(
-                    endpoint=parsed_url.path,
-                    method=method,
-                    status_code=response.status_code,
-                    response_time_ms=response_time_ms
-                )
+                
+                elapsed_ms = (time.time() - start_time) * 1000
+                
+                # Update telemetry
                 if span:
                     span.set_attribute("http.status_code", response.status_code)
-                    span.set_attribute("http.response_time_ms", response_time_ms)
-
-            return self._handle_response(response)
-
-        except requests.RequestException as e:
-            logger.exception("Request failed: %s", e)
-            msg = f"Request failed: {e}"
-            
-            # Record error in telemetry
-            if span:
-                span.record_exception(e)
-                span.set_status(
-                    telemetry.tracer._tracer.Status(
-                        telemetry.tracer._tracer.StatusCode.ERROR,
-                        str(e)
-                    )
+                    span.set_attribute("http.response_time_ms", elapsed_ms)
+                
+                self._telemetry.record_api_call(
+                    endpoint=parsed_url.path,
+                    method=method.value,
+                    status_code=response.status_code,
+                    response_time_ms=elapsed_ms
                 )
-            
-            raise APIRequestException(msg)
-        finally:
-            # End telemetry span
-            if span:
-                span.end()
-
-    def get(
-        self,
-        endpoint: str,
-        headers: dict[str, str] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+                
+                # Validate and return response
+                return self._validate_response(response)
+                
+            except requests.RequestException as e:
+                logger.exception(f"Request failed: {e}")
+                raise APIRequestException(f"Request failed: {e}")
+    
+    # Convenience methods for common HTTP verbs
+    def get(self, endpoint: str, **kwargs) -> JsonData:
         """Make GET request."""
-        return self.request("GET", endpoint, headers=headers, params=params)
-
-    def post(
-        self,
-        endpoint: str,
-        headers: dict[str, str] | None = None,
-        json_data: dict[str, Any] | None = None,
-        data: str | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        return self.request(HTTPMethod.GET, endpoint, **kwargs)
+    
+    def post(self, endpoint: str, **kwargs) -> JsonData:
         """Make POST request."""
-        return self.request(
-            "POST", endpoint, headers=headers, json_data=json_data, data=data
-        )
-
-    def put(
-        self,
-        endpoint: str,
-        headers: dict[str, str] | None = None,
-        json_data: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        return self.request(HTTPMethod.POST, endpoint, **kwargs)
+    
+    def put(self, endpoint: str, **kwargs) -> JsonData:
         """Make PUT request."""
-        return self.request("PUT", endpoint, headers=headers, json_data=json_data)
-
-    def delete(
-        self,
-        endpoint: str,
-        headers: dict[str, str] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        return self.request(HTTPMethod.PUT, endpoint, **kwargs)
+    
+    def delete(self, endpoint: str, **kwargs) -> JsonData:
         """Make DELETE request."""
-        return self.request("DELETE", endpoint, headers=headers, params=params)
-
+        return self.request(HTTPMethod.DELETE, endpoint, **kwargs)
+    
+    def patch(self, endpoint: str, **kwargs) -> JsonData:
+        """Make PATCH request."""
+        return self.request(HTTPMethod.PATCH, endpoint, **kwargs)
+    
     def wait_for_completion(
         self,
         check_endpoint: str,
-        completion_field: str,
-        max_field: str,
-        progress_code: str,
+        *,
+        status_field: str = "status",
+        success_value: str = "COMPLETED",
+        timeout: int = 300,
         check_interval: int = DEFAULT_CHECK_INTERVAL,
-        max_wait_time: int = 300,
-    ) -> bool:
-        """Wait for an async operation to complete.
-
+        progress_callback: Optional[Callable[[JsonData], None]] = None
+    ) -> JsonData:
+        """
+        Wait for an async operation to complete.
+        
         Args:
-            check_endpoint: Endpoint to check progress
-            completion_field: Field name for current progress
-            max_field: Field name for maximum progress
-            progress_code: Code to match in response
+            check_endpoint: Endpoint to check status
+            status_field: Field name containing status
+            success_value: Value indicating completion
+            timeout: Maximum seconds to wait
             check_interval: Seconds between checks
-            max_wait_time: Maximum seconds to wait
-
+            progress_callback: Optional callback for progress updates
+            
         Returns:
-            True if completed, False if timeout
+            Final response data
+            
+        Raises:
+            APIRequestException: If operation fails or times out
         """
         start_time = time.time()
-
-        while time.time() - start_time < max_wait_time:
+        last_response = None
+        
+        while time.time() - start_time < timeout:
             try:
                 response = self.get(check_endpoint)
-
-                # Find matching progress entry
-                for entry in response.get("list", []):
-                    if entry.get("batchJobCode") == progress_code:
-                        current = entry.get(completion_field, 0)
-                        maximum = entry.get(max_field, 0)
-
-                        logger.debug("Progress: {current}/%s", maximum)
-
-                        if maximum > 0 and current >= maximum:
-                            return True
-                        break
-
+                last_response = response
+                
+                # Check if completed
+                if self._check_completion(response, status_field, success_value):
+                    logger.info(f"Operation completed successfully")
+                    return response
+                
+                # Call progress callback if provided
+                if progress_callback:
+                    progress_callback(response)
+                
             except APIRequestException as e:
-                logger.warning("Progress check failed: %s", e)
+                logger.warning(f"Status check failed: {e}")
+            
+            # Wait before next check
+            remaining_time = timeout - (time.time() - start_time)
+            wait_time = min(check_interval, remaining_time)
+            if wait_time > 0:
+                time.sleep(wait_time)
+        
+        # Timeout reached
+        raise APIRequestException(
+            f"Operation timed out after {timeout}s",
+            response_data=last_response
+        )
+    
+    def _check_completion(
+        self,
+        response: JsonData,
+        status_field: str,
+        success_value: str
+    ) -> bool:
+        """Check if response indicates completion."""
+        # Handle nested status fields (e.g., "result.status")
+        current = response
+        for field in status_field.split('.'):
+            if isinstance(current, dict) and field in current:
+                current = current[field]
+            else:
+                return False
+        
+        return current == success_value
+    
+    def set_auth_token(self, token: str) -> None:
+        """Set authorization token for all requests."""
+        self.session.headers["Authorization"] = f"Bearer {token}"
+    
+    def clear_auth_token(self) -> None:
+        """Remove authorization token."""
+        self.session.headers.pop("Authorization", None)
 
-            time.sleep(check_interval)
 
-        return False
-
-
-# Backward compatibility wrapper
+# Backward compatibility - deprecated
 class SendDataSession:
-    """Legacy wrapper for backward compatibility."""
-
+    """
+    Legacy wrapper for backward compatibility.
+    
+    .. deprecated:: 2.0
+        Use BillingAPIClient directly instead.
+    """
+    
     def __init__(self, method: str, url: str) -> None:
+        import warnings
+        warnings.warn(
+            "SendDataSession is deprecated. Use BillingAPIClient directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self.method = method
         self.url = url
-        self._data = ""
-        self._json = {}
-        self._headers = {}
-
-        # Extract base URL from full URL
+        self._data: Optional[RequestData] = None
+        self._json: Optional[JsonData] = None
+        self._headers: Headers = {}
+        
+        # Extract base URL and endpoint
         parsed = urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
-        endpoint = parsed.path
-        if parsed.query:
-            endpoint += f"?{parsed.query}"
-
+        
         self._client = BillingAPIClient(base_url)
-        self._endpoint = endpoint
-
+        self._endpoint = parsed.path
+        if parsed.query:
+            self._endpoint += f"?{parsed.query}"
+    
     def __repr__(self) -> str:
         return (
-            f"Session(method: {self.method}, requestUrl: {self.url}, "
-            f"data: {self.data}, json: {self.json}, headers: {self.headers})"
+            f"SendDataSession(method={self.method!r}, url={self.url!r}, "
+            f"headers={len(self._headers)} items)"
         )
-
+    
+    # Properties for backward compatibility
     @property
-    def data(self):
+    def data(self) -> Optional[RequestData]:
         return self._data
-
+    
     @data.setter
-    def data(self, data) -> None:
-        self._data = data
-
+    def data(self, value: RequestData) -> None:
+        self._data = value
+    
     @property
-    def json(self):
+    def json(self) -> Optional[JsonData]:
         return self._json
-
+    
     @json.setter
-    def json(self, json) -> None:
-        self._json = json
-
+    def json(self, value: JsonData) -> None:
+        self._json = value
+    
     @property
-    def headers(self):
+    def headers(self) -> Headers:
         return self._headers
-
+    
     @headers.setter
-    def headers(self, headers) -> None:
-        self._headers = headers
-
-    def request(self, **kwargs):
+    def headers(self, value: Headers) -> None:
+        self._headers = value
+    
+    def request(self, **kwargs) -> Any:
         """Make request using new client."""
         response_data = self._client.request(
             method=self.method,
             endpoint=self._endpoint,
-            headers=self.headers if self.headers else None,
-            json_data=self.json if self.json else None,
-            data=self.data if self.data else None,
+            headers=self._headers or None,
+            json_data=self._json or None,
+            data=self._data or None,
         )
-
-        # Create mock response object for backward compatibility
+        
+        # Create mock response for compatibility
         class MockResponse:
+            def __init__(self, data):
+                self._data = data
+            
             def json(self):
-                return response_data
-
-        return MockResponse()
+                return self._data
+        
+        return MockResponse(response_data)

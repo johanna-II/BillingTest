@@ -4,14 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment (alpha only supported)'
+        description: 'Target environment'
         required: true
         default: 'alpha'
         type: choice
         options:
           - alpha
+          - beta
+          - production
       member:
-        description: 'Member country'
+        description: 'Member to test'
         required: true
         default: 'kr'
         type: choice
@@ -19,53 +21,38 @@ on:
           - kr
           - jp
           - etc
+          - all
       month:
-        description: 'Test target month (YYYY-MM)'
-        required: true
-        default: ''
-      test_case:
-        description: 'Specific test file or test case (optional)'
+        description: 'Month to test (YYYY-MM)'
         required: false
         default: ''
+      use_mock:
+        description: 'Use mock server'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.12'
 
 jobs:
-  validate-inputs:
-    name: Validate Test Inputs
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.validate.outputs.should_run }}
-    steps:
-      - name: Validate contract test conditions
-        id: validate
-        run: |
-          # Check if contract test requires current month
-          if [[ "${{ github.event.inputs.test_case }}" =~ .*contract.* ]]; then
-            CURRENT_MONTH=$(date +%Y-%m)
-            if [ "${{ github.event.inputs.month }}" != "$CURRENT_MONTH" ]; then
-              echo "::error::Contract tests can only be run for the current month ($CURRENT_MONTH)"
-              echo "should_run=false" >> $GITHUB_OUTPUT
-              exit 1
-            fi
-          fi
-          
-          # Check if credit test requires KR member
-          if [[ "${{ github.event.inputs.test_case }}" =~ .*credit.* ]] && [ "${{ github.event.inputs.member }}" != "kr" ]; then
-            echo "::error::Credit tests are currently only available for KR members"
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          echo "should_run=true" >> $GITHUB_OUTPUT
-
   billing-test:
-    name: Run Billing Tests
-    needs: validate-inputs
-    if: needs.validate-inputs.outputs.should_run == 'true'
+    name: Billing Test - ${{ inputs.member }} (${{ inputs.environment }})
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set test month
+        id: set-month
+        run: |
+          if [ -z "${{ inputs.month }}" ]; then
+            echo "MONTH=$(date +%Y-%m)" >> $GITHUB_OUTPUT
+          else
+            echo "MONTH=${{ inputs.month }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -75,90 +62,56 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: billing-test:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Run tests
+      - name: Run billing tests
         run: |
-          mkdir -p ./report
-          
-          # Build test command
-          TEST_CMD="python -u -m pytest --env ${{ github.event.inputs.environment }} --member ${{ github.event.inputs.member }} --month ${{ github.event.inputs.month }}"
-          
-          # Add specific test case if provided
-          if [ -n "${{ github.event.inputs.test_case }}" ]; then
-            TEST_CMD="$TEST_CMD -k ${{ github.event.inputs.test_case }}"
+          # Set mock flag
+          MOCK_FLAG=""
+          if [ "${{ inputs.use_mock }}" = "true" ]; then
+            MOCK_FLAG="--use-mock"
           fi
           
-          # Add HTML report
-          TEST_CMD="$TEST_CMD --html=./report/report.html --self-contained-html"
-          
-          # Run tests in Docker container
-          docker run --rm \
-            -v ${{ github.workspace }}/report:/app/report \
-            -e PYTHONUNBUFFERED=1 \
-            billing-test:latest \
-            bash -c "$TEST_CMD"
+          # Run for all members or specific member
+          if [ "${{ inputs.member }}" = "all" ]; then
+            for member in kr jp etc; do
+              echo "Running tests for $member..."
+              docker-compose run --rm billing-test \
+                pytest tests \
+                  --env ${{ inputs.environment }} \
+                  --member $member \
+                  --month ${{ steps.set-month.outputs.MONTH }} \
+                  $MOCK_FLAG \
+                  -v \
+                  --junit-xml=test-results-$member.xml
+            done
+          else
+            docker-compose run --rm billing-test \
+              pytest tests \
+                --env ${{ inputs.environment }} \
+                --member ${{ inputs.member }} \
+                --month ${{ steps.set-month.outputs.MONTH }} \
+                $MOCK_FLAG \
+                -v \
+                --junit-xml=test-results.xml
+          fi
 
       - name: Upload test results
-        if: always()
         uses: actions/upload-artifact@v4
-        with:
-          name: billing-test-report-${{ github.run_number }}
-          path: report/
-          retention-days: 30
-
-      - name: Publish test results
         if: always()
-        uses: dorny/test-reporter@v1
         with:
-          name: Billing Test Results
-          path: 'report/*.xml'
-          reporter: java-junit
-          fail-on-error: false
+          name: billing-test-results
+          path: test-results*.xml
 
-      - name: Comment PR (if applicable)
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const reportPath = './report/report.html';
-            
-            let comment = '## 🧪 Billing Test Results\n\n';
-            comment += `- **Environment**: ${{ github.event.inputs.environment }}\n`;
-            comment += `- **Member**: ${{ github.event.inputs.member }}\n`;
-            comment += `- **Month**: ${{ github.event.inputs.month }}\n`;
-            
-            if ('${{ github.event.inputs.test_case }}') {
-              comment += `- **Test Case**: ${{ github.event.inputs.test_case }}\n`;
-            }
-            
-            comment += '\n📊 [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-
-  notify:
-    name: Send Notifications
-    needs: [billing-test]
-    if: always()
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Send Slack notification
-        if: vars.SLACK_WEBHOOK_URL != ''
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: |
-            Billing Test ${{ job.status }}
-            Environment: ${{ github.event.inputs.environment }}
-            Member: ${{ github.event.inputs.member }}
-            Month: ${{ github.event.inputs.month }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "# Billing Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Member**: ${{ inputs.member }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Month**: ${{ steps.set-month.outputs.MONTH }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mock Server**: ${{ inputs.use_mock }}" >> $GITHUB_STEP_SUMMARY

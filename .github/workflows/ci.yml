@@ -1,16 +1,23 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 env:
   PYTHON_VERSION: '3.12'
+  POETRY_VERSION: '1.7.1'
+  MIN_COVERAGE: '80'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint:
+  lint-and-type-check:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     
@@ -26,7 +33,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 1.7.1
+          version: ${{ env.POETRY_VERSION }}
           virtualenvs-create: true
           virtualenvs-in-project: true
 
@@ -45,36 +52,93 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Run Black
-        run: |
-          poetry run black . --check --diff
+        run: poetry run black . --check --diff
 
       - name: Run Ruff
-        run: |
-          poetry run ruff check . --output-format=github
+        run: poetry run ruff check . --output-format=github
 
       - name: Run mypy
-        run: |
-          poetry run mypy libs --strict
+        run: poetry run mypy libs --strict
 
       - name: Run Bandit security check
-        run: |
-          poetry run bandit -r libs -ll
+        run: poetry run bandit -r libs -ll
 
-  test:
-    name: Test (${{ matrix.member }})
+  test-coverage:
+    name: Test Coverage
     runs-on: ubuntu-latest
+    needs: lint-and-type-check
     strategy:
       fail-fast: false
       matrix:
-        member: [kr, jp, etc]
+        python-version: ['3.11', '3.12']
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set test month
-        id: set-month
-        run: echo "MONTH=$(date +%Y-%m)" >> $GITHUB_OUTPUT
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest \
+            --cov=libs \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-fail-under=${{ env.MIN_COVERAGE }} \
+            -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-py${{ matrix.python-version }}
+          fail_ci_if_error: true
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: coverage-report-py${{ matrix.python-version }}
+          path: htmlcov/
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-type-check
+    strategy:
+      matrix:
+        member: [kr, jp, etc]
+        env: [alpha]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -89,66 +153,51 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Run smoke tests with mock server
+      - name: Start mock server
         run: |
-          # Use docker-compose to run tests with mock server
+          docker-compose up -d mock-server
+          sleep 5
+
+      - name: Run integration tests
+        run: |
           docker-compose run --rm billing-test \
-            pytest \
-              --use-mock \
-              --env alpha \
+            pytest tests -m "integration" \
+              --env ${{ matrix.env }} \
               --member ${{ matrix.member }} \
-              --month ${{ steps.set-month.outputs.MONTH }} \
-              -m "not slow" \
-              --junit-xml=/workspace/test-results/test-results-${{ matrix.member }}.xml \
-              --cov=libs \
-              --cov-report=xml:/workspace/coverage-reports/coverage-${{ matrix.member }}.xml \
-              --cov-report=term-missing \
+              --use-mock \
               -v
 
-      - name: Upload test results
+      - name: Cleanup
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.member }}
-          path: test-results/test-results-${{ matrix.member }}.xml
+        run: docker-compose down
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage-reports/coverage-${{ matrix.member }}.xml
-          flags: ${{ matrix.member }}
-          name: coverage-${{ matrix.member }}
-          fail_ci_if_error: false
-
-  code-quality:
-    name: Code Quality Analysis
+  security-scan:
+    name: Security Scan
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs: lint-and-type-check
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for better analysis
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
 
-      - name: Download coverage reports
-        uses: actions/download-artifact@v4
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
         with:
-          pattern: test-results-*
-          merge-multiple: true
+          sarif_file: 'trivy-results.sarif'
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  docker:
+  build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    needs: [test-coverage, integration-tests, security-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, test]
     
     steps:
       - name: Checkout code
@@ -173,6 +222,7 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
@@ -186,52 +236,57 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  summary:
-    name: CI Summary
+  deploy:
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    if: always()
-    needs: [lint, test]
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    environment: production
     
     steps:
-      - name: Download all test results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: test-results-*
-          merge-multiple: true
+      - name: Deploy notification
+        run: |
+          echo "Deploy to production environment"
+          echo "Image: ${{ secrets.DOCKER_USERNAME }}/billing-test:latest"
+          # Add actual deployment steps here
 
-      - name: Publish test results
-        uses: dorny/test-reporter@v1
-        with:
-          name: Test Results Summary
-          path: '*.xml'
-          reporter: java-junit
-          fail-on-error: false
-
-      - name: Create status check
-        if: github.event_name == 'pull_request'
+  summary:
+    name: CI/CD Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint-and-type-check, test-coverage, integration-tests, security-scan]
+    
+    steps:
+      - name: Create status summary
         uses: actions/github-script@v7
         with:
           script: |
-            const lintStatus = '${{ needs.lint.result }}';
-            const testStatus = '${{ needs.test.result }}';
+            const jobs = {
+              'Lint & Type Check': '${{ needs.lint-and-type-check.result }}',
+              'Test Coverage': '${{ needs.test-coverage.result }}',
+              'Integration Tests': '${{ needs.integration-tests.result }}',
+              'Security Scan': '${{ needs.security-scan.result }}'
+            };
             
-            let conclusion = 'success';
-            let title = '✅ All checks passed';
-            let summary = 'Lint and tests completed successfully.';
+            const failed = Object.entries(jobs).filter(([_, status]) => status === 'failure');
+            const succeeded = Object.entries(jobs).filter(([_, status]) => status === 'success');
             
-            if (lintStatus === 'failure' || testStatus === 'failure') {
-              conclusion = 'failure';
-              title = '❌ Some checks failed';
-              summary = `Lint: ${lintStatus}, Test: ${testStatus}`;
+            let title, summary;
+            if (failed.length === 0) {
+              title = '✅ All CI checks passed';
+              summary = `All ${succeeded.length} jobs completed successfully.`;
+            } else {
+              title = '❌ Some CI checks failed';
+              summary = `${failed.length} job(s) failed: ${failed.map(([name]) => name).join(', ')}`;
             }
             
-            github.rest.checks.create({
+            await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'CI Status',
+              name: 'CI/CD Status',
               head_sha: context.sha,
               status: 'completed',
-              conclusion: conclusion,
+              conclusion: failed.length === 0 ? 'success' : 'failure',
               output: {
                 title: title,
                 summary: summary

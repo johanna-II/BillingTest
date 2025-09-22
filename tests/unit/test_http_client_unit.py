@@ -1,308 +1,425 @@
-"""Unit tests for HTTP Client to improve coverage."""
+"""Unit tests for HTTP client module following pytest best practices."""
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import requests
-from requests.exceptions import ConnectionError, Timeout
+from requests.exceptions import ConnectionError, Timeout, RequestException
 
-from libs.http_client import BillingAPIClient, SendDataSession
-from libs.exceptions import APIRequestException
-from libs.constants import HEADER_SUCCESS_KEY, HEADER_MESSAGE_KEY
+from libs.http_client import (
+    BillingAPIClient, 
+    RetryConfig,
+    HTTPMethod,
+    TelemetryManager,
+    retry_on_exception,
+    SendDataSession
+)
+from libs.exceptions import APIRequestException, ErrorCode, ErrorContext
+from libs.constants import HTTPStatus
 
 
 class TestBillingAPIClientUnit:
     """Unit tests for BillingAPIClient class."""
-
+    
     @pytest.fixture
     def mock_session(self):
-        """Mock requests session."""
-        return Mock(spec=requests.Session)
-
+        """Provide a mock session."""
+        session = Mock(spec=requests.Session)
+        session.headers = {}
+        return session
+    
     @pytest.fixture
     def api_client(self, mock_session):
-        """Create BillingAPIClient with mocked session."""
-        with patch('libs.http_client.requests.Session', return_value=mock_session):
-            client = BillingAPIClient("https://api.example.com", timeout=30, retry_count=3)
-            client.session = mock_session
-            return client
-
+        """Provide a test API client with mocked session."""
+        client = BillingAPIClient("https://api.example.com", timeout=30)
+        # Replace session with mock
+        client._session = mock_session
+        return client
+    
+    @pytest.fixture
+    def retry_config(self):
+        """Provide test retry configuration."""
+        return RetryConfig(
+            total=5,
+            backoff_factor=0.5,
+            status_forcelist=(500, 502, 503),
+            allowed_methods=("GET", "POST")
+        )
+    
+    # Initialization tests
     def test_init(self):
         """Test BillingAPIClient initialization."""
-        client = BillingAPIClient("https://api.example.com")
-        assert client.base_url == "https://api.example.com"
-        assert client.timeout == 60  # Default timeout
-        assert hasattr(client, 'session')
-
-    def test_create_session_with_retry_strategy(self):
-        """Test session creation with retry strategy."""
-        client = BillingAPIClient("https://api.example.com", retry_count=5)
+        client = BillingAPIClient("https://api.example.com", timeout=30)
         
-        # Verify session has retry adapter
-        assert hasattr(client.session, 'mount')
-        # Session should have adapters for both http and https
-        assert len(client.session.adapters) >= 2
-
+        assert client.base_url == "https://api.example.com"
+        assert client.timeout == 30
+        assert isinstance(client.retry_config, RetryConfig)
+        assert not client.use_mock
+    
+    def test_init_with_mock(self):
+        """Test initialization with mock mode."""
+        client = BillingAPIClient("https://api.example.com", use_mock=True)
+        
+        assert client.base_url == "http://localhost:5000"
+        assert client.use_mock
+    
+    def test_init_with_custom_retry_config(self, retry_config):
+        """Test initialization with custom retry configuration."""
+        client = BillingAPIClient(
+            "https://api.example.com",
+            retry_config=retry_config
+        )
+        
+        assert client.retry_config == retry_config
+        assert client.retry_config.total == 5
+    
+    # Context manager tests
+    def test_context_manager(self, mock_session):
+        """Test context manager functionality."""
+        with BillingAPIClient("https://api.example.com") as client:
+            client._session = mock_session
+            assert client.session == mock_session
+        
+        # Session should be closed after exiting context
+        mock_session.close.assert_called_once()
+    
+    # URL building tests
     def test_build_url(self, api_client):
         """Test URL building."""
-        # Test with relative endpoint
-        url = api_client._build_url("/api/v1/test")
-        assert url == "https://api.example.com/api/v1/test"
+        # Simple endpoint
+        url = api_client._build_url("/api/v1/billing")
+        assert url == "https://api.example.com/api/v1/billing"
         
-        # Test without leading slash
-        url = api_client._build_url("api/v1/test")
-        assert url == "https://api.example.com/api/v1/test"
-
-    def test_handle_response_success(self, api_client):
-        """Test successful response handling."""
+        # Endpoint without leading slash
+        url = api_client._build_url("api/v1/billing")
+        assert url == "https://api.example.com/api/v1/billing"
+        
+        # With query parameters
+        url = api_client._build_url("/api/v1/billing", {"page": 1, "size": 10})
+        assert "page=1" in url
+        assert "size=10" in url
+    
+    # Response validation tests
+    def test_validate_response_success(self, api_client):
+        """Test successful response validation."""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "header": {HEADER_SUCCESS_KEY: True},
-            "data": {"id": 123}
+            "header": {"isSuccessful": True},
+            "data": {"result": "success"}
         }
         
-        result = api_client._handle_response(mock_response)
-        
-        assert result == {
-            "header": {HEADER_SUCCESS_KEY: True},
-            "data": {"id": 123}
-        }
-
-    def test_handle_response_invalid_json(self, api_client):
-        """Test handling invalid JSON response."""
+        result = api_client._validate_response(mock_response)
+        assert result == mock_response.json.return_value
+    
+    def test_validate_response_invalid_json(self, api_client):
+        """Test response validation with invalid JSON."""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.side_effect = ValueError("Invalid JSON")
+        mock_response.headers = {"content-type": "application/json"}
         
         with pytest.raises(APIRequestException) as exc_info:
-            api_client._handle_response(mock_response)
+            api_client._validate_response(mock_response)
         
-        assert "Invalid JSON response" in str(exc_info.value)
-
-    def test_handle_response_http_error(self, api_client):
-        """Test handling HTTP error status codes."""
+        assert "Invalid JSON" in str(exc_info.value)
+        assert exc_info.value.status_code == 200
+    
+    def test_validate_response_http_error(self, api_client):
+        """Test response validation with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 404
         mock_response.json.return_value = {"error": "Not found"}
         
         with pytest.raises(APIRequestException) as exc_info:
-            api_client._handle_response(mock_response)
+            api_client._validate_response(mock_response)
         
         assert exc_info.value.status_code == 404
-        assert "API request failed with status 404" in str(exc_info.value)
-
-    def test_handle_response_api_error(self, api_client):
-        """Test handling API-specific errors."""
+        assert "HTTP 404" in str(exc_info.value)
+    
+    def test_validate_response_api_error(self, api_client):
+        """Test response validation with API-specific error."""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "header": {
-                HEADER_SUCCESS_KEY: False,
-                HEADER_MESSAGE_KEY: "Insufficient balance"
+                "isSuccessful": False,
+                "resultMessage": "Invalid request"
             }
         }
         
         with pytest.raises(APIRequestException) as exc_info:
-            api_client._handle_response(mock_response)
+            api_client._validate_response(mock_response)
         
-        assert "API returned error: Insufficient balance" in str(exc_info.value)
-
-    def test_request_with_telemetry(self, api_client, mock_session):
-        """Test request with telemetry enabled."""
+        assert "API error: Invalid request" in str(exc_info.value)
+    
+    # Request method tests
+    @patch('libs.http_client.TelemetryManager')
+    def test_request_success(self, mock_telemetry_cls, api_client, mock_session):
+        """Test successful request."""
+        # Setup mocks
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}}
+        mock_response.json.return_value = {"result": "success"}
         mock_session.request.return_value = mock_response
         
-        with patch('libs.http_client.get_telemetry') as mock_get_telemetry:
-            mock_telemetry = Mock()
-            mock_get_telemetry.return_value = mock_telemetry
-            
-            result = api_client.request("GET", "/test")
-            
-            mock_telemetry.record_api_call.assert_called_once()
-
-    def test_get_method(self, api_client, mock_session):
-        """Test GET request."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}}
-        mock_session.request.return_value = mock_response
+        # Make request
+        result = api_client.request(HTTPMethod.GET, "/test")
         
-        result = api_client.get("/test", params={"id": 123})
-        
-        # API client adds Accept header automatically
-        expected_headers = {"Accept": "application/json;charset=UTF-8"}
-        mock_session.request.assert_called_with(
+        # Verify
+        assert result == {"result": "success"}
+        mock_session.request.assert_called_once_with(
             method="GET",
             url="https://api.example.com/test",
-            headers=expected_headers,
-            params={"id": 123},
+            headers=mock_session.headers,
+            params=None,
             json=None,
             data=None,
             timeout=30
         )
-
-    def test_post_method(self, api_client, mock_session):
-        """Test POST request."""
-        mock_response = Mock()
-        mock_response.status_code = 201
-        mock_response.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}}
-        mock_session.request.return_value = mock_response
-        
-        data = {"name": "test", "value": 123}
-        result = api_client.post("/test", json_data=data)
-        
-        # API client adds Accept header automatically
-        expected_headers = {"Accept": "application/json;charset=UTF-8"}
-        mock_session.request.assert_called_with(
-            method="POST",
-            url="https://api.example.com/test",
-            headers=expected_headers,
-            params=None,
-            json=data,
-            data=None,
-            timeout=30
-        )
-
-    def test_put_method(self, api_client, mock_session):
-        """Test PUT request."""
+    
+    def test_request_with_params(self, api_client, mock_session):
+        """Test request with query parameters."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}}
+        mock_response.json.return_value = {"result": "success"}
         mock_session.request.return_value = mock_response
         
-        result = api_client.put("/test/123", json_data={"status": "active"})
+        params = {"page": 1, "size": 10}
+        api_client.request(HTTPMethod.GET, "/test", params=params)
         
-        assert mock_session.request.called
-
-    def test_delete_method(self, api_client, mock_session):
-        """Test DELETE request."""
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args.kwargs["params"] == params
+    
+    def test_request_with_json_data(self, api_client, mock_session):
+        """Test request with JSON data."""
         mock_response = Mock()
-        mock_response.status_code = 204
-        mock_response.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}}
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"result": "success"}
         mock_session.request.return_value = mock_response
         
-        result = api_client.delete("/test/123")
+        json_data = {"key": "value"}
+        api_client.request(HTTPMethod.POST, "/test", json_data=json_data)
         
-        assert mock_session.request.called
-
-    def test_wait_for_completion_success(self, api_client, mock_session):
-        """Test waiting for async operation completion."""
-        # Simulate progress updates
-        responses = [
-            {"list": [{"batchJobCode": "TEST_JOB", "completed": 50, "total": 100}]},
-            {"list": [{"batchJobCode": "TEST_JOB", "completed": 100, "total": 100}]}
-        ]
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args.kwargs["json"] == json_data
+    
+    def test_request_exception_handling(self, api_client, mock_session):
+        """Test request exception handling."""
+        mock_session.request.side_effect = ConnectionError("Connection failed")
         
-        mock_response1 = Mock()
-        mock_response1.status_code = 200
-        mock_response1.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}, **responses[0]}
+        with pytest.raises(APIRequestException) as exc_info:
+            api_client.request(HTTPMethod.GET, "/test")
         
-        mock_response2 = Mock()
-        mock_response2.status_code = 200
-        mock_response2.json.return_value = {"header": {HEADER_SUCCESS_KEY: True}, **responses[1]}
-        
-        api_client.get = Mock(side_effect=[responses[0], responses[1]])
-        
-        result = api_client.wait_for_completion(
-            "/check",
-            "completed",
-            "total",
-            "TEST_JOB",
-            check_interval=0.1,
-            max_wait_time=5
-        )
-        
-        assert result is True
-        assert api_client.get.call_count == 2
-
+        assert "Request failed: Connection failed" in str(exc_info.value)
+    
+    # Convenience method tests
+    def test_get_method(self, api_client):
+        """Test GET convenience method."""
+        with patch.object(api_client, 'request') as mock_request:
+            mock_request.return_value = {"result": "success"}
+            
+            result = api_client.get("/test", params={"key": "value"})
+            
+            assert result == {"result": "success"}
+            mock_request.assert_called_once_with(
+                HTTPMethod.GET,
+                "/test",
+                params={"key": "value"}
+            )
+    
+    def test_post_method(self, api_client):
+        """Test POST convenience method."""
+        with patch.object(api_client, 'request') as mock_request:
+            mock_request.return_value = {"result": "success"}
+            
+            result = api_client.post("/test", json_data={"key": "value"})
+            
+            assert result == {"result": "success"}
+            mock_request.assert_called_once_with(
+                HTTPMethod.POST,
+                "/test",
+                json_data={"key": "value"}
+            )
+    
+    # Wait for completion tests
+    def test_wait_for_completion_success(self, api_client):
+        """Test successful wait for completion."""
+        with patch.object(api_client, 'get') as mock_get:
+            # First call: not complete
+            # Second call: complete
+            mock_get.side_effect = [
+                {"status": "PENDING"},
+                {"status": "COMPLETED", "result": "success"}
+            ]
+            
+            result = api_client.wait_for_completion(
+                "/status",
+                status_field="status",
+                success_value="COMPLETED",
+                timeout=10,
+                check_interval=0.1
+            )
+            
+            assert result == {"status": "COMPLETED", "result": "success"}
+            assert mock_get.call_count == 2
+    
     def test_wait_for_completion_timeout(self, api_client):
         """Test wait for completion timeout."""
-        api_client.get = Mock(return_value={
-            "list": [{"batchJobCode": "TEST_JOB", "completed": 50, "total": 100}]
-        })
+        with patch.object(api_client, 'get') as mock_get:
+            mock_get.return_value = {"status": "PENDING"}
+            
+            with pytest.raises(APIRequestException) as exc_info:
+                api_client.wait_for_completion(
+                    "/status",
+                    timeout=0.2,
+                    check_interval=0.1
+                )
+            
+            assert "Operation timed out" in str(exc_info.value)
+    
+    def test_wait_for_completion_with_callback(self, api_client):
+        """Test wait for completion with progress callback."""
+        callback_calls = []
         
-        result = api_client.wait_for_completion(
-            "/check",
-            "completed",
-            "total",
-            "TEST_JOB",
-            check_interval=0.1,
-            max_wait_time=0.2
+        def progress_callback(response):
+            callback_calls.append(response)
+        
+        with patch.object(api_client, 'get') as mock_get:
+            mock_get.side_effect = [
+                {"status": "PENDING", "progress": 50},
+                {"status": "COMPLETED", "progress": 100}
+            ]
+            
+            api_client.wait_for_completion(
+                "/status",
+                status_field="status",
+                success_value="COMPLETED",
+                progress_callback=progress_callback,
+                check_interval=0.1
+            )
+            
+            # Should have at least one callback (the pending status)
+            assert len(callback_calls) >= 1
+            assert callback_calls[0]["progress"] == 50
+            # If we have a second callback, it should be the completed status
+            if len(callback_calls) > 1:
+                assert callback_calls[-1]["progress"] == 100
+
+
+class TestRetryDecorator:
+    """Unit tests for retry decorator."""
+    
+    def test_retry_on_exception_success(self):
+        """Test retry decorator with eventual success."""
+        call_count = 0
+        
+        @retry_on_exception(max_retries=3, backoff_factor=0.1)
+        def flaky_function():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionError("Temporary failure")
+            return "success"
+        
+        result = flaky_function()
+        
+        assert result == "success"
+        assert call_count == 2
+    
+    def test_retry_on_exception_all_failures(self):
+        """Test retry decorator with all attempts failing."""
+        call_count = 0
+        
+        @retry_on_exception(max_retries=3, backoff_factor=0.1)
+        def always_fails():
+            nonlocal call_count
+            call_count += 1
+            raise ConnectionError("Permanent failure")
+        
+        with pytest.raises(ConnectionError) as exc_info:
+            always_fails()
+        
+        assert "Permanent failure" in str(exc_info.value)
+        assert call_count == 3
+
+
+class TestTelemetryManager:
+    """Unit tests for TelemetryManager class."""
+    
+    def test_telemetry_disabled(self):
+        """Test telemetry when not available."""
+        manager = TelemetryManager()
+        
+        # Should handle gracefully when telemetry not available
+        with manager.span("test.operation", {"key": "value"}) as span:
+            assert span is None
+        
+        # Record should not raise
+        manager.record_api_call(endpoint="/test", method="GET", status_code=200)
+    
+    @patch('libs.observability.get_telemetry')
+    def test_telemetry_enabled(self, mock_get_telemetry):
+        """Test telemetry when available."""
+        mock_telemetry = Mock()
+        mock_span = Mock()
+        mock_telemetry.create_span.return_value = mock_span
+        mock_get_telemetry.return_value = mock_telemetry
+        
+        # Create manager and manually enable telemetry
+        manager = TelemetryManager()
+        manager._telemetry = mock_telemetry
+        manager._enabled = True
+        
+        with manager.span("test.operation", {"key": "value"}) as span:
+            assert span == mock_span
+        
+        mock_telemetry.create_span.assert_called_once_with(
+            "test.operation",
+            key="value"
         )
-        
-        assert result is False
-
-    def test_wait_for_completion_with_error(self, api_client):
-        """Test wait for completion with API errors."""
-        api_client.get = Mock(side_effect=APIRequestException("Check failed"))
-        
-        result = api_client.wait_for_completion(
-            "/check",
-            "completed",
-            "total",
-            "TEST_JOB",
-            check_interval=0.1,
-            max_wait_time=0.5
-        )
-        
-        assert result is False
-
-    def test_connection_error_handling(self, api_client, mock_session):
-        """Test connection error handling."""
-        mock_session.request.side_effect = ConnectionError("Network unreachable")
-        
-        # ConnectionError is wrapped in APIRequestException
-        with pytest.raises(APIRequestException) as exc_info:
-            api_client.request("GET", "/test")
-        
-        assert "Request failed: Network unreachable" in str(exc_info.value)
-
-    def test_timeout_handling(self, api_client, mock_session):
-        """Test timeout handling."""
-        mock_session.request.side_effect = Timeout("Request timeout")
-        
-        # Timeout is wrapped in APIRequestException
-        with pytest.raises(APIRequestException) as exc_info:
-            api_client.request("GET", "/test")
-        
-        assert "Request failed: Request timeout" in str(exc_info.value)
-
-    @patch('libs.http_client.logger')
-    def test_logging(self, mock_logger, api_client):
-        """Test logging in various scenarios."""
-        api_client.get = Mock(side_effect=APIRequestException("Test error"))
-        
-        api_client.wait_for_completion(
-            "/check", "completed", "total", "TEST_JOB",
-            check_interval=0.1, max_wait_time=0.2
-        )
-        
-        mock_logger.warning.assert_called()
+        mock_span.end.assert_called_once()
 
 
 class TestSendDataSession:
-    """Test legacy SendDataSession wrapper."""
-
+    """Unit tests for backward compatibility wrapper."""
+    
     def test_legacy_wrapper_initialization(self):
-        """Test SendDataSession initialization."""
-        session = SendDataSession("GET", "https://api.example.com/test")
-        assert hasattr(session, 'method')
-        assert hasattr(session, 'url')
+        """Test legacy wrapper initialization."""
+        with pytest.warns(DeprecationWarning):
+            session = SendDataSession("GET", "https://api.example.com/test")
+        
         assert session.method == "GET"
         assert session.url == "https://api.example.com/test"
-
+        assert session._endpoint == "/test"
+    
     def test_legacy_wrapper_properties(self):
-        """Test legacy wrapper properties."""
-        session = SendDataSession("POST", "https://api.example.com/test")
+        """Test legacy wrapper property setters/getters."""
+        with pytest.warns(DeprecationWarning):
+            session = SendDataSession("POST", "https://api.example.com/test")
         
         # Test property setters
         session.data = "test data"
         session.json = {"key": "value"}
-        session.headers = {"X-Test": "test"}
+        session.headers = {"Content-Type": "application/json"}
         
         # Test property getters
         assert session.data == "test data"
         assert session.json == {"key": "value"}
-        assert session.headers == {"X-Test": "test"}
+        assert session.headers == {"Content-Type": "application/json"}
+    
+    @patch('libs.http_client.BillingAPIClient')
+    def test_legacy_wrapper_request(self, mock_client_cls):
+        """Test legacy wrapper request method."""
+        mock_client = Mock()
+        mock_client.request.return_value = {"result": "success"}
+        mock_client_cls.return_value = mock_client
+        
+        with pytest.warns(DeprecationWarning):
+            session = SendDataSession("POST", "https://api.example.com/test")
+        
+        session.json = {"key": "value"}
+        response = session.request()
+        
+        assert response.json() == {"result": "success"}

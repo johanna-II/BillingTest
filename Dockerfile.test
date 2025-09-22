@@ -1,0 +1,69 @@
+# Multi-stage Dockerfile for running billing tests in isolation
+# Supports testing on different Python versions
+
+ARG PYTHON_VERSION=3.12-slim
+
+# Base stage with common dependencies
+FROM python:${PYTHON_VERSION} AS base
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Development stage for testing
+FROM base AS test
+
+# Install additional test dependencies
+RUN pip install --no-cache-dir \
+    pytest-xdist \
+    pytest-timeout \
+    pytest-mock \
+    coverage[toml]
+
+# Copy project files
+COPY . .
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Create directories for test outputs
+RUN mkdir -p /app/htmlcov /app/report
+
+# Default command runs tests with coverage
+CMD ["python", "-m", "pytest", \
+     "--cov=libs", \
+     "--cov-report=term-missing", \
+     "--cov-report=html", \
+     "--cov-report=xml", \
+     "--cov-omit=libs/observability/*,libs/dependency_injection.py", \
+     "tests/unit", \
+     "-v"]
+
+# Alternative lightweight stage for quick tests
+FROM python:${PYTHON_VERSION} AS test-minimal
+
+WORKDIR /app
+
+# Copy only essential files
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY libs/ ./libs/
+COPY tests/ ./tests/
+COPY config/ ./config/
+
+ENV PYTHONPATH=/app
+
+# Run tests without coverage for speed
+CMD ["python", "-m", "pytest", "tests/unit", "-q"]

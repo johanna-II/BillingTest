@@ -44,14 +44,14 @@ class TestPaymentManagerUnit:
         payment_id, status = payment_manager.get_payment_status(use_admin_api=False)
         
         assert payment_id == "pg-123"
-        assert status == "REGISTERED"
+        assert status == PaymentStatus.REGISTERED
         mock_client.get.assert_called_once()
 
     def test_get_payment_status_admin_api(self, payment_manager, mock_client):
         """Test payment status retrieval using admin API."""
         mock_response = {
-            "paymentList": [
-                {"paymentGroupId": "pg-123", "paymentStatusTypeCode": "PAID"}
+            "statements": [
+                {"paymentGroupId": "pg-123", "paymentStatusCode": "PAID"}
             ]
         }
         mock_client.get.return_value = mock_response
@@ -59,7 +59,7 @@ class TestPaymentManagerUnit:
         payment_id, status = payment_manager.get_payment_status(use_admin_api=True)
         
         assert payment_id == "pg-123"
-        assert status == "PAID"
+        assert status == PaymentStatus.PAID
 
     def test_get_payment_status_no_payments(self, payment_manager, mock_client):
         """Test payment status when no payments exist."""
@@ -68,7 +68,7 @@ class TestPaymentManagerUnit:
         payment_id, status = payment_manager.get_payment_status()
         
         assert payment_id == ""
-        assert status == ""
+        assert status == PaymentStatus.UNKNOWN
 
     def test_get_payment_status_with_payment(self, payment_manager, mock_client):
         """Test payment status retrieval."""
@@ -84,7 +84,7 @@ class TestPaymentManagerUnit:
         
         # Should return values from the payment list
         assert payment_id == "pg-123"
-        assert status == "PAID"
+        assert status == PaymentStatus.PAID
 
     def test_change_payment_status_success(self, payment_manager, mock_client):
         """Test successful payment status change."""

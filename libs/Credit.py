@@ -1,8 +1,14 @@
-"""Credit management for billing system."""
+"""Credit management for billing system with comprehensive API support."""
 
-import contextlib
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Any
+import warnings
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from config import url
 
@@ -10,29 +16,238 @@ from .constants import CreditType
 from .exceptions import APIRequestException, ValidationException
 from .http_client import BillingAPIClient
 
-if TYPE_CHECKING:
-    from .types import CreditData
-
 logger = logging.getLogger(__name__)
+
+# Type aliases
+CreditAmount = Union[int, float]
+CreditData = Dict[str, Any]
+CreditList = List[Dict[str, Any]]
+
+
+class CreditOperation(str, Enum):
+    """Credit operation types."""
+    GRANT = "grant"
+    USE = "use"
+    CANCEL = "cancel"
+    REFUND = "refund"
+
+
+@dataclass
+class CreditRequest:
+    """Represents a credit request."""
+    campaign_id: str
+    amount: CreditAmount
+    credit_name: str = "Test Credit"
+    expiration_period: int = 1
+    expiration_date_from: Optional[str] = None
+    expiration_date_to: Optional[str] = None
+    uuid_list: List[str] = field(default_factory=list)
+    email_list: List[str] = field(default_factory=list)
+    
+    def __post_init__(self):
+        """Validate and set defaults after initialization."""
+        # Set default dates if not provided
+        if not self.expiration_date_from:
+            self.expiration_date_from = datetime.now().strftime("%Y-%m-%d")
+        
+        if not self.expiration_date_to:
+            end_date = datetime.now() + timedelta(days=365 * self.expiration_period)
+            self.expiration_date_to = end_date.strftime("%Y-%m-%d")
+        
+        # Validate amount
+        if self.amount <= 0:
+            raise ValidationException(f"Credit amount must be positive: {self.amount}")
+    
+    def to_api_format(self) -> Dict[str, Any]:
+        """Convert to API request format."""
+        return {
+            "credit": int(self.amount),
+            "creditName": self.credit_name,
+            "expirationDateFrom": self.expiration_date_from,
+            "expirationDateTo": self.expiration_date_to,
+            "expirationPeriod": self.expiration_period,
+            "uuidList": self.uuid_list,
+            "emailList": self.email_list,
+        }
+
+
+@dataclass
+class CreditHistory:
+    """Represents credit history entry."""
+    credit_type: CreditType
+    amount: CreditAmount
+    balance: CreditAmount
+    transaction_date: str
+    description: str
+    campaign_id: Optional[str] = None
+    
+    @classmethod
+    def from_api_response(cls, data: Dict[str, Any]) -> 'CreditHistory':
+        """Create instance from API response."""
+        return cls(
+            credit_type=CreditType(data.get("creditType", "FREE")),
+            amount=float(data.get("amount", 0)),
+            balance=float(data.get("balance", 0)),
+            transaction_date=data.get("transactionDate", ""),
+            description=data.get("description", ""),
+            campaign_id=data.get("campaignId")
+        )
+
+
+class CreditAPIClient:
+    """Handles API communication for credit operations."""
+    
+    COUPON_ENDPOINT = "billing/coupons/{coupon_code}"
+    CAMPAIGN_CREDIT_ENDPOINT = "billing/admin/campaign/{campaign_id}/credits"
+    CREDIT_HISTORY_ENDPOINT = "billing/credits/history"
+    
+    def __init__(self, client: BillingAPIClient):
+        self._client = client
+    
+    def grant_coupon(self, coupon_code: str, uuid: str) -> CreditData:
+        """Grant coupon-based credit."""
+        headers = {
+            "Accept": "application/json;charset=UTF-8",
+            "uuid": uuid
+        }
+        
+        endpoint = self.COUPON_ENDPOINT.format(coupon_code=coupon_code)
+        
+        logger.debug(f"Granting coupon credit: {coupon_code}")
+        return self._client.post(endpoint, headers=headers)
+    
+    def grant_campaign_credit(
+        self,
+        campaign_id: str,
+        credit_request: CreditRequest,
+        uuid: str
+    ) -> CreditData:
+        """Grant campaign-based credit."""
+        headers = {
+            "Accept": "application/json;charset=UTF-8",
+            "Content-Type": "application/json",
+            "uuid": uuid
+        }
+        
+        endpoint = self.CAMPAIGN_CREDIT_ENDPOINT.format(campaign_id=campaign_id)
+        data = credit_request.to_api_format()
+        
+        logger.debug(f"Granting campaign credit: {campaign_id}, amount: {credit_request.amount}")
+        return self._client.post(endpoint, headers=headers, json_data=data)
+    
+    def get_credit_history(
+        self,
+        uuid: str,
+        credit_type: CreditType,
+        page: int = 1,
+        items_per_page: int = 100
+    ) -> CreditData:
+        """Get credit history."""
+        params = {
+            "uuid": uuid,
+            "creditType": credit_type.value,
+            "page": page,
+            "itemsPerPage": items_per_page,
+        }
+        
+        headers = {"Accept": "application/json;charset=UTF-8"}
+        
+        logger.debug(f"Fetching credit history: type={credit_type.value}, page={page}")
+        return self._client.get(self.CREDIT_HISTORY_ENDPOINT, headers=headers, params=params)
+    
+    def cancel_credit(
+        self,
+        campaign_id: str,
+        reason: str = "test"
+    ) -> CreditData:
+        """Cancel credit for a campaign."""
+        headers = {
+            "Accept": "application/json;charset=UTF-8",
+            "Content-Type": "application/json"
+        }
+        
+        params = {"reason": reason}
+        endpoint = self.CAMPAIGN_CREDIT_ENDPOINT.format(campaign_id=campaign_id)
+        
+        logger.debug(f"Cancelling credit for campaign: {campaign_id}")
+        return self._client.delete(endpoint, headers=headers, params=params)
+
+
+class CreditCalculator:
+    """Handles credit calculations and validations."""
+    
+    @staticmethod
+    def calculate_total_from_history(credit_histories: List[CreditHistory]) -> CreditAmount:
+        """Calculate total credit from history entries."""
+        return sum(history.amount for history in credit_histories)
+    
+    @staticmethod
+    def validate_credit_amount(amount: CreditAmount) -> None:
+        """Validate credit amount."""
+        if amount <= 0:
+            raise ValidationException(f"Credit amount must be positive: {amount}")
+        
+        if amount > 1_000_000:  # Maximum credit limit
+            raise ValidationException(f"Credit amount exceeds maximum limit: {amount}")
+    
+    @staticmethod
+    def calculate_expiration_dates(
+        months: int = 12
+    ) -> Tuple[str, str]:
+        """Calculate expiration dates based on months."""
+        start_date = datetime.now()
+        end_date = start_date + timedelta(days=30 * months)
+        
+        return (
+            start_date.strftime("%Y-%m-%d"),
+            end_date.strftime("%Y-%m-%d")
+        )
 
 
 class CreditManager:
-    """Manages credit operations including granting, inquiry, and cancellation."""
+    """
+    Manages credit operations including granting, inquiry, and cancellation.
+    
+    This class provides a high-level interface for credit-related operations,
+    handling validation, error handling, and complex business logic.
+    """
 
-    def __init__(self, uuid: str) -> None:
-        """Initialize credit manager.
+    # Default values
+    DEFAULT_CREDIT_NAME = "QA Billing Test Credit"
+    DEFAULT_EXPIRATION_MONTHS = 12
+    
+    def __init__(self, uuid: str, client: Optional[BillingAPIClient] = None) -> None:
+        """
+        Initialize credit manager.
 
         Args:
             uuid: User UUID for credit operations
+            client: Optional custom API client
         """
+        if not uuid:
+            raise ValidationException("UUID cannot be empty")
+        
         self.uuid = uuid
-        self._client = BillingAPIClient(url.BASE_BILLING_URL)
+        self._client = client or BillingAPIClient(url.BASE_BILLING_URL)
+        self._api = CreditAPIClient(self._client)
+        
+        logger.info(f"Initialized CreditManager for UUID: {uuid}")
 
     def __repr__(self) -> str:
-        return f"CreditManager(uuid={self.uuid})"
+        return f"CreditManager(uuid={self.uuid!r})"
+    
+    def __enter__(self) -> 'CreditManager':
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - close client if we created it."""
+        if hasattr(self._client, 'close'):
+            self._client.close()
 
-    def grant_coupon_credit(self, coupon_code: str) -> dict[str, Any]:
-        """Grant coupon-based credit to user.
+    def grant_coupon_credit(self, coupon_code: str) -> CreditData:
+        """
+        Grant coupon-based credit to user.
 
         Args:
             coupon_code: Code of the coupon to apply
@@ -41,38 +256,40 @@ class CreditManager:
             API response data
 
         Raises:
+            ValidationException: If coupon code is invalid
             APIRequestException: If credit grant fails
         """
-        headers = {"Accept": "application/json;charset=UTF-8", "uuid": self.uuid}
-
-        endpoint = f"billing/coupons/{coupon_code}"
-
-        logger.info("Granting coupon credit with code: %s", coupon_code)
-
+        if not coupon_code or not coupon_code.strip():
+            raise ValidationException("Coupon code cannot be empty")
+        
+        logger.info(f"Granting coupon credit: {coupon_code}")
+        
         try:
-            response = self._client.post(endpoint, headers=headers)
-            logger.info("Successfully granted coupon credit: %s", coupon_code)
+            response = self._api.grant_coupon(coupon_code, self.uuid)
+            logger.info(f"Successfully granted coupon credit: {coupon_code}")
             return response
+            
         except APIRequestException as e:
-            logger.exception("Failed to grant coupon credit: %s", e)
+            logger.exception(f"Failed to grant coupon credit: {e}")
             raise
 
-    def grant_direct_credit(
+    def grant_credit(
         self,
         campaign_id: str,
-        amount: int,
-        credit_name: str = "QA billing test",
-        expiration_period: int = 1,
-        expiration_date_from: str | None = None,
-        expiration_date_to: str | None = None,
-    ) -> dict[str, Any]:
-        """Grant direct credit to user through campaign.
+        amount: CreditAmount,
+        credit_name: Optional[str] = None,
+        expiration_months: Optional[int] = None,
+        expiration_date_from: Optional[str] = None,
+        expiration_date_to: Optional[str] = None,
+    ) -> CreditData:
+        """
+        Grant credit to user through campaign (unified method).
 
         Args:
             campaign_id: Campaign ID for credit grant
             amount: Credit amount to grant
             credit_name: Name/description of the credit
-            expiration_period: Expiration period in months
+            expiration_months: Expiration period in months
             expiration_date_from: Start date for credit validity
             expiration_date_to: End date for credit validity
 
@@ -80,101 +297,58 @@ class CreditManager:
             API response data
 
         Raises:
-            ValidationException: If amount is invalid
+            ValidationException: If parameters are invalid
             APIRequestException: If credit grant fails
         """
-        if amount <= 0:
-            msg = f"Credit amount must be positive: {amount}"
-            raise ValidationException(msg)
-
-        headers = {"Accept": "application/json;charset=UTF-8", "uuid": self.uuid}
-
-        credit_data: CreditData = {
-            "creditName": credit_name,
-            "credit": amount,
-            "expirationDateFrom": expiration_date_from,
-            "expirationDateTo": expiration_date_to,
-            "expirationPeriod": expiration_period,
-            "creditPayTargetData": self.uuid,
-            "emailList": [],
-            "uuidList": [self.uuid],
-        }
-
-        endpoint = f"billing/admin/campaign/{campaign_id}/credits"
-
-        logger.info("Granting direct credit: {amount} via campaign %s", campaign_id)
-
+        # Validate inputs
+        if not campaign_id:
+            raise ValidationException("Campaign ID cannot be empty")
+        
+        CreditCalculator.validate_credit_amount(amount)
+        
+        # Set defaults
+        credit_name = credit_name or self.DEFAULT_CREDIT_NAME
+        expiration_months = expiration_months or self.DEFAULT_EXPIRATION_MONTHS
+        
+        # Calculate dates if not provided
+        if not expiration_date_from or not expiration_date_to:
+            calc_from, calc_to = CreditCalculator.calculate_expiration_dates(expiration_months)
+            expiration_date_from = expiration_date_from or calc_from
+            expiration_date_to = expiration_date_to or calc_to
+        
+        # Create credit request
+        credit_request = CreditRequest(
+            campaign_id=campaign_id,
+            amount=amount,
+            credit_name=credit_name,
+            expiration_period=expiration_months,
+            expiration_date_from=expiration_date_from,
+            expiration_date_to=expiration_date_to,
+            uuid_list=[self.uuid]
+        )
+        
+        logger.info(
+            f"Granting credit: {amount} via campaign {campaign_id} "
+            f"(expires: {expiration_date_from} to {expiration_date_to})"
+        )
+        
         try:
-            response = self._client.post(
-                endpoint, headers=headers, json_data=credit_data
-            )
-            logger.info("Successfully granted direct credit: %s", amount)
+            response = self._api.grant_campaign_credit(campaign_id, credit_request, self.uuid)
+            logger.info(f"Successfully granted credit: {amount}")
             return response
+            
         except APIRequestException as e:
-            logger.exception("Failed to grant direct credit: %s", e)
-            raise
-
-    def grant_paid_credit(
-        self,
-        campaign_id: str,
-        amount: int,
-        credit_name: str = "test",
-        expiration_date_from: str = "2021-03-01",
-        expiration_date_to: str = "2022-03-01",
-        expiration_period: int = 1,
-    ) -> dict[str, Any]:
-        """Grant paid credit to user.
-
-        Args:
-            campaign_id: Campaign ID for paid credit
-            amount: Credit amount to grant
-            credit_name: Name of the credit
-            expiration_date_from: Start date for credit validity
-            expiration_date_to: End date for credit validity
-            expiration_period: Expiration period
-
-        Returns:
-            API response data
-
-        Raises:
-            APIRequestException: If credit grant fails
-        """
-        headers = {
-            "Accept": "application/json;charset=UTF-8",
-            "Content-Type": "application/json",
-            "uuid": self.uuid,
-        }
-
-        credit_data = {
-            "credit": amount,
-            "creditName": credit_name,
-            "expirationDateFrom": expiration_date_from,
-            "expirationDateTo": expiration_date_to,
-            "expirationPeriod": expiration_period,
-            "uuidList": [self.uuid],
-        }
-
-        endpoint = f"billing/admin/campaign/{campaign_id}/credits"
-
-        logger.info("Granting paid credit: {amount} via campaign %s", campaign_id)
-
-        try:
-            response = self._client.post(
-                endpoint, headers=headers, json_data=credit_data
-            )
-            logger.info("Successfully granted paid credit: %s", amount)
-            return response
-        except APIRequestException as e:
-            logger.exception("Failed to grant paid credit: %s", e)
+            logger.exception(f"Failed to grant credit: {e}")
             raise
 
     def get_credit_history(
         self,
-        credit_type: CreditType | str,
+        credit_type: Union[CreditType, str] = CreditType.FREE,
         page: int = 1,
         items_per_page: int = 100,
-    ) -> int:
-        """Get credit history for specified type.
+    ) -> Tuple[CreditAmount, List[CreditHistory]]:
+        """
+        Get credit history for specified type.
 
         Args:
             credit_type: Type of credit (FREE or PAID)
@@ -182,260 +356,384 @@ class CreditManager:
             items_per_page: Number of items per page
 
         Returns:
-            Total credit amount
+            Tuple of (total_amount, credit_history_list)
 
         Raises:
             ValidationException: If credit type is invalid
             APIRequestException: If inquiry fails
         """
         # Normalize credit type
-        credit_type_str = (
-            credit_type.value if isinstance(credit_type, CreditType) else credit_type
-        )
-
-        if credit_type_str not in [t.value for t in CreditType]:
-            msg = f"Invalid credit type: {credit_type_str}"
-            raise ValidationException(msg)
-
-        params = {
-            "balancePriceTypeCode": credit_type_str,
-            "page": page,
-            "itemsPerPage": items_per_page,
-        }
-
-        headers = {"Accept": "application/json;charset=UTF-8", "uuid": self.uuid}
-
-        endpoint = "billing/credits/history"
-
-        logger.info("Retrieving %s credit history", credit_type_str)
-
+        if isinstance(credit_type, str):
+            try:
+                credit_type = CreditType(credit_type.upper())
+            except ValueError:
+                raise ValidationException(f"Invalid credit type: {credit_type}")
+        
+        logger.info(f"Getting credit history: type={credit_type.value}, page={page}")
+        
         try:
-            response = self._client.get(endpoint, headers=headers, params=params)
-            total_amount = response.get("totalCreditAmt", 0)
-            logger.info("Total {credit_type_str} credit amount: %s", total_amount)
-            return total_amount
+            response = self._api.get_credit_history(
+                self.uuid,
+                credit_type,
+                page,
+                items_per_page
+            )
+            
+            # Parse response
+            history_data = response.get("creditHistories", [])
+            histories = [
+                CreditHistory.from_api_response(item)
+                for item in history_data
+            ]
+            
+            # Calculate total
+            total_credit = CreditCalculator.calculate_total_from_history(histories)
+            
+            logger.info(
+                f"Found {len(histories)} credit entries, "
+                f"total: {total_credit:,.2f}"
+            )
+            
+            return total_credit, histories
+            
         except APIRequestException as e:
-            logger.exception("Failed to get credit history: %s", e)
+            logger.exception(f"Failed to get credit history: {e}")
             raise
 
-    def get_remaining_credit(self) -> tuple[int, int]:
-        """Get remaining credit balance.
+    def get_credit_balance(
+        self,
+        include_paid: bool = True
+    ) -> Dict[str, CreditAmount]:
+        """
+        Get current credit balance.
+
+        Args:
+            include_paid: Whether to include paid credits
 
         Returns:
-            Tuple of (remaining_balance, total_credit_history)
+            Dictionary with credit balances by type
 
         Raises:
             APIRequestException: If inquiry fails
         """
-        headers = {"Accept": "application/json;charset=UTF-8", "uuid": self.uuid}
-
-        endpoint = "billing/v5.0/credits"
-
-        logger.info("Retrieving remaining credit balance")
-
+        balance = {
+            "free": 0.0,
+            "paid": 0.0,
+            "total": 0.0
+        }
+        
         try:
-            response = self._client.get(endpoint, headers=headers)
-
-            # Get credit history
-            free_history = self.get_credit_history(CreditType.FREE)
-            paid_history = self.get_credit_history(CreditType.PAID)
-            total_history = free_history + paid_history
-
-            # Parse remaining credits
-            total_remaining = response.get("stats", {}).get("totalAmount", 0)
-
-            # Log credit breakdown if available
-            rest_credits = response.get("stats", {}).get(
-                "restCreditsByBalancePriceTypeCode", []
-            )
-            for credit_info in rest_credits:
-                credit_type = credit_info.get("balancePriceTypeCode")
-                rest_amount = credit_info.get("restAmount", 0)
-                logger.info("{credit_type} remaining credit: %s", rest_amount)
-
-            logger.info("Total remaining credit: {total_remaining}, Total history: %s", total_history
+            # Get free credit balance
+            free_total, _ = self.get_credit_history(CreditType.FREE)
+            balance["free"] = free_total
+            
+            if include_paid:
+                # Get paid credit balance
+                paid_total, _ = self.get_credit_history(CreditType.PAID)
+                balance["paid"] = paid_total
+            
+            balance["total"] = balance["free"] + balance["paid"]
+            
+            logger.info(
+                f"Credit balance - Free: {balance['free']:,.2f}, "
+                f"Paid: {balance['paid']:,.2f}, "
+                f"Total: {balance['total']:,.2f}"
             )
             
-
-            return total_remaining, total_history
-
+            return balance
+            
         except APIRequestException as e:
-            logger.exception("Failed to get remaining credit: %s", e)
+            logger.exception(f"Failed to get credit balance: {e}")
             raise
 
     def cancel_credit(
-        self, campaign_ids: str | list[str], reason: str = "test"
-    ) -> dict[str, list[str]]:
-        """Cancel credit for specified campaigns.
+        self,
+        campaign_id: str,
+        reason: str = "Test cancellation"
+    ) -> CreditData:
+        """
+        Cancel credit for campaign.
 
         Args:
-            campaign_ids: Single campaign ID or list of IDs
+            campaign_id: Campaign ID to cancel credit for
             reason: Reason for cancellation
 
         Returns:
-            Dictionary with successful and failed cancellations
+            API response data
 
         Raises:
-            APIRequestException: If any cancellation fails critically
+            ValidationException: If campaign ID is invalid
+            APIRequestException: If cancellation fails
         """
-        # Normalize to list
-        if isinstance(campaign_ids, str):
-            campaign_ids = [campaign_ids]
+        if not campaign_id:
+            raise ValidationException("Campaign ID cannot be empty")
+        
+        logger.info(f"Cancelling credit for campaign: {campaign_id} (reason: {reason})")
+        
+        try:
+            response = self._api.cancel_credit(campaign_id, reason)
+            logger.info(f"Successfully cancelled credit for campaign: {campaign_id}")
+            return response
+            
+        except APIRequestException as e:
+            logger.exception(f"Failed to cancel credit: {e}")
+            raise
 
-        headers = {"Accept": "application/json;charset=UTF-8"}
+    def bulk_grant_credit(
+        self,
+        campaign_ids: List[str],
+        amount: CreditAmount,
+        **kwargs
+    ) -> Dict[str, Union[CreditData, Exception]]:
+        """
+        Grant credit to multiple campaigns.
 
-        successful = []
-        failed = []
+        Args:
+            campaign_ids: List of campaign IDs
+            amount: Credit amount to grant to each
+            **kwargs: Additional arguments for grant_credit
 
+        Returns:
+            Dictionary mapping campaign ID to result or exception
+        """
+        results = {}
+        
         for campaign_id in campaign_ids:
-            endpoint = f"billing/admin/campaign/{campaign_id}/credits"
-            params = {"reason": reason}
-
-            logger.info("Cancelling credit for campaign: %s", campaign_id)
-
             try:
-                self._client.delete(endpoint, headers=headers, params=params)
-                successful.append(campaign_id)
-                logger.info("Successfully cancelled credit for campaign: %s", campaign_id
-                )
-            except APIRequestException as e:
-                failed.append(campaign_id)
-                logger.exception("Failed to cancel credit for campaign {campaign_id}: %s", e)
+                result = self.grant_credit(campaign_id, amount, **kwargs)
+                results[campaign_id] = result
+                
+            except Exception as e:
+                logger.error(f"Failed to grant credit to {campaign_id}: {e}")
+                results[campaign_id] = e
+        
+        # Summary
+        success_count = sum(1 for r in results.values() if not isinstance(r, Exception))
+        logger.info(
+            f"Bulk credit grant completed: "
+            f"{success_count}/{len(campaign_ids)} successful"
+        )
+        
+        return results
 
-        return {"successful": successful, "failed": failed}
+    def bulk_cancel_credit(
+        self,
+        campaign_ids: List[str],
+        reason: str = "Bulk cancellation"
+    ) -> Dict[str, Union[CreditData, Exception]]:
+        """
+        Cancel credit for multiple campaigns.
+
+        Args:
+            campaign_ids: List of campaign IDs
+            reason: Reason for cancellation
+
+        Returns:
+            Dictionary mapping campaign ID to result or exception
+        """
+        results = {}
+        
+        for campaign_id in campaign_ids:
+            try:
+                result = self.cancel_credit(campaign_id, reason)
+                results[campaign_id] = result
+                
+            except Exception as e:
+                logger.error(f"Failed to cancel credit for {campaign_id}: {e}")
+                results[campaign_id] = e
+        
+        # Summary
+        success_count = sum(1 for r in results.values() if not isinstance(r, Exception))
+        logger.info(
+            f"Bulk credit cancellation completed: "
+            f"{success_count}/{len(campaign_ids)} successful"
+        )
+        
+        return results
 
 
-# Backward compatibility wrapper
+# Backward compatibility wrapper - deprecated
 class Credit:
-    """Legacy wrapper for backward compatibility."""
+    """
+    Legacy wrapper for backward compatibility.
+    
+    .. deprecated:: 2.0
+        Use CreditManager directly instead.
+    """
 
     def __init__(self) -> None:
+        warnings.warn(
+            "Credit class is deprecated. Use CreditManager directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self._couponcode = ""
         self._uuid = ""
         self._headers = ""
-        self._campaign_id = []
-        self._give_campaign_id = []
-        self._paid_campaign_id = []
-        self._manager = None
+        self._campaign_id: List[str] = []
+        self._give_campaign_id: List[str] = []
+        self._paid_campaign_id: List[str] = []
+        self._manager: Optional[CreditManager] = None
 
     def __repr__(self) -> str:
-        return (
-            f"Credit(couponCode: {self.couponcode}, "
-            f"uuid: {self.uuid}, couponId: {self.campaign_id}, "
-            f"giveCouponId: {self.give_campaign_id}, paidCampaignId: {self.paid_campaign_id}"
-        )
+        return f"Credit(uuid={self._uuid!r})"
 
+    # Property setters for backward compatibility
     @property
-    def couponcode(self):
+    def couponcode(self) -> str:
         return self._couponcode
 
     @couponcode.setter
-    def couponcode(self, couponcode) -> None:
-        self._couponcode = couponcode
+    def couponcode(self, value: str) -> None:
+        self._couponcode = value
 
     @property
-    def uuid(self):
+    def uuid(self) -> str:
         return self._uuid
 
     @uuid.setter
-    def uuid(self, uuid) -> None:
-        self._uuid = uuid
-        self._manager = CreditManager(uuid) if uuid else None
+    def uuid(self, value: str) -> None:
+        self._uuid = value
+        self._manager = CreditManager(value) if value else None
 
     @property
-    def campaign_id(self):
+    def headers(self) -> str:
+        return self._headers
+
+    @headers.setter
+    def headers(self, value: str) -> None:
+        self._headers = value
+
+    @property
+    def campaign_id(self) -> List[str]:
         return self._campaign_id
 
     @campaign_id.setter
-    def campaign_id(self, campaign_id) -> None:
-        self._campaign_id = campaign_id
+    def campaign_id(self, value: List[str]) -> None:
+        self._campaign_id = value
 
     @property
-    def give_campaign_id(self):
+    def give_campaign_id(self) -> List[str]:
         return self._give_campaign_id
 
     @give_campaign_id.setter
-    def give_campaign_id(self, give_campaign_id) -> None:
-        self._give_campaign_id = give_campaign_id
+    def give_campaign_id(self, value: List[str]) -> None:
+        self._give_campaign_id = value
 
     @property
-    def paid_campaign_id(self):
+    def paid_campaign_id(self) -> List[str]:
         return self._paid_campaign_id
 
     @paid_campaign_id.setter
-    def paid_campaign_id(self, paid_campaign_id) -> None:
-        self._paid_campaign_id = paid_campaign_id
+    def paid_campaign_id(self, value: List[str]) -> None:
+        self._paid_campaign_id = value
 
-    def give_credit(self, couponCode, *args) -> None:
-        """Legacy method for granting credit."""
+    # Legacy method mappings
+    def give_coupon_credit(self) -> None:
+        """Legacy method for granting coupon credit."""
+        if self._manager and self._couponcode:
+            try:
+                self._manager.grant_coupon_credit(self._couponcode)
+            except Exception as e:
+                logger.exception(f"Legacy give_coupon_credit failed: {e}")
+
+    def give_credit_all(self) -> None:
+        """Legacy method for granting all direct credits."""
         if not self._manager:
             return
+        
+        for campaign_id in self._give_campaign_id:
+            try:
+                self._manager.grant_credit(
+                    campaign_id,
+                    amount=10000,
+                    credit_name="QA billing test"
+                )
+            except Exception as e:
+                logger.exception(f"Legacy give_credit_all failed for {campaign_id}: {e}")
 
-        try:
-            if args:
-                # Direct credit grant
-                self._manager.grant_direct_credit(couponCode, args[0])
-            else:
-                # Coupon credit grant
-                self._manager.grant_coupon_credit(couponCode)
-        except Exception:
-            pass
-
-    def give_paid_credit(self, **kwargs) -> None:
-        """Legacy method for granting paid credit."""
+    def use_credit_all(self) -> None:
+        """Legacy method for using all direct credits."""
         if not self._manager:
             return
+        
+        for campaign_id in self._campaign_id:
+            try:
+                self._manager.cancel_credit(campaign_id)
+            except Exception as e:
+                logger.exception(f"Legacy use_credit_all failed for {campaign_id}: {e}")
 
-        campaign_id = kwargs.get("campaignId")
-        credit_amount = kwargs.get("creditAmount")
+    def cancel_give_credit_all(self) -> None:
+        """Legacy method for cancelling all given credits."""
+        if not self._manager:
+            return
+        
+        for campaign_id in self._give_campaign_id:
+            try:
+                self._manager.cancel_credit(campaign_id)
+            except Exception as e:
+                logger.exception(f"Legacy cancel_give_credit_all failed for {campaign_id}: {e}")
 
-        with contextlib.suppress(Exception):
-            self._manager.grant_paid_credit(campaign_id, credit_amount)
+    def use_paid_credit_all(self) -> None:
+        """Legacy method for using all paid credits."""
+        if not self._manager:
+            return
+        
+        for campaign_id in self._paid_campaign_id:
+            try:
+                self._manager.cancel_credit(campaign_id)
+            except Exception as e:
+                logger.exception(f"Legacy use_paid_credit_all failed for {campaign_id}: {e}")
 
-    def inquiry_credit(self, *args):
-        """Legacy method for credit inquiry."""
+    def cancel_paid_credit_all(self) -> None:
+        """Legacy method for cancelling all paid credits."""
+        if not self._manager:
+            return
+        
+        for campaign_id in self._paid_campaign_id:
+            try:
+                self._manager.cancel_credit(campaign_id)
+            except Exception as e:
+                logger.exception(f"Legacy cancel_paid_credit_all failed for {campaign_id}: {e}")
+
+    def give_paid_credit_all(self) -> None:
+        """Legacy method for granting all paid credits."""
+        if not self._manager:
+            return
+        
+        for campaign_id in self._paid_campaign_id:
+            try:
+                self._manager.grant_credit(
+                    campaign_id,
+                    amount=10000,
+                    credit_name="test",
+                    expiration_date_from="2021-03-01",
+                    expiration_date_to="2022-03-01"
+                )
+            except Exception as e:
+                logger.exception(f"Legacy give_paid_credit_all failed for {campaign_id}: {e}")
+
+    def free_credit_inquiry(self) -> int:
+        """Legacy method for free credit inquiry."""
         if not self._manager:
             return 0
-
+        
         try:
-            return self._manager.get_credit_history(args[0])
-        except Exception:
+            balance = self._manager.get_credit_balance(include_paid=False)
+            return int(balance.get("free", 0))
+        except Exception as e:
+            logger.exception(f"Legacy free_credit_inquiry failed: {e}")
             return 0
 
-    def inquiry_rest_credit(self):
-        """Legacy method for remaining credit inquiry."""
+    def paid_credit_inquiry(self) -> int:
+        """Legacy method for paid credit inquiry."""
         if not self._manager:
-            return "", ""
-
+            return 0
+        
         try:
-            remaining, total_history = self._manager.get_remaining_credit()
-
-            if remaining > 0:
-                pass
-            else:
-                pass
-
-            return remaining, total_history
-        except Exception:
-            return "", ""
-
-    def cancel_credit(self) -> None:
-        """Legacy method for credit cancellation."""
-        if not self._manager:
-            return
-
-        all_campaigns = self.campaign_id + self.give_campaign_id + self.paid_campaign_id
-
-        if not all_campaigns:
-            return
-
-        try:
-            result = self._manager.cancel_credit(all_campaigns)
-
-            for _campaign_id in result["successful"]:
-                pass
-
-            for _campaign_id in result["failed"]:
-                pass
-        except Exception:
-            pass
+            balance = self._manager.get_credit_balance(include_paid=True)
+            return int(balance.get("paid", 0))
+        except Exception as e:
+            logger.exception(f"Legacy paid_credit_inquiry failed: {e}")
+            return 0
