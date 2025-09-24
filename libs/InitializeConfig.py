@@ -90,9 +90,7 @@ class ModuleConfigLoader(ConfigLoader):
                 f"Configuration module not found: {module_name}. "
                 f"Please ensure config/{environment}_{member}.py exists."
             )
-            raise ConfigurationException(
-                msg
-            ) from e
+            raise ConfigurationException(msg) from e
 
         # Extract configuration - check both new and legacy names
         if hasattr(config_module, "test_config"):
@@ -102,9 +100,7 @@ class ModuleConfigLoader(ConfigLoader):
             config_data = config_module.config
         else:
             msg = f"Configuration module {module_name} must define 'test_config' or 'config'"
-            raise ConfigurationException(
-                msg
-            )
+            raise ConfigurationException(msg)
 
         # Handle both dictionary and dataclass configurations
         if isinstance(config_data, EnvironmentConfig):
@@ -117,9 +113,7 @@ class ModuleConfigLoader(ConfigLoader):
             f"Invalid configuration type in {module_name}. "
             f"Expected EnvironmentConfig or dict, got {type(config_data)}"
         )
-        raise ConfigurationException(
-            msg
-        )
+        raise ConfigurationException(msg)
 
     def _create_from_dict(self, config_data: dict[str, Any]) -> EnvironmentConfig:
         """Create configuration from dictionary."""
@@ -135,9 +129,7 @@ class ModuleConfigLoader(ConfigLoader):
             )
         except KeyError as e:
             msg = f"Missing required configuration field: {e}"
-            raise ConfigurationException(
-                msg
-            ) from e
+            raise ConfigurationException(msg) from e
 
 
 class ManagerFactory(Protocol):
@@ -324,9 +316,7 @@ class ConfigurationManager:
             raise
         except Exception as e:
             msg = f"Unexpected error loading configuration: {e}"
-            raise ConfigurationException(
-                msg
-            ) from e
+            raise ConfigurationException(msg) from e
 
     def validate_config(self, config: EnvironmentConfig) -> None:
         """Validate configuration completeness.

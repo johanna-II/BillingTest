@@ -1,6 +1,5 @@
 """Adjustment integration tests - converted from unit tests."""
 
-
 import pytest
 
 from libs.Adjustment import AdjustmentManager

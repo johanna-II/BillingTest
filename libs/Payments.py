@@ -71,18 +71,14 @@ class PaymentValidator:
         # First check the exact format with regex
         if not re.match(r"^\d{4}-\d{2}$", month):
             msg = f"Invalid month format: {month}. Expected YYYY-MM format (e.g., 2024-01)"
-            raise ValidationException(
-                msg
-            )
+            raise ValidationException(msg)
 
         # Then validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
         except ValueError as e:
             msg = f"Invalid month format: {month}. Expected YYYY-MM format (e.g., 2024-01)"
-            raise ValidationException(
-                msg
-            ) from e
+            raise ValidationException(msg) from e
 
     @staticmethod
     def validate_payment_group_id(payment_group_id: str) -> None:

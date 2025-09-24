@@ -1,6 +1,5 @@
 """Refactored credit tests using enhanced base class."""
 
-
 import pytest
 
 from tests.base_enhanced import EnhancedBaseBillingTest, MockDataMixin

@@ -278,9 +278,7 @@ class BillingAPIClient:
                 return {"text": response.text}
 
             msg = f"Invalid JSON response: {e}"
-            raise APIRequestException(
-                msg, status_code=response.status_code
-            )
+            raise APIRequestException(msg, status_code=response.status_code)
 
         # Check HTTP status code
         if response.status_code >= 400:
@@ -484,9 +482,7 @@ class BillingAPIClient:
 
         # Timeout reached
         msg = f"Operation timed out after {timeout}s"
-        raise APIRequestException(
-            msg, response_data=last_response
-        )
+        raise APIRequestException(msg, response_data=last_response)
 
     def _check_completion(
         self, response: JsonData, status_field: str, success_value: str

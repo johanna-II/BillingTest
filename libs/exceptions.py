@@ -183,9 +183,7 @@ class APIRequestException(BillingTestException):
             return ErrorCode.API_TIMEOUT
         return ErrorCode.API_REQUEST_FAILED
 
-    def _extract_retry_after(
-        self, response_data: dict[str, Any] | None
-    ) -> int | None:
+    def _extract_retry_after(self, response_data: dict[str, Any] | None) -> int | None:
         """Extract retry-after value from response."""
         if not response_data:
             return None

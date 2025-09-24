@@ -741,7 +741,9 @@ def get_statements():
     for adj_key, adj_data in adjustments.items():
         if adj_data.get("month") == month:
             # Check if this is a project adjustment
-            if (adj_data.get("projectId") and adj_data.get("adjustmentType")) or (adj_data.get("billingGroupId") and adj_data.get("adjustmentType")):
+            if (adj_data.get("projectId") and adj_data.get("adjustmentType")) or (
+                adj_data.get("billingGroupId") and adj_data.get("adjustmentType")
+            ):
                 adj_type = adj_data["adjustmentType"]
                 adj_amount = adj_data.get("adjustment", 0)
 
@@ -1109,9 +1111,7 @@ def project_adjustments():
         "target": "Project",
         "projectId": data.get("projectId"),
         "month": data.get("monthFrom", data.get("month")),
-        "adjustmentType": data.get(
-            "adjustmentTypeCode", data.get("adjustmentType")
-        ),
+        "adjustmentType": data.get("adjustmentTypeCode", data.get("adjustmentType")),
         "adjustmentValue": data.get("adjustment", data.get("adjustmentValue")),
         "description": description,
         "createdAt": datetime.now().isoformat(),
@@ -1175,9 +1175,7 @@ def billing_group_adjustments():
         "target": "BillingGroup",
         "billingGroupId": data.get("billingGroupId"),
         "month": data.get("monthFrom", data.get("month")),
-        "adjustmentType": data.get(
-            "adjustmentTypeCode", data.get("adjustmentType")
-        ),
+        "adjustmentType": data.get("adjustmentTypeCode", data.get("adjustmentType")),
         "adjustmentValue": data.get("adjustment", data.get("adjustmentValue")),
         "description": description,
         "createdAt": datetime.now().isoformat(),
