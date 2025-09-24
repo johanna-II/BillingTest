@@ -1,12 +1,12 @@
 import pytest
-from libs import InitializeConfig
-from libs import Metering
-from libs import Payments
-from libs import Batches
-import libs.calculation as calc
-from libs import Credit
-import libs.adjustment as adj
-from libs import Contract
+from libs.InitializeConfig import InitializeConfig
+from libs.Metering import MeteringManager as Metering
+from libs.Payments import PaymentManager as Payments
+from libs.Batch import BatchManager as Batches
+import libs.Calculation as calc
+from libs.Credit import CreditManager as Credit
+from libs.Adjustment import AdjustmentManager
+from libs.Contract import ContractManager as Contract
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -24,7 +24,7 @@ class TestUnpaidWithCredit:
                 "Credit test should be skipped if member country is not KR or JP"
             )
         self.config = InitializeConfig(env, member, month)
-        self.config.before_test()
+        self.config.prepare()
         self.clean_all_month_resources()
         self.config.month = self.calc_prev_month(month=2)
         # 전전월 미터링 전송
@@ -50,7 +50,7 @@ class TestUnpaidWithCredit:
         self.send_payments_change(month=2)
         self.send_payments_change(month=0)
         self.credit.cancel_credit()
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
@@ -73,7 +73,7 @@ class TestUnpaidWithCredit:
         )
         contractObj.contractId = "<contractID>"
         contractObj.apply_contract()
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -142,7 +142,7 @@ class TestUnpaidWithCredit:
     def test_unpaid_and_credit_TC2(self):
         self.send_prev_month_metering(month=0)
         self.config.month = self.calc_prev_month(month=0)
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],

@@ -3,7 +3,7 @@
 import math
 import pytest
 
-from libs import CounterType
+from libs.constants import CounterType
 from tests.base import BaseAdjustmentTest, MeteringItem
 
 

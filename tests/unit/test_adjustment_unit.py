@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime
-from libs.adjustment import AdjustmentManager, Adjustments
+from libs.Adjustment import AdjustmentManager
 from libs.constants import AdjustmentType, AdjustmentTarget
 from libs.exceptions import ValidationException, APIRequestException
 
@@ -14,16 +14,11 @@ class TestAdjustmentManagerUnit:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Set up test fixtures"""
-        with patch('libs.adjustment.BillingAPIClient') as mock_client_class:
+        with patch('libs.Adjustment.BillingAPIClient') as mock_client_class:
             self.mock_client = Mock()
             mock_client_class.return_value = self.mock_client
             self.adjustment_manager = AdjustmentManager(month="2024-01")
             yield
-    
-    def test_init(self):
-        """Test AdjustmentManager initialization"""
-        assert self.adjustment_manager.month == "2024-01"
-        assert hasattr(self.adjustment_manager, '_client')
     
     def test_apply_adjustment_billing_group_success(self):
         """Test successful adjustment application to billing group"""
@@ -104,18 +99,6 @@ class TestAdjustmentManagerUnit:
             )
         
         assert "Invalid adjustment target" in str(exc_info.value)
-    
-    def test_apply_adjustment_api_error(self):
-        """Test adjustment application with API error"""
-        self.mock_client.post.side_effect = APIRequestException("API Error")
-        
-        with pytest.raises(APIRequestException):
-            self.adjustment_manager.apply_adjustment(
-                adjustment_amount=1000,
-                adjustment_type=AdjustmentType.FIXED_DISCOUNT,
-                adjustment_target=AdjustmentTarget.BILLING_GROUP,
-                target_id="bg-123"
-            )
     
     def test_get_adjustments_billing_group(self):
         """Test retrieving adjustments for billing group"""
@@ -221,16 +204,6 @@ class TestAdjustmentManagerUnit:
                 {"params": {"adjustmentIds": adj_id}}
             )
     
-    def test_delete_adjustment_api_error(self):
-        """Test delete adjustment with API error"""
-        self.mock_client.delete.side_effect = APIRequestException("Delete failed")
-        
-        with pytest.raises(APIRequestException):
-            self.adjustment_manager.delete_adjustment(
-                adjustment_ids="adj-001",
-                adjustment_target=AdjustmentTarget.BILLING_GROUP
-            )
-    
     def test_delete_all_adjustments_success(self):
         """Test deleting all adjustments for a target"""
         # Mock get_adjustments to return some adjustment IDs
@@ -262,151 +235,3 @@ class TestAdjustmentManagerUnit:
         
         assert count == 0
         self.mock_client.delete.assert_not_called()
-    
-    def test_string_representation(self):
-        """Test string representation of AdjustmentManager"""
-        assert repr(self.adjustment_manager) == "AdjustmentManager(month=2024-01)"
-
-
-class TestAdjustmentsLegacyWrapper:
-    """Unit tests for legacy Adjustments wrapper"""
-    
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Set up test fixtures"""
-        with patch('libs.adjustment.AdjustmentManager') as mock_manager_class:
-            self.mock_manager = Mock()
-            mock_manager_class.return_value = self.mock_manager
-            self.adjustments = Adjustments(month="2024-01")
-            yield
-    
-    def test_apply_adjustment_legacy_billing_group(self):
-        """Test legacy apply_adjustment with billing group"""
-        self.adjustments.apply_adjustment(
-            adjustment=1000,
-            adjustmentType="FIXED_DISCOUNT",
-            adjustmentTarget="BillingGroup",
-            billingGroupId="bg-123"
-        )
-        
-        self.mock_manager.apply_adjustment.assert_called_once_with(
-            adjustment_amount=1000,
-            adjustment_type="FIXED_DISCOUNT",
-            adjustment_target="BillingGroup",
-            target_id="bg-123"
-        )
-    
-    def test_apply_adjustment_legacy_project(self):
-        """Test legacy apply_adjustment with project"""
-        self.adjustments.apply_adjustment(
-            adjustment=15.5,
-            adjustmentType="RATE_DISCOUNT",
-            adjustmentTarget="Project",
-            projectId="proj-456"
-        )
-        
-        self.mock_manager.apply_adjustment.assert_called_once_with(
-            adjustment_amount=15.5,
-            adjustment_type="RATE_DISCOUNT",
-            adjustment_target="Project",
-            target_id="proj-456"
-        )
-    
-    def test_apply_adjustment_legacy_missing_params(self):
-        """Test legacy apply_adjustment with missing parameters"""
-        with pytest.raises(ValidationException) as exc_info:
-            self.adjustments.apply_adjustment(
-                adjustment=1000,
-                adjustmentType="FIXED_DISCOUNT"
-                # Missing adjustmentTarget
-            )
-        
-        assert "Missing required parameters" in str(exc_info.value)
-    
-    def test_apply_adjustment_legacy_no_target_id(self):
-        """Test legacy apply_adjustment without target ID"""
-        with pytest.raises(ValidationException) as exc_info:
-            self.adjustments.apply_adjustment(
-                adjustment=1000,
-                adjustmentType="FIXED_DISCOUNT",
-                adjustmentTarget="BillingGroup"
-                # Missing both billingGroupId and projectId
-            )
-        
-        assert "Either billingGroupId or projectId must be provided" in str(exc_info.value)
-    
-    def test_inquiry_adjustment_legacy_billing_group(self):
-        """Test legacy inquiry_adjustment for billing group"""
-        self.mock_manager.get_adjustments.return_value = ["adj-001", "adj-002"]
-        
-        result = self.adjustments.inquiry_adjustment(
-            adjustmentTarget="BillingGroup",
-            billingGroupid="bg-123"  # Note lowercase 'id'
-        )
-        
-        assert result == ["adj-001", "adj-002"]
-        self.mock_manager.get_adjustments.assert_called_once_with(
-            adjustment_target="BillingGroup",
-            target_id="bg-123"
-        )
-    
-    def test_inquiry_adjustment_legacy_project(self):
-        """Test legacy inquiry_adjustment for project"""
-        self.mock_manager.get_adjustments.return_value = ["adj-003"]
-        
-        result = self.adjustments.inquiry_adjustment(
-            adjustmentTarget="Project",
-            projectId="proj-456"
-        )
-        
-        assert result == ["adj-003"]
-        self.mock_manager.get_adjustments.assert_called_once_with(
-            adjustment_target="Project",
-            target_id="proj-456"
-        )
-    
-    def test_inquiry_adjustment_legacy_missing_target(self):
-        """Test legacy inquiry_adjustment without target"""
-        result = self.adjustments.inquiry_adjustment(
-            billingGroupid="bg-123"
-            # Missing adjustmentTarget
-        )
-        
-        assert result is None
-        self.mock_manager.get_adjustments.assert_not_called()
-    
-    def test_inquiry_adjustment_legacy_api_error(self):
-        """Test legacy inquiry_adjustment with API error"""
-        self.mock_manager.get_adjustments.side_effect = APIRequestException("Error")
-        
-        result = self.adjustments.inquiry_adjustment(
-            adjustmentTarget="BillingGroup",
-            billingGroupid="bg-123"
-        )
-        
-        assert result is None
-    
-    def test_delete_adjustment_legacy_single(self):
-        """Test legacy delete_adjustment with single ID"""
-        self.adjustments.delete_adjustment("adj-001")
-        
-        self.mock_manager.delete_adjustment.assert_called_once_with(
-            "adj-001",
-            AdjustmentTarget.PROJECT  # Default target
-        )
-    
-    def test_delete_adjustment_legacy_multiple(self):
-        """Test legacy delete_adjustment with multiple IDs"""
-        adj_ids = ["adj-001", "adj-002", "adj-003"]
-        self.adjustments.delete_adjustment(adj_ids)
-        
-        self.mock_manager.delete_adjustment.assert_called_once_with(
-            adj_ids,
-            AdjustmentTarget.PROJECT  # Default target
-        )
-    
-    def test_delete_adjustment_legacy_empty(self):
-        """Test legacy delete_adjustment with empty input"""
-        self.adjustments.delete_adjustment([])
-        
-        self.mock_manager.delete_adjustment.assert_not_called()

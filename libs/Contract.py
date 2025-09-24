@@ -3,7 +3,7 @@
 import contextlib
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from config import url
 
@@ -19,12 +19,13 @@ logger = logging.getLogger(__name__)
 class ContractManager:
     """Manages billing contracts for billing groups."""
 
-    def __init__(self, month: str, billing_group_id: str) -> None:
+    def __init__(self, month: str, billing_group_id: str, client: Optional[BillingAPIClient] = None) -> None:
         """Initialize contract manager.
 
         Args:
             month: Target month in YYYY-MM format
             billing_group_id: Billing group ID for contract operations
+            client: Optional BillingAPIClient instance for dependency injection
 
         Raises:
             ValidationException: If parameters are invalid
@@ -32,7 +33,7 @@ class ContractManager:
         self._validate_month_format(month)
         self.month = month
         self.billing_group_id = billing_group_id
-        self._client = BillingAPIClient(url.BASE_BILLING_URL)
+        self._client = client if client else BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
         return f"ContractManager(month={self.month}, billing_group_id={self.billing_group_id})"
@@ -234,82 +235,3 @@ class ContractManager:
                 results[counter_name] = {"error": str(e)}
 
         return results
-
-
-# Backward compatibility wrapper
-class Contract:
-    """Legacy wrapper for backward compatibility."""
-
-    def __init__(self, month: str, bgId: str) -> None:
-        self.month = month
-        self.bgId = bgId
-        self._contractId = ""
-        self._counterName = ""
-        self._manager = ContractManager(month, bgId)
-
-    def __repr__(self) -> str:
-        return f"Contract(month: {self.month}, bgId: {self.bgId}, contractId: {self._contractId})"
-
-    @property
-    def contract_id(self):
-        return self._contractId
-
-    @contract_id.setter
-    def contract_id(self, contractId) -> None:
-        self._contractId = contractId
-    
-    # Backward compatibility alias
-    @property
-    def contractId(self):
-        return self._contractId
-    
-    @contractId.setter
-    def contractId(self, value) -> None:
-        self._contractId = value
-
-    @property
-    def counter_name(self):
-        return self._counterName
-
-    @counter_name.setter
-    def counter_name(self, counterName) -> None:
-        self._counterName = counterName
-    
-    # Backward compatibility alias
-    @property
-    def counterName(self):
-        return self._counterName
-    
-    @counterName.setter
-    def counterName(self, value) -> None:
-        self._counterName = value
-
-    def apply_contract(self) -> None:
-        """Legacy method for applying contract."""
-        with contextlib.suppress(Exception):
-            self._manager.apply_contract(self.contractId)
-
-    def delete_contract(self) -> None:
-        """Legacy method for deleting contract."""
-        with contextlib.suppress(Exception):
-            self._manager.delete_contract()
-
-    def inquiry_contract(self) -> None:
-        """Legacy method for querying contract."""
-        with contextlib.suppress(Exception):
-            self._manager.get_contract_details(self.contractId)
-
-    def inquiry_priceby_counter_name(self):
-        """Legacy method for querying counter price."""
-        try:
-            price_info = self._manager.get_counter_price(
-                self.contractId, self.counterName
-            )
-
-            # Return in legacy format
-            cntcont = defaultdict(set)
-            cntcont["price"].add(price_info["price"])
-            cntcont["originalPrice"].add(price_info["original_price"])
-            return cntcont
-        except Exception:
-            return None

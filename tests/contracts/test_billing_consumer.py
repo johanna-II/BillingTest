@@ -9,10 +9,9 @@ import pytest
 import requests
 from pact import Consumer, Like, Provider, Term
 
-from libs.Contract import Contract
-from libs.Credit import Credit
-from libs.Metering import Metering
-from libs.Payments import Payments
+from libs.Contract import ContractManager
+from libs.Metering import MeteringManager
+from libs.Payments import PaymentManager
 
 
 # Pact configuration

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -273,6 +274,50 @@ class CreditManager:
             logger.exception(f"Failed to grant coupon credit: {e}")
             raise
 
+    def grant_credit_to_users(
+        self,
+        credit_amount: float,
+        credit_type: CreditType,
+        user_list: List[str],
+        description: Optional[str] = None,
+        expires_in_days: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Grant credit to multiple users (legacy compatibility method).
+        
+        Args:
+            credit_amount: Amount of credit to grant
+            credit_type: Type of credit
+            user_list: List of user UUIDs to grant credit to
+            description: Description of the credit
+            expires_in_days: Expiration period in days
+            
+        Returns:
+            Result dictionary with success_count
+        """
+        success_count = 0
+        campaign_id = f"TEST-{credit_type.value}-{int(time.time())}"
+        
+        for user_uuid in user_list:
+            if user_uuid == self.uuid:
+                try:
+                    # Convert days to months for expiration
+                    expiration_months = None
+                    if expires_in_days:
+                        expiration_months = max(1, expires_in_days // 30)
+                    
+                    self.grant_credit(
+                        campaign_id=campaign_id,
+                        amount=credit_amount,
+                        credit_name=description or f"{credit_type.value} Credit",
+                        expiration_months=expiration_months
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to grant credit to {user_uuid}: {e}")
+        
+        return {"success_count": success_count}
+    
     def grant_credit(
         self,
         campaign_id: str,
@@ -445,6 +490,25 @@ class CreditManager:
         except APIRequestException as e:
             logger.exception(f"Failed to get credit balance: {e}")
             raise
+    
+    def get_total_credit_balance(self, include_paid: bool = True) -> CreditAmount:
+        """
+        Get total credit balance as a single number.
+        
+        Args:
+            include_paid: Whether to include paid credits
+            
+        Returns:
+            Total credit amount
+        """
+        balance_dict = self.get_credit_balance(include_paid)
+        total = 0.0
+        
+        for credit_type, amount in balance_dict.items():
+            if isinstance(amount, (int, float)):
+                total += float(amount)
+        
+        return total
 
     def cancel_credit(
         self,
@@ -552,188 +616,21 @@ class CreditManager:
         return results
 
 
-# Backward compatibility wrapper - deprecated
-class Credit:
+# Legacy compatibility alias
+class Credit(CreditManager):
     """
-    Legacy wrapper for backward compatibility.
+    Legacy alias for CreditManager.
     
     .. deprecated:: 2.0
-        Use CreditManager directly instead.
+        Use CreditManager instead. This alias is kept for backward compatibility.
     """
-
-    def __init__(self) -> None:
+    
+    def __init__(self, *args, **kwargs):
+        """Initialize with deprecation warning."""
+        import warnings
         warnings.warn(
-            "Credit class is deprecated. Use CreditManager directly.",
+            "Credit class is deprecated. Use CreditManager instead.",
             DeprecationWarning,
             stacklevel=2
         )
-        
-        self._couponcode = ""
-        self._uuid = ""
-        self._headers = ""
-        self._campaign_id: List[str] = []
-        self._give_campaign_id: List[str] = []
-        self._paid_campaign_id: List[str] = []
-        self._manager: Optional[CreditManager] = None
-
-    def __repr__(self) -> str:
-        return f"Credit(uuid={self._uuid!r})"
-
-    # Property setters for backward compatibility
-    @property
-    def couponcode(self) -> str:
-        return self._couponcode
-
-    @couponcode.setter
-    def couponcode(self, value: str) -> None:
-        self._couponcode = value
-
-    @property
-    def uuid(self) -> str:
-        return self._uuid
-
-    @uuid.setter
-    def uuid(self, value: str) -> None:
-        self._uuid = value
-        self._manager = CreditManager(value) if value else None
-
-    @property
-    def headers(self) -> str:
-        return self._headers
-
-    @headers.setter
-    def headers(self, value: str) -> None:
-        self._headers = value
-
-    @property
-    def campaign_id(self) -> List[str]:
-        return self._campaign_id
-
-    @campaign_id.setter
-    def campaign_id(self, value: List[str]) -> None:
-        self._campaign_id = value
-
-    @property
-    def give_campaign_id(self) -> List[str]:
-        return self._give_campaign_id
-
-    @give_campaign_id.setter
-    def give_campaign_id(self, value: List[str]) -> None:
-        self._give_campaign_id = value
-
-    @property
-    def paid_campaign_id(self) -> List[str]:
-        return self._paid_campaign_id
-
-    @paid_campaign_id.setter
-    def paid_campaign_id(self, value: List[str]) -> None:
-        self._paid_campaign_id = value
-
-    # Legacy method mappings
-    def give_coupon_credit(self) -> None:
-        """Legacy method for granting coupon credit."""
-        if self._manager and self._couponcode:
-            try:
-                self._manager.grant_coupon_credit(self._couponcode)
-            except Exception as e:
-                logger.exception(f"Legacy give_coupon_credit failed: {e}")
-
-    def give_credit_all(self) -> None:
-        """Legacy method for granting all direct credits."""
-        if not self._manager:
-            return
-        
-        for campaign_id in self._give_campaign_id:
-            try:
-                self._manager.grant_credit(
-                    campaign_id,
-                    amount=10000,
-                    credit_name="QA billing test"
-                )
-            except Exception as e:
-                logger.exception(f"Legacy give_credit_all failed for {campaign_id}: {e}")
-
-    def use_credit_all(self) -> None:
-        """Legacy method for using all direct credits."""
-        if not self._manager:
-            return
-        
-        for campaign_id in self._campaign_id:
-            try:
-                self._manager.cancel_credit(campaign_id)
-            except Exception as e:
-                logger.exception(f"Legacy use_credit_all failed for {campaign_id}: {e}")
-
-    def cancel_give_credit_all(self) -> None:
-        """Legacy method for cancelling all given credits."""
-        if not self._manager:
-            return
-        
-        for campaign_id in self._give_campaign_id:
-            try:
-                self._manager.cancel_credit(campaign_id)
-            except Exception as e:
-                logger.exception(f"Legacy cancel_give_credit_all failed for {campaign_id}: {e}")
-
-    def use_paid_credit_all(self) -> None:
-        """Legacy method for using all paid credits."""
-        if not self._manager:
-            return
-        
-        for campaign_id in self._paid_campaign_id:
-            try:
-                self._manager.cancel_credit(campaign_id)
-            except Exception as e:
-                logger.exception(f"Legacy use_paid_credit_all failed for {campaign_id}: {e}")
-
-    def cancel_paid_credit_all(self) -> None:
-        """Legacy method for cancelling all paid credits."""
-        if not self._manager:
-            return
-        
-        for campaign_id in self._paid_campaign_id:
-            try:
-                self._manager.cancel_credit(campaign_id)
-            except Exception as e:
-                logger.exception(f"Legacy cancel_paid_credit_all failed for {campaign_id}: {e}")
-
-    def give_paid_credit_all(self) -> None:
-        """Legacy method for granting all paid credits."""
-        if not self._manager:
-            return
-        
-        for campaign_id in self._paid_campaign_id:
-            try:
-                self._manager.grant_credit(
-                    campaign_id,
-                    amount=10000,
-                    credit_name="test",
-                    expiration_date_from="2021-03-01",
-                    expiration_date_to="2022-03-01"
-                )
-            except Exception as e:
-                logger.exception(f"Legacy give_paid_credit_all failed for {campaign_id}: {e}")
-
-    def free_credit_inquiry(self) -> int:
-        """Legacy method for free credit inquiry."""
-        if not self._manager:
-            return 0
-        
-        try:
-            balance = self._manager.get_credit_balance(include_paid=False)
-            return int(balance.get("free", 0))
-        except Exception as e:
-            logger.exception(f"Legacy free_credit_inquiry failed: {e}")
-            return 0
-
-    def paid_credit_inquiry(self) -> int:
-        """Legacy method for paid credit inquiry."""
-        if not self._manager:
-            return 0
-        
-        try:
-            balance = self._manager.get_credit_balance(include_paid=True)
-            return int(balance.get("paid", 0))
-        except Exception as e:
-            logger.exception(f"Legacy paid_credit_inquiry failed: {e}")
-            return 0
+        super().__init__(*args, **kwargs)

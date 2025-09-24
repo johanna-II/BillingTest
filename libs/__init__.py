@@ -9,9 +9,9 @@ __version__ = "0.2.0"
 __author__ = "Billing Test Team"
 
 # Import main classes for easier access
-from .adjustment import AdjustmentManager, Adjustments
-from .Batch import Batches, BatchManager
-from .calculation import Calculation, CalculationManager
+from .Adjustment import AdjustmentManager
+from .Batch import BatchManager
+from .Calculation import CalculationManager
 from .constants import (
     AdjustmentTarget,
     AdjustmentType,
@@ -21,8 +21,8 @@ from .constants import (
     MemberCountry,
     PaymentStatus,
 )
-from .Contract import Contract, ContractManager
-from .Credit import Credit, CreditManager
+from .Contract import ContractManager
+from .Credit import CreditManager
 from .exceptions import (
     APIRequestException,
     AuthenticationException,
@@ -33,15 +33,10 @@ from .exceptions import (
     TimeoutException,
     ValidationException,
 )
-from .http_client import BillingAPIClient, SendDataSession
+from .http_client import BillingAPIClient
 from .InitializeConfig import ConfigurationManager, InitializeConfig
-
-# New managers
-from .Metering import Metering, MeteringManager
-from .Payments import PaymentManager, Payments
-
-# Legacy imports for backward compatibility
-from .SessionHandler import SendDataSession as SessionHandler
+from .Metering import MeteringManager
+from .Payments import PaymentManager
 
 # Define public API
 __all__ = [
@@ -49,34 +44,34 @@ __all__ = [
     "AdjustmentManager",
     "AdjustmentTarget",
     "AdjustmentType",
-    "Adjustments",
     "AuthenticationException",
     "BatchJobCode",
     "BatchManager",
-    "Batches",
     "BillingAPIClient",
     "BillingTestException",
-    "Calculation",
     "CalculationManager",
     "ConfigurationException",
     "ConfigurationManager",
-    "Contract",
     "ContractManager",
     "CounterType",
-    "Credit",
     "CreditManager",
     "CreditType",
     "DuplicateResourceException",
     "InitializeConfig",
     "MemberCountry",
-    "Metering",
     "MeteringManager",
     "PaymentManager",
     "PaymentStatus",
-    "Payments",
     "ResourceNotFoundException",
-    "SendDataSession",
-    "SessionHandler",
     "TimeoutException",
     "ValidationException",
 ]
+
+# Legacy compatibility aliases
+Adjustments = AdjustmentManager
+Metering = MeteringManager
+Calculation = CalculationManager
+Payments = PaymentManager
+Contract = ContractManager
+Credit = CreditManager
+Batch = BatchManager

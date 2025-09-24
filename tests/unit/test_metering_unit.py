@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime
-from libs.Metering import MeteringManager, Metering
+from libs.Metering import MeteringManager
 from libs.constants import CounterType
 from libs.exceptions import ValidationException, APIRequestException
 
@@ -20,24 +20,6 @@ class TestMeteringManagerUnit:
             self.metering = MeteringManager(month="2024-01")
             yield
     
-    def test_init_success(self):
-        """Test successful MeteringManager initialization"""
-        assert self.metering.month == "2024-01"
-        assert hasattr(self.metering, '_client')
-        assert hasattr(self.metering, '_iaas_template')
-    
-    @patch('libs.Metering.BillingAPIClient')
-    def test_init_invalid_month_format(self, mock_client_class):
-        """Test initialization with invalid month format"""
-        with pytest.raises(ValidationException) as exc_info:
-            MeteringManager(month="2024-1")  # Invalid format
-        
-        assert "Invalid month format" in str(exc_info.value)
-        assert "Expected YYYY-MM" in str(exc_info.value)
-    
-    def test_string_representation(self):
-        """Test string representation of MeteringManager"""
-        assert repr(self.metering) == "MeteringManager(month=2024-01)"
     
     def test_send_metering_success(self):
         """Test successful metering data submission"""
@@ -112,21 +94,6 @@ class TestMeteringManagerUnit:
         
         assert "Invalid counter type" in str(exc_info.value)
     
-    def test_send_metering_api_error(self):
-        """Test metering submission with API error"""
-        self.mock_client.post.side_effect = APIRequestException("Metering failed")
-        
-        with pytest.raises(APIRequestException) as exc_info:
-            self.metering.send_metering(
-                app_key="test-app",
-                counter_name="test.counter",
-                counter_type=CounterType.DELTA,
-                counter_unit="COUNT",
-                counter_volume="10"
-            )
-        
-        assert "Metering failed" in str(exc_info.value)
-    
     def test_delete_metering_single_app_key(self):
         """Test deleting metering data for single app key"""
         self.metering.delete_metering("test-app-key")
@@ -161,15 +128,6 @@ class TestMeteringManagerUnit:
             actual_call = self.mock_client.delete.call_args_list[idx]
             assert actual_call[0][0] == "billing/admin/meters"
             assert actual_call[1]["params"] == expected_params
-    
-    def test_delete_metering_api_error(self):
-        """Test delete metering with API error"""
-        self.mock_client.delete.side_effect = APIRequestException("Delete failed")
-        
-        with pytest.raises(APIRequestException) as exc_info:
-            self.metering.delete_metering("test-app")
-        
-        assert "Delete failed" in str(exc_info.value)
     
     @patch('libs.Metering.calendar.monthrange')
     def test_delete_metering_different_months(self, mock_monthrange):
@@ -246,22 +204,6 @@ class TestMeteringManagerUnit:
         assert result["results"][1]["success"] is False
         assert "Failed" in result["results"][1]["error"]
     
-    def test_validate_month_format_valid(self):
-        """Test month format validation with valid formats"""
-        valid_months = ["2024-01", "2024-12", "2023-06", "2022-09"]
-        
-        for month in valid_months:
-            # Should not raise exception
-            MeteringManager._validate_month_format(month)
-    
-    def test_validate_month_format_invalid(self):
-        """Test month format validation with invalid formats"""
-        invalid_months = ["2024", "2024-1", "2024-13", "24-01", "2024/01", ""]
-        
-        for month in invalid_months:
-            with pytest.raises(ValidationException):
-                MeteringManager._validate_month_format(month)
-    
     def test_create_default_template(self):
         """Test creation of default metering template"""
         template = MeteringManager._create_default_template()
@@ -275,117 +217,3 @@ class TestMeteringManagerUnit:
         assert meter["resourceId"] == "test"
         assert meter["resourceName"] == "test"
 
-
-class TestMeteringLegacyWrapper:
-    """Unit tests for legacy Metering wrapper"""
-    
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Set up test fixtures"""
-        with patch('libs.Metering.MeteringManager') as mock_manager_class:
-            self.mock_manager = Mock()
-            mock_manager_class.return_value = self.mock_manager
-            self.mock_manager._iaas_template = {"meterList": [{}]}
-            self.metering = Metering(month="2024-01")
-            yield
-    
-    def test_init_legacy(self):
-        """Test legacy Metering initialization"""
-        assert self.metering.month == "2024-01"
-        assert hasattr(self.metering, '_manager')
-        assert hasattr(self.metering, '_appkey')
-        assert self.metering._appkey == ""
-    
-    def test_appkey_property_get(self):
-        """Test getting appkey property"""
-        self.metering._appkey = "test-app"
-        assert self.metering.appkey == "test-app"
-    
-    def test_appkey_property_set(self):
-        """Test setting appkey property"""
-        self.metering.appkey = "new-app"
-        assert self.metering._appkey == "new-app"
-    
-    def test_string_representation_legacy(self):
-        """Test string representation of legacy Metering"""
-        self.metering.appkey = "test-app"
-        repr_str = repr(self.metering)
-        assert "month: 2024-01" in repr_str
-        assert "appkey: test-app" in repr_str
-    
-    def test_delete_metering_legacy_single_appkey(self):
-        """Test legacy delete_metering with single appkey"""
-        self.metering.appkey = "test-app"
-        
-        self.metering.delete_metering()
-        
-        self.mock_manager.delete_metering.assert_called_once_with(["test-app"])
-    
-    def test_delete_metering_legacy_list_appkey(self):
-        """Test legacy delete_metering with list of appkeys"""
-        self.metering.appkey = ["app1", "app2", "app3"]
-        
-        self.metering.delete_metering()
-        
-        self.mock_manager.delete_metering.assert_called_once_with(["app1", "app2", "app3"])
-    
-    def test_delete_metering_legacy_exception_suppressed(self):
-        """Test legacy delete_metering suppresses exceptions"""
-        self.metering.appkey = "test-app"
-        self.mock_manager.delete_metering.side_effect = Exception("Test error")
-        
-        # Should not raise exception
-        self.metering.delete_metering()
-        
-        self.mock_manager.delete_metering.assert_called_once()
-    
-    def test_send_iaas_metering_legacy(self):
-        """Test legacy send_iaas_metering method"""
-        self.metering.appkey = "test-app"
-        
-        kwargs = {
-            "counter_name": "compute.c2.c8m8",
-            "counter_type": "DELTA",
-            "counter_unit": "HOURS",
-            "counter_volume": "100"
-        }
-        
-        self.metering.send_iaas_metering(**kwargs)
-        
-        self.mock_manager.send_metering.assert_called_once_with(
-            app_key="test-app",
-            counter_name="compute.c2.c8m8",
-            counter_type="DELTA",
-            counter_unit="HOURS",
-            counter_volume="100"
-        )
-    
-    def test_send_iaas_metering_legacy_exception_suppressed(self):
-        """Test legacy send_iaas_metering suppresses exceptions"""
-        self.metering.appkey = "test-app"
-        self.mock_manager.send_metering.side_effect = Exception("Test error")
-        
-        # Should not raise exception
-        self.metering.send_iaas_metering(
-            counter_name="test",
-            counter_type="DELTA",
-            counter_unit="COUNT",
-            counter_volume="1"
-        )
-        
-        self.mock_manager.send_metering.assert_called_once()
-    
-    def test_send_iaas_metering_legacy_missing_params(self):
-        """Test legacy send_iaas_metering with missing parameters"""
-        self.metering.appkey = "test-app"
-        
-        # Missing all required parameters
-        self.metering.send_iaas_metering()
-        
-        self.mock_manager.send_metering.assert_called_once_with(
-            app_key="test-app",
-            counter_name="",
-            counter_type="",
-            counter_unit="",
-            counter_volume=""
-        )

@@ -80,12 +80,11 @@ class CalculationManager:
             True if completed successfully, False if timeout
         """
         return self._client.wait_for_completion(
-            check_endpoint="billing/admin/progress",
-            completion_field="progress",
-            max_field="maxProgress",
-            progress_code=BatchJobCode.API_CALCULATE_USAGE_AND_PRICE.value,
-            check_interval=check_interval,
-            max_wait_time=timeout,
+            check_endpoint=f"billing/admin/progress?month={self.month}&uuid={self.uuid}",
+            status_field="status",
+            success_value="COMPLETED",
+            timeout=timeout,
+            check_interval=check_interval
         )
 
     def delete_resources(self) -> dict[str, Any]:
@@ -127,30 +126,3 @@ class CalculationManager:
         except APIRequestException as e:
             logger.exception("Failed to get calculation status: %s", e)
             raise
-
-
-# Backward compatibility wrapper
-class Calculation:
-    """Legacy wrapper for backward compatibility."""
-
-    def __init__(self, month: str, uuid: str) -> None:
-        self._manager = CalculationManager(month, uuid)
-        self.month = month
-        self.uuid = uuid
-
-    def recalculation_all(self) -> None:
-        """Legacy method for recalculation."""
-        with contextlib.suppress(Exception):
-            self._manager.recalculate_all()
-
-    def check_stable(self) -> None:
-        """Legacy method for checking calculation stability."""
-        # This method is called after recalculation in the new implementation
-        completed = self._manager._wait_for_calculation_completion()
-        if completed:
-            pass
-
-    def delete_resources(self) -> None:
-        """Legacy method for deleting resources."""
-        with contextlib.suppress(Exception):
-            self._manager.delete_resources()

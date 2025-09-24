@@ -1,8 +1,10 @@
 import pytest
 import math
 import os
-from libs import InitializeConfig
-from libs import Metering, Credit, Calculation
+from libs.InitializeConfig import InitializeConfig
+from libs.Metering import MeteringManager as Metering
+from libs.Credit import CreditManager as Credit
+from libs.Calculation import CalculationManager as Calculation
 
 
 @pytest.mark.core
@@ -18,16 +20,17 @@ class TestCreditAll:
                 "Credit test should be skipped if member country is not KR or JP"
             )
         self.config = InitializeConfig(env, member, month)
-        self.config.clean_data()
-        self.config.before_test()
+        self.config.prepare()
         
         # Reset mock server data for this UUID if using mock server
         if os.environ.get("USE_MOCK_SERVER", "false").lower() == "true":
             import requests
             try:
+                # Get mock server URL from environment or use default
+                mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
                 # Use shorter timeout for faster tests
                 response = requests.post(
-                    "http://localhost:5000/test/reset",
+                    f"{mock_url}/test/reset",
                     json={"uuid": self.config.uuid},
                     timeout=1
                 )

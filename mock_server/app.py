@@ -42,6 +42,21 @@ cache = Cache(app, config={
     'CACHE_THRESHOLD': 1000  # Cache up to 1000 items
 })
 
+# Register Swagger UI
+try:
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, current_dir)
+    
+    from swagger_ui import swagger_bp
+    app.register_blueprint(swagger_bp, url_prefix='/docs')
+    print("Swagger UI successfully registered at /docs")
+except ImportError as e:
+    print(f"Failed to import swagger_ui: {e}")
+    import traceback
+    traceback.print_exc()
+
 # Thread lock for thread-safe operations
 data_lock = threading.Lock()
 
@@ -53,6 +68,18 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 # Get data manager instance
 data_manager = get_data_manager()
+
+# In-memory storage for batch jobs
+batch_jobs = {}
+
+# In-memory storage for adjustments
+adjustments = {}
+
+# In-memory storage for contracts
+contracts = {}
+
+# In-memory storage for billing data
+billing_data = {}
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
@@ -89,6 +116,111 @@ def create_error_response(message: str, code: int = -1) -> tuple[dict[str, Any],
             "resultMessage": message
         }
     }, 400
+
+
+# Welcome page with links
+@app.route("/", methods=["GET"])
+def welcome():
+    """Welcome page with API documentation links."""
+    host = request.host_url.rstrip('/')
+    return f"""
+    <html>
+    <head>
+        <title>Billing API Mock Server</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 40px;
+                background-color: #f5f5f5;
+            }}
+            .container {{
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                max-width: 800px;
+                margin: 0 auto;
+            }}
+            h1 {{
+                color: #333;
+                border-bottom: 2px solid #007bff;
+                padding-bottom: 10px;
+            }}
+            .links {{
+                margin: 20px 0;
+            }}
+            .links a {{
+                display: inline-block;
+                margin: 10px 20px 10px 0;
+                padding: 10px 20px;
+                background-color: #007bff;
+                color: white;
+                text-decoration: none;
+                border-radius: 5px;
+                transition: background-color 0.3s;
+            }}
+            .links a:hover {{
+                background-color: #0056b3;
+            }}
+            .info {{
+                background-color: #e9ecef;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+            }}
+            code {{
+                background-color: #f8f9fa;
+                padding: 2px 4px;
+                border-radius: 3px;
+                font-family: monospace;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 Billing API Mock Server</h1>
+            <p>Welcome to the Billing API Mock Server for testing and development.</p>
+            
+            <div class="info">
+                <strong>Base URL:</strong> <code>{host}/api/v1</code>
+            </div>
+            
+            <h2>📚 Documentation</h2>
+            <div class="links">
+                <a href="/docs">Swagger UI</a>
+                <a href="/docs/openapi.json">OpenAPI JSON</a>
+                <a href="/docs/openapi.yaml">OpenAPI YAML</a>
+                <a href="/health">Health Check</a>
+            </div>
+            
+            <h2>🔧 Available Endpoints</h2>
+            <ul>
+                <li><strong>Contracts:</strong> /api/v1/billing/contracts</li>
+                <li><strong>Credits:</strong> /api/v1/billing/credits</li>
+                <li><strong>Metering:</strong> /api/v1/billing/meters</li>
+                <li><strong>Payments:</strong> /api/v1/billing/payments</li>
+                <li><strong>Adjustments:</strong> /api/v1/billing/adjustments</li>
+                <li><strong>Batch Jobs:</strong> /api/v1/billing/admin/batches</li>
+            </ul>
+            
+            <h2>💡 Quick Start</h2>
+            <p>To start using the API:</p>
+            <ol>
+                <li>Check the <a href="/docs">Swagger UI</a> for interactive API documentation</li>
+                <li>Use the base URL <code>{host}/api/v1</code> for your API calls</li>
+                <li>All endpoints return JSON responses with standard headers</li>
+            </ol>
+        </div>
+    </body>
+    </html>
+    """
+
+
+# Health check endpoint
+@app.route("/health", methods=["GET"])
+def health():
+    """Health check endpoint."""
+    return create_success_response({"status": "healthy", "timestamp": datetime.utcnow().isoformat()})
 
 
 # Metering endpoints
@@ -181,6 +313,13 @@ def get_batch_progress():
 @app.route("/billing/admin/progress", methods=["GET"])
 def get_calculation_progress():
     """Get calculation progress for batch jobs."""
+    # Get query parameters
+    month = request.args.get('month')
+    uuid_param = request.args.get('uuid')
+    
+    # Check if we have a batch job for this combination
+    job_key = f"{month}_{uuid_param}" if month and uuid_param else None
+    
     # Always return completed status for mock
     result_list = [{
         "batchJobCode": "API_CALCULATE_USAGE_AND_PRICE",
@@ -189,10 +328,44 @@ def get_calculation_progress():
         "status": "COMPLETED"
     }]
     
-    return jsonify(create_success_response({"list": result_list}))
+    # For compatibility with wait_for_completion method
+    return jsonify({
+        "status": "COMPLETED",
+        "list": result_list,
+        "progress": 100,
+        "maxProgress": 100
+    })
 
 
 # Credit endpoints
+@app.route("/billing/credits/balance", methods=["GET"])
+def get_credit_balance():
+    """Get credit balance."""
+    uuid_param = request.headers.get("uuid")
+    
+    # Return mock balance data
+    balance_data = {
+        "totalBalance": 1000.0,
+        "availableBalance": 800.0,
+        "pendingBalance": 200.0,
+        "currency": "USD",
+        "balances": [
+            {
+                "type": "FREE",
+                "amount": 500.0,
+                "expiryDate": "2024-12-31"
+            },
+            {
+                "type": "PAID",
+                "amount": 300.0,
+                "expiryDate": "2024-12-31"
+            }
+        ]
+    }
+    
+    return jsonify(create_success_response(balance_data))
+
+
 @app.route("/billing/credits/history", methods=["GET"])
 def get_credit_history():
     """Get credit history."""
@@ -201,6 +374,7 @@ def get_credit_history():
     
     # Get user's credit data
     total_credit_amt = 0
+    credit_data = data_manager.credit_data
     if uuid_param in credit_data:
         data = credit_data[uuid_param]
         # For history, return the remaining amount (not total given)
@@ -212,6 +386,37 @@ def get_credit_history():
         "totalCreditAmt": total_credit_amt,
         "balancePriceTypeCode": balance_type,
         "history": []
+    }))
+
+
+@app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
+def grant_campaign_credit(campaign_id):
+    """Grant credit through campaign."""
+    data = request.json
+    uuid_param = request.headers.get("uuid")
+    
+    # Store credit data
+    credit_amount = data.get('creditList', [{}])[0].get('creditAmt', 0)
+    credit_name = data.get('creditList', [{}])[0].get('creditName', 'Campaign Credit')
+    
+    credit_data = data_manager.credit_data
+    if uuid_param not in credit_data:
+        credit_data[uuid_param] = {
+            "grantAmount": 0,
+            "useAmount": 0,
+            "refundAmount": 0,
+            "restAmount": 0
+        }
+    
+    # Add to granted amount and rest amount
+    credit_data[uuid_param]["grantAmount"] += credit_amount
+    credit_data[uuid_param]["restAmount"] += credit_amount
+    
+    return jsonify(create_success_response({
+        "campaignId": campaign_id,
+        "creditAmount": credit_amount,
+        "creditName": credit_name,
+        "status": "SUCCESS"
     }))
 
 
@@ -381,6 +586,7 @@ def get_billing_detail():
     
     # Calculate amounts based on metering data
     metering_count = 0
+    metering_data = data_manager.metering_data
     for meter_id, meter_data in metering_data.items():
         if meter_data.get("appKey") and "uuid" not in meter_data:
             metering_count += 1
@@ -406,6 +612,7 @@ def get_billing_detail():
     # If no metering data, use default billing
     with open("mock_metering.log", "a") as f:
         f.write(f"Billing calculation - metering_count: {metering_count}, compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n")
+    
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
         billing_detail = generate_billing_detail(uuid_param, month, has_discount)
     else:
@@ -507,35 +714,88 @@ def get_statements():
         detail = generate_billing_detail(uuid_param, month, has_discount)
         billing_data[billing_key] = detail
     
-    # Format as statement response
+    # Get base charge before adjustments
+    base_charge = detail.get("charge", 155000)
+    
+    # Apply adjustments
+    adjusted_charge = base_charge
+    
+    # Apply project adjustments
+    for adj_key, adj_data in adjustments.items():
+        if adj_data.get("month") == month:
+            # Check if this is a project adjustment
+            if adj_data.get("projectId") and adj_data.get("adjustmentType"):
+                adj_type = adj_data["adjustmentType"]
+                adj_amount = adj_data.get("adjustment", 0)
+                
+                if adj_type == "STATIC_DISCOUNT":
+                    adjusted_charge -= adj_amount
+                elif adj_type == "STATIC_EXTRA":
+                    adjusted_charge += adj_amount
+                elif adj_type == "PERCENT_DISCOUNT":
+                    adjusted_charge *= (1 - adj_amount / 100)
+                elif adj_type == "PERCENT_EXTRA":
+                    adjusted_charge *= (1 + adj_amount / 100)
+                    
+            # Check if this is a billing group adjustment
+            elif adj_data.get("billingGroupId") and adj_data.get("adjustmentType"):
+                adj_type = adj_data["adjustmentType"]
+                adj_amount = adj_data.get("adjustment", 0)
+                
+                if adj_type == "STATIC_DISCOUNT":
+                    adjusted_charge -= adj_amount
+                elif adj_type == "STATIC_EXTRA":
+                    adjusted_charge += adj_amount
+                elif adj_type == "PERCENT_DISCOUNT":
+                    adjusted_charge *= (1 - adj_amount / 100)
+                elif adj_type == "PERCENT_EXTRA":
+                    adjusted_charge *= (1 + adj_amount / 100)
+    
+    # Calculate VAT and total with adjusted charge
+    adjusted_charge = int(adjusted_charge)
+    vat = int(adjusted_charge * 0.1)
+    total = adjusted_charge + vat
+    
     statement_data = {
-        "statements": {
-            "totalAmount": detail["totalAmount"],
-            "charge": detail["charge"],
-            "vat": detail["vat"],
+        "statements": [{
+            "charge": adjusted_charge,
+            "totalAmount": total,
+            "vat": vat,
             "discount": detail.get("discount", 0),
-            "items": detail["statements"]
-        },
-        "totalPayments": detail["totalAmount"]
+            "items": detail.get("statements", [])
+        }],
+        "totalPayments": total
     }
     
     return jsonify(create_success_response(statement_data))
 
 
 # Contract endpoints
-@app.route("/billing/contracts", methods=["POST"])
-def create_contract():
-    """Create contract."""
-    data = request.json
-    contract_id = str(uuid.uuid4())
-    
-    contracts[contract_id] = {
-        "contractId": contract_id,
-        "status": "ACTIVE",
-        **data
-    }
-    
-    return jsonify(create_success_response({"contractId": contract_id}))
+@app.route("/billing/contracts", methods=["POST", "GET"])
+def handle_contracts():
+    """Handle contracts - create or list."""
+    if request.method == "GET":
+        # List contracts
+        billing_group_id = request.args.get('billingGroupId')
+        contract_list = []
+        
+        for cid, contract in contracts.items():
+            if not billing_group_id or contract.get('billingGroupId') == billing_group_id:
+                contract_list.append(contract)
+        
+        return jsonify(create_success_response({"contracts": contract_list}))
+    else:
+        # Create contract
+        data = request.json
+        contract_id = str(uuid.uuid4())
+        
+        contracts[contract_id] = {
+            "contractId": contract_id,
+            "status": "ACTIVE",
+            **data
+        }
+        
+        return jsonify(create_success_response({"contractId": contract_id}))
 
 
 @app.route("/billing/contracts/<contract_id>", methods=["GET"])
@@ -810,20 +1070,110 @@ def create_calculations():
 def project_adjustments():
     """Handle project adjustments."""
     if request.method == "GET":
-        return jsonify(create_success_response({"adjustments": []}))
+        # Get query parameters
+        project_id = request.args.get('projectId')
+        month = request.args.get('month')
+        
+        # Filter adjustments
+        filtered = []
+        for adj_id, adj in adjustments.items():
+            if adj.get('target') == 'Project' and adj.get('projectId') == project_id:
+                if not month or adj.get('month') == month:
+                    filtered.append(adj)
+        
+        return jsonify(create_success_response({"adjustments": filtered}))
     else:
         # Create adjustment
-        return jsonify(create_success_response({"adjustmentId": str(uuid.uuid4())}))
+        data = request.json
+        adj_id = str(uuid.uuid4())
+        
+        # Store adjustment
+        descriptions = data.get('descriptions', [])
+        description = descriptions[0]['message'] if descriptions else data.get('description', '')
+        
+        adjustments[adj_id] = {
+            "adjustmentId": adj_id,
+            "target": "Project",
+            "projectId": data.get('projectId'),
+            "month": data.get('monthFrom', data.get('month')),
+            "adjustmentType": data.get('adjustmentTypeCode', data.get('adjustmentType')),
+            "adjustmentValue": data.get('adjustment', data.get('adjustmentValue')),
+            "description": description,
+            "createdAt": datetime.now().isoformat()
+        }
+        
+        return jsonify(create_success_response({"adjustmentId": adj_id}))
 
 
-@app.route("/billing/admin/billing-groups/adjustments", methods=["POST", "GET"])  
+@app.route("/billing/admin/billing-groups/adjustments", methods=["POST", "GET", "DELETE"])  
 def billing_group_adjustments():
     """Handle billing group adjustments."""
     if request.method == "GET":
-        return jsonify(create_success_response({"adjustments": []}))
+        # Get query parameters
+        billing_group_id = request.args.get('billingGroupId')
+        month = request.args.get('month')
+        
+        # Filter adjustments
+        filtered = []
+        for adj_id, adj in adjustments.items():
+            if adj.get('target') == 'BillingGroup' and adj.get('billingGroupId') == billing_group_id:
+                if not month or adj.get('month') == month:
+                    filtered.append(adj)
+        
+        return jsonify(create_success_response({"adjustments": filtered}))
+    elif request.method == "DELETE":
+        # Delete adjustments by IDs
+        adjustment_ids = request.args.get('adjustmentIds', '').split(',')
+        deleted_count = 0
+        
+        for adj_id in adjustment_ids:
+            adj_id = adj_id.strip()
+            if adj_id in adjustments:
+                del adjustments[adj_id]
+                deleted_count += 1
+        
+        return jsonify(create_success_response({
+            "deletedCount": deleted_count,
+            "message": f"Deleted {deleted_count} adjustments"
+        }))
     else:
         # Create adjustment
-        return jsonify(create_success_response({"adjustmentId": str(uuid.uuid4())}))
+        data = request.json
+        adj_id = str(uuid.uuid4())
+        
+        # Store adjustment
+        descriptions = data.get('descriptions', [])
+        description = descriptions[0]['message'] if descriptions else data.get('description', '')
+        
+        adjustments[adj_id] = {
+            "adjustmentId": adj_id,
+            "target": "BillingGroup",
+            "billingGroupId": data.get('billingGroupId'),
+            "month": data.get('monthFrom', data.get('month')),
+            "adjustmentType": data.get('adjustmentTypeCode', data.get('adjustmentType')),
+            "adjustmentValue": data.get('adjustment', data.get('adjustmentValue')),
+            "description": description,
+            "createdAt": datetime.now().isoformat()
+        }
+        
+        return jsonify(create_success_response({"adjustmentId": adj_id}))
+
+
+# Batch endpoints
+@app.route("/billing/admin/batches", methods=["POST"])
+def create_batch():
+    """Create batch job."""
+    data = request.json
+    batch_id = str(uuid.uuid4())
+    
+    batch_jobs[batch_id] = {
+        "batchId": batch_id,
+        "status": "STARTED",
+        "createdAt": datetime.now().isoformat(),
+        **data
+    }
+    
+    return jsonify(create_success_response({"batchId": batch_id}))
 
 
 # Health check
@@ -1122,4 +1472,5 @@ def handle_undefined_api(path):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get('MOCK_SERVER_PORT', '5000'))
+    app.run(host="0.0.0.0", port=port, debug=True)

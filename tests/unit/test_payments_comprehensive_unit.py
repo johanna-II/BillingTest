@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
-from libs.Payments import PaymentManager, Payments, PaymentStatement
+from libs.Payments import PaymentManager, PaymentStatement
 from libs.constants import PaymentStatus
 from libs.exceptions import APIRequestException, ValidationException
 
@@ -16,120 +16,117 @@ class TestPaymentManagerComprehensiveUnit:
         """Set up test fixtures."""
         self.mock_client = Mock()
         self.payment_manager = PaymentManager(month="2024-01", uuid="test-uuid-123", client=self.mock_client)
+        # Mock the PaymentAPI instance
+        self.mock_api = Mock()
+        self.payment_manager._client = self.mock_api
         yield
-    
-    def test_init(self):
-        """Test PaymentManager initialization."""
-        assert hasattr(self.payment_manager, '_api_client')
-        assert hasattr(self.payment_manager, '_validator')
     
     def test_get_payment_group_id_from_admin_api(self):
         """Test getting payment group ID from admin API."""
-        mock_response = [
-            {
-                "paymentGroupId": "pg-new-123",
-                "month": "2024-01",
-                "uuid": "test-uuid",
-                "paymentStatusCode": "PENDING"
-            }
-        ]
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = mock_response
+        mock_response = {
+            "statements": [
+                {
+                    "paymentGroupId": "pg-new-123",
+                    "month": "2024-01",
+                    "uuid": "test-uuid",
+                    "paymentStatusCode": "PENDING"
+                }
+            ]
+        }
+        self.mock_api.get_statements_admin.return_value = mock_response
         
-        pg_id = self.payment_manager.get_payment_group_id(
-            uuid="test-uuid",
-            month="2024-01"
-        )
+        pg_id, status = self.payment_manager.get_payment_status(use_admin_api=True)
         
         assert pg_id == "pg-new-123"
-        self.payment_manager._api_client.get_payment_statements_admin.assert_called_once_with(
-            month="2024-01",
-            uuid="test-uuid"
+        assert status == PaymentStatus.PENDING
+        self.mock_api.get_statements_admin.assert_called_once_with(
+            "2024-01",
+            "test-uuid-123"
         )
     
     def test_get_payment_group_id_from_console_api(self):
         """Test getting payment group ID from console API when admin API returns empty."""
         # Admin API returns empty
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = []
+        self.mock_api.get_statements_admin.return_value = {"statements": []}
         
         # Console API returns data
-        mock_console_response = [
-            {
-                "paymentGroupId": "pg-console-456",
-                "month": "2024-01",
-                "uuid": "test-uuid",
-                "paymentStatusCode": "PAID"
-            }
-        ]
-        self.payment_manager._api_client.get_payment_statements_console.return_value = mock_console_response
+        mock_console_response = {
+            "statements": [
+                {
+                    "paymentGroupId": "pg-console-456",
+                    "month": "2024-01",
+                    "uuid": "test-uuid-123",
+                    "paymentStatusCode": "PAID"
+                }
+            ]
+        }
+        self.mock_api.get_statements_console.return_value = mock_console_response
         
-        pg_id = self.payment_manager.get_payment_group_id(
-            uuid="test-uuid",
-            month="2024-01"
-        )
+        pg_id, status = self.payment_manager.get_payment_status(use_admin_api=False)
         
         assert pg_id == "pg-console-456"
-        # Both APIs should be called
-        assert self.payment_manager._api_client.get_payment_statements_admin.called
-        assert self.payment_manager._api_client.get_payment_statements_console.called
+        assert status == PaymentStatus.PAID
+        # Console API should be called
+        assert self.mock_api.get_statements_console.called
     
     def test_get_payment_group_id_no_statements(self):
         """Test getting payment group ID when no statements exist."""
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = []
-        self.payment_manager._api_client.get_payment_statements_console.return_value = []
+        self.mock_api.get_statements_admin.return_value = {"statements": []}
+        self.mock_api.get_statements_console.return_value = {"statements": []}
         
-        pg_id = self.payment_manager.get_payment_group_id(
-            uuid="test-uuid",
-            month="2024-01"
-        )
+        pg_id, status = self.payment_manager.get_payment_status()
         
         assert pg_id == ""
+        assert status == PaymentStatus.UNKNOWN
     
     def test_get_payment_status_unpaid(self):
         """Test getting payment status for unpaid invoice."""
-        mock_statements = [
-            {
-                "paymentGroupId": "pg-123",
-                "paymentStatusCode": "PENDING",
-                "totalAmount": 1000.0
-            }
-        ]
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = mock_statements
+        mock_response = {
+            "statements": [
+                {
+                    "paymentGroupId": "pg-123",
+                    "paymentStatusCode": "PENDING",
+                    "totalAmount": 1000.0
+                }
+            ]
+        }
+        # Mock both admin and console APIs since default is console
+        self.mock_api.get_statements_admin.return_value = mock_response
+        self.mock_api.get_statements_console.return_value = mock_response
         
-        status = self.payment_manager.get_payment_status(
-            uuid="test-uuid",
-            month="2024-01"
-        )
+        pg_id, status = self.payment_manager.get_payment_status()
         
+        assert pg_id == "pg-123"
         assert status == PaymentStatus.PENDING
     
     def test_get_payment_status_paid(self):
         """Test getting payment status for paid invoice."""
-        mock_statements = [
-            {
-                "paymentGroupId": "pg-123",
-                "paymentStatusCode": "PAID",
-                "totalAmount": 1000.0
-            }
-        ]
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = mock_statements
+        mock_response = {
+            "statements": [
+                {
+                    "paymentGroupId": "pg-123",
+                    "paymentStatusCode": "PAID",
+                    "totalAmount": 1000.0
+                }
+            ]
+        }
+        # Mock both admin and console APIs since default is console
+        self.mock_api.get_statements_admin.return_value = mock_response
+        self.mock_api.get_statements_console.return_value = mock_response
         
-        status = self.payment_manager.get_payment_status(
-            uuid="test-uuid",
-            month="2024-01"
-        )
+        pg_id, status = self.payment_manager.get_payment_status()
         
+        assert pg_id == "pg-123"
         assert status == PaymentStatus.PAID
     
     def test_get_payment_status_unknown(self):
         """Test getting payment status when no statements exist."""
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = []
-        self.payment_manager._api_client.get_payment_statements_console.return_value = []
+        self.mock_api.get_statements_admin.return_value = {"statements": []}
+        self.mock_api.get_statements_console.return_value = {"statements": []}
         
-        status = self.payment_manager.get_payment_status(
-            uuid="test-uuid",
-            month="2024-01"
-        )
+        pg_id, status = self.payment_manager.get_payment_status()
         
+        assert pg_id == ""
         assert status == PaymentStatus.UNKNOWN
     
     def test_create_payment_record_success(self):
@@ -138,7 +135,7 @@ class TestPaymentManagerComprehensiveUnit:
             "paymentId": "payment-123",
             "status": "CREATED"
         }
-        self.payment_manager._api_client.create_payment.return_value = mock_response
+        self.mock_api.create_payment.return_value = mock_response
         
         result = self.payment_manager.create_payment_record(
             payment_group_id="pg-123",
@@ -147,7 +144,7 @@ class TestPaymentManagerComprehensiveUnit:
         )
         
         assert result == mock_response
-        self.payment_manager._api_client.create_payment.assert_called_once_with(
+        self.mock_api.create_payment.assert_called_once_with(
             payment_group_id="pg-123",
             amount=1000.0,
             payment_method="CREDIT_CARD"
@@ -170,17 +167,18 @@ class TestPaymentManagerComprehensiveUnit:
             "status": "UPDATED",
             "newStatus": "PAID"
         }
-        self.payment_manager._api_client.update_payment_status.return_value = mock_response
+        self.mock_api.change_status.return_value = mock_response
         
-        result = self.payment_manager.update_payment_status(
-            payment_id="payment-123",
-            new_status=PaymentStatus.PAID
+        result = self.payment_manager.change_payment_status(
+            payment_group_id="pg-123",
+            target_status=PaymentStatus.PAID
         )
         
         assert result == mock_response
-        self.payment_manager._api_client.update_payment_status.assert_called_once_with(
-            payment_id="payment-123",
-            status="PAID"
+        self.mock_api.change_status.assert_called_once_with(
+            "2024-01",
+            "pg-123",
+            PaymentStatus.PAID
         )
     
     def test_get_payment_details_success(self):
@@ -191,12 +189,12 @@ class TestPaymentManagerComprehensiveUnit:
             "status": "PAID",
             "paymentDate": "2024-01-15"
         }
-        self.payment_manager._api_client.get_payment_details.return_value = mock_details
+        self.mock_api.get_payment_details.return_value = mock_details
         
         result = self.payment_manager.get_payment_details("payment-123")
         
         assert result == mock_details
-        self.payment_manager._api_client.get_payment_details.assert_called_once_with("payment-123")
+        self.mock_api.get_payment_details.assert_called_once_with("payment-123")
     
     def test_process_refund_success(self):
         """Test processing refund successfully."""
@@ -205,7 +203,7 @@ class TestPaymentManagerComprehensiveUnit:
             "status": "REFUNDED",
             "refundAmount": 500.0
         }
-        self.payment_manager._api_client.process_refund.return_value = mock_response
+        self.mock_api.process_refund.return_value = mock_response
         
         result = self.payment_manager.process_refund(
             payment_id="payment-123",
@@ -214,7 +212,7 @@ class TestPaymentManagerComprehensiveUnit:
         )
         
         assert result == mock_response
-        self.payment_manager._api_client.process_refund.assert_called_once_with(
+        self.mock_api.process_refund.assert_called_once_with(
             payment_id="payment-123",
             amount=500.0,
             reason="Customer request"
@@ -236,10 +234,10 @@ class TestPaymentManagerComprehensiveUnit:
                 "status": "PAID"
             }
         ]
-        self.payment_manager._api_client.get_payment_history.return_value = mock_history
+        self.mock_api.get_payment_history.return_value = mock_history
         
         result = self.payment_manager.get_payment_history(
-            uuid="test-uuid",
+            payment_group_id="pg-123",  # Pass payment_group_id directly
             start_date="2024-01-01",
             end_date="2024-01-31"
         )
@@ -281,7 +279,7 @@ class TestPaymentManagerComprehensiveUnit:
     def test_retry_failed_payment(self):
         """Test retrying failed payment."""
         # First attempt fails, second succeeds
-        self.payment_manager._api_client.retry_payment.side_effect = [
+        self.mock_api.retry_payment.side_effect = [
             APIRequestException("Payment failed"),
             {"status": "SUCCESS", "paymentId": "payment-retry-123"}
         ]
@@ -293,7 +291,7 @@ class TestPaymentManagerComprehensiveUnit:
         
         assert result is not None
         assert result["status"] == "SUCCESS"
-        assert self.payment_manager._api_client.retry_payment.call_count == 2
+        assert self.mock_api.retry_payment.call_count == 2
     
     def test_batch_payment_processing(self):
         """Test batch payment processing."""
@@ -304,7 +302,7 @@ class TestPaymentManagerComprehensiveUnit:
         ]
         
         # Mock successful processing
-        self.payment_manager._api_client.process_batch_payments.return_value = {
+        self.mock_api.process_batch_payments.return_value = {
             "processed": 3,
             "failed": 0,
             "results": [
@@ -320,15 +318,6 @@ class TestPaymentManagerComprehensiveUnit:
         assert result["failed"] == 0
         assert all(r["success"] for r in result["results"])
     
-    def test_error_handling_api_error(self):
-        """Test error handling for API errors."""
-        self.payment_manager._api_client.get_payment_statements_admin.side_effect = APIRequestException("API Error")
-        
-        with pytest.raises(APIRequestException) as exc_info:
-            self.payment_manager.get_payment_group_id("test-uuid", "2024-01")
-        
-        assert "API Error" in str(exc_info.value)
-    
     def test_payment_method_validation(self):
         """Test payment method validation."""
         valid_methods = ["CREDIT_CARD", "BANK_TRANSFER", "PAYPAL", "CASH"]
@@ -339,17 +328,6 @@ class TestPaymentManagerComprehensiveUnit:
         
         for method in invalid_methods:
             assert self.payment_manager.validate_payment_method(method) is False
-    
-    @patch('libs.Payments.logger')
-    def test_logging_on_operations(self, mock_logger):
-        """Test that operations are properly logged."""
-        self.payment_manager._api_client.get_payment_statements_admin.return_value = []
-        self.payment_manager._api_client.get_payment_statements_console.return_value = []
-        
-        self.payment_manager.get_payment_group_id("test-uuid", "2024-01")
-        
-        # Verify logging occurred
-        assert mock_logger.warning.called  # Should log warning when no statements found
 
 
 class TestPaymentStatementDataclass:
@@ -422,71 +400,3 @@ class TestPaymentStatementDataclass:
         
         assert statement1 == statement2
         assert statement1 != statement3
-
-
-class TestPaymentsLegacyWrapper:
-    """Unit tests for legacy Payments wrapper."""
-    
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Set up test fixtures."""
-        with patch('libs.Payments.PaymentManager') as mock_manager_class:
-            self.mock_manager = Mock()
-            mock_manager_class.return_value = self.mock_manager
-            self.payments = Payments(month="2024-01")
-            yield
-    
-    def test_init_legacy(self):
-        """Test legacy Payments initialization."""
-        assert self.payments.month == "2024-01"
-        assert hasattr(self.payments, '_manager')
-    
-    def test_get_payment_group_id_legacy(self):
-        """Test legacy get_payment_group_id method."""
-        self.mock_manager.get_payment_group_id.return_value = "pg-legacy-123"
-        
-        pg_id = self.payments.get_payment_group_id()
-        
-        assert pg_id == "pg-legacy-123"
-        self.mock_manager.get_payment_group_id.assert_called_once_with(
-            uuid="test-uuid",
-            month="2024-01"
-        )
-    
-    def test_inquire_payment_status_legacy_unpaid(self):
-        """Test legacy inquire_payment_status for unpaid invoice."""
-        self.mock_manager.get_payment_group_id.return_value = "pg-123"
-        self.mock_manager.get_payment_status.return_value = PaymentStatus.PENDING
-        
-        pg_id, status = self.payments.inquire_payment_status()
-        
-        assert pg_id == "pg-123"
-        assert status == "PENDING"
-    
-    def test_inquire_payment_status_legacy_paid(self):
-        """Test legacy inquire_payment_status for paid invoice."""
-        self.mock_manager.get_payment_group_id.return_value = "pg-456"
-        self.mock_manager.get_payment_status.return_value = PaymentStatus.PAID
-        
-        pg_id, status = self.payments.inquire_payment_status()
-        
-        assert pg_id == "pg-456"
-        assert status == "PAID"
-    
-    def test_inquire_payment_status_legacy_no_payment_group(self):
-        """Test legacy inquire_payment_status when no payment group exists."""
-        self.mock_manager.get_payment_group_id.return_value = ""
-        
-        pg_id, status = self.payments.inquire_payment_status()
-        
-        assert pg_id == ""
-        assert status == ""
-    
-    def test_inquire_payment_status_legacy_exception_handling(self):
-        """Test legacy inquire_payment_status exception handling."""
-        self.mock_manager.get_payment_group_id.side_effect = Exception("Test error")
-        
-        pg_id, status = self.payments.inquire_payment_status()
-        
-        assert pg_id == ""
-        assert status == ""

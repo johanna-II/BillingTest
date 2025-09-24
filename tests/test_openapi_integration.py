@@ -8,9 +8,9 @@ import pytest
 import requests
 import yaml
 
-from libs.Contract import Contract
+from libs.Contract import ContractManager
 from libs.Credit import Credit
-from libs.Metering import Metering
+from libs.Metering import MeteringManager
 
 
 @pytest.mark.api
@@ -22,7 +22,7 @@ class TestOpenAPIIntegration:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Set up test environment."""
-        self.base_url = "http://localhost:5000"
+        self.base_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
         self.api_base = f"{self.base_url}/api/v1"
     
     def test_openapi_spec_available(self):
@@ -297,7 +297,7 @@ class TestOpenAPICompliance:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Set up test environment."""
-        self.base_url = "http://localhost:5000"
+        self.base_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
         self.api_base = f"{self.base_url}/api/v1"
     
     def validate_against_schema(self, response_data: Dict[str, Any], 

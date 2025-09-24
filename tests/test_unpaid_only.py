@@ -1,9 +1,9 @@
 import pytest
-from libs import InitializeConfig
-from libs import Metering
-from libs import Payments
-from libs import Batches
-import libs.calculation as calc
+from libs.InitializeConfig import InitializeConfig
+from libs.Metering import MeteringManager as Metering
+from libs.Payments import PaymentManager as Payments
+from libs.Batch import BatchManager as Batches
+import libs.Calculation as calc
 import math
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -125,7 +125,6 @@ class TestUnpaidOnly:
         for idx in range(3):
             month = self.calc_prev_month(month=idx)
             self.config.month = month
-            self.config.clean_data()
 
     def compare_unpaid(self):
         prev_month = self.calc_prev_month(month=1)

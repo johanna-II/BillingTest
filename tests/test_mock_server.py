@@ -17,9 +17,13 @@ pytestmark = pytest.mark.skipif(
 class TestMockServer:
     """Test mock server endpoints."""
     
+    def setup_method(self):
+        """Set up test method with dynamic mock URL."""
+        self.mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
+    
     def test_health_check(self):
         """Test mock server health check endpoint."""
-        response = requests.get("http://localhost:5000/health")
+        response = requests.get(f"{self.mock_url}/health")
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
@@ -34,7 +38,7 @@ class TestMockServer:
             "counterVolume": "720"
         }
         
-        response = requests.post("http://localhost:5000/billing/meters", json=payload)
+        response = requests.post(f"{self.mock_url}/billing/meters", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert data["header"]["isSuccessful"] is True
@@ -42,7 +46,7 @@ class TestMockServer:
     
     def test_credit_history(self):
         """Test credit history retrieval."""
-        response = requests.get("http://localhost:5000/billing/credits/history?uuid=test-user")
+        response = requests.get(f"{self.mock_url}/billing/credits/history?uuid=test-user")
         assert response.status_code == 200
         data = response.json()
         assert data["header"]["isSuccessful"] is True
@@ -50,7 +54,7 @@ class TestMockServer:
     
     def test_billing_detail(self):
         """Test billing detail retrieval."""
-        response = requests.get("http://localhost:5000/billing/v5.0/bills/detail?uuid=test-user&month=2024-01")
+        response = requests.get(f"{self.mock_url}/billing/v5.0/bills/detail?uuid=test-user&month=2024-01")
         assert response.status_code == 200
         data = response.json()
         assert data["header"]["isSuccessful"] is True

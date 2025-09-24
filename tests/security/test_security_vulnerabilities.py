@@ -15,7 +15,8 @@ class TestSecurityVulnerabilities:
     @pytest.fixture
     def api_client(self):
         """Create API client."""
-        return BillingAPIClient("http://localhost:5000")
+        mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
+        return BillingAPIClient(mock_url)
     
     @pytest.fixture  
     def test_uuid(self):

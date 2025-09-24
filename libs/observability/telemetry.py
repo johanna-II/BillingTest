@@ -1,218 +1,220 @@
-"""OpenTelemetry instrumentation for test observability."""
+"""Test telemetry implementation using OpenTelemetry."""
 
 import os
-import time
-from contextlib import contextmanager
+import logging
 from typing import Any, Dict, Optional
+from contextlib import contextmanager
 
-from opentelemetry import metrics, trace
-from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-from opentelemetry.exporter.prometheus import PrometheusMetricReader
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import Status, StatusCode
+# Optional imports - telemetry is optional feature
+try:
+    from opentelemetry import trace, metrics
+    from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+    from opentelemetry.exporter.prometheus import PrometheusMetricReader
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.trace import Status, StatusCode
+    TELEMETRY_AVAILABLE = True
+except ImportError:
+    TELEMETRY_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
-class TestTelemetry:
-    """Telemetry collector for test execution metrics."""
+class TelemetryManager:
+    """Test telemetry for monitoring test execution and API calls."""
     
-    def __init__(self, service_name: str = "billing-test"):
-        """Initialize telemetry with service name."""
-        self.service_name = service_name
-        self.resource = Resource.create({
-            "service.name": service_name,
-            "service.version": "1.0.0",
-            "deployment.environment": os.getenv("ENVIRONMENT", "test")
-        })
-        
+    def __init__(self):
+        """Initialize telemetry components."""
+        if not TELEMETRY_AVAILABLE:
+            self.tracer = None
+            self.meter = None
+            return
+            
         # Initialize tracer
-        self.tracer_provider = TracerProvider(resource=self.resource)
-        trace.set_tracer_provider(self.tracer_provider)
         self.tracer = trace.get_tracer(__name__)
         
         # Initialize meter
-        self.meter_provider = MeterProvider(
-            resource=self.resource,
-            metric_readers=[PrometheusMetricReader()]
-        )
-        metrics.set_meter_provider(self.meter_provider)
         self.meter = metrics.get_meter(__name__)
         
         # Create metrics
-        self._create_metrics()
-        
-        # Configure exporters
-        self._configure_exporters()
-        
-        # Instrument libraries
-        self._instrument_libraries()
-    
-    def _create_metrics(self):
-        """Create test execution metrics."""
-        # Test execution counter
         self.test_counter = self.meter.create_counter(
-            name="test_executions_total",
-            description="Total number of test executions",
-            unit="1"
+            name="test_executions",
+            description="Number of test executions",
+            unit="1",
         )
         
-        # Test duration histogram
         self.test_duration = self.meter.create_histogram(
-            name="test_duration_seconds",
-            description="Test execution duration in seconds",
-            unit="s"
+            name="test_duration",
+            description="Test execution duration",
+            unit="seconds",
         )
         
-        # API call counter
-        self.api_call_counter = self.meter.create_counter(
-            name="api_calls_total",
-            description="Total number of API calls made during tests",
-            unit="1"
+        self.api_counter = self.meter.create_counter(
+            name="api_calls",
+            description="Number of API calls",
+            unit="1",
         )
         
-        # Mock server response time
-        self.mock_response_time = self.meter.create_histogram(
-            name="mock_server_response_time_ms",
-            description="Mock server response time in milliseconds",
-            unit="ms"
-        )
-        
-        # Test suite success rate
-        self.test_success_gauge = self.meter.create_up_down_counter(
-            name="test_success_rate",
-            description="Test success rate (1 for success, 0 for failure)",
-            unit="1"
+        self.api_histogram = self.meter.create_histogram(
+            name="api_response_time",
+            description="API response time",
+            unit="milliseconds",
         )
     
-    def _configure_exporters(self):
-        """Configure trace and metric exporters."""
-        # Jaeger exporter for traces
-        if os.getenv("JAEGER_ENABLED", "false").lower() == "true":
-            jaeger_exporter = JaegerExporter(
-                agent_host_name=os.getenv("JAEGER_HOST", "localhost"),
-                agent_port=int(os.getenv("JAEGER_PORT", "6831")),
-            )
-            self.tracer_provider.add_span_processor(
-                BatchSpanProcessor(jaeger_exporter)
-            )
-    
-    def _instrument_libraries(self):
-        """Instrument HTTP libraries for automatic tracing."""
-        # Instrument requests library
-        RequestsInstrumentor().instrument(
-            tracer_provider=self.tracer_provider
+    def record_test_execution(self, test_name: str, status: str, duration: float) -> None:
+        """Record test execution metrics."""
+        if not TELEMETRY_AVAILABLE:
+            return
+            
+        self.test_counter.add(
+            1,
+            {
+                "test_name": test_name,
+                "status": status
+            }
         )
         
-        # Instrument Flask (for mock server)
-        if os.getenv("INSTRUMENT_MOCK_SERVER", "true").lower() == "true":
-            FlaskInstrumentor().instrument(
-                tracer_provider=self.tracer_provider
-            )
+        self.test_duration.record(
+            duration,
+            {
+                "test_name": test_name,
+                "status": status
+            }
+        )
+    
+    def record_api_call(
+        self,
+        method: str,
+        endpoint: str,
+        status_code: int,
+        response_time: float
+    ) -> None:
+        """Record API call metrics."""
+        if not TELEMETRY_AVAILABLE:
+            return
+            
+        self.api_counter.add(
+            1,
+            {
+                "method": method,
+                "endpoint": endpoint,
+                "status_code": status_code
+            }
+        )
+        
+        self.api_histogram.record(
+            int(response_time * 1000),  # Convert to milliseconds
+            {
+                "method": method,
+                "endpoint": endpoint
+            }
+        )
+    
+    def create_span(
+        self,
+        name: str,
+        operation_type: Optional[str] = None,
+        attributes: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """Create a new span."""
+        if not TELEMETRY_AVAILABLE or not self.tracer:
+            return None
+            
+        span = self.tracer.start_span(name)
+        
+        if operation_type:
+            span.set_attribute("operation.type", operation_type)
+        
+        if attributes:
+            for key, value in attributes.items():
+                if value is not None:
+                    span.set_attribute(key, value)
+        
+        return span
     
     @contextmanager
     def trace_test(self, test_name: str, test_type: str = "unit"):
-        """Context manager for tracing test execution."""
-        span = self.tracer.start_span(
-            name=f"test.{test_type}.{test_name}",
-            attributes={
-                "test.name": test_name,
-                "test.type": test_type,
-                "test.framework": "pytest"
-            }
+        """Context manager to trace test execution."""
+        if not TELEMETRY_AVAILABLE or not self.tracer:
+            yield None
+            return
+            
+        with self.tracer.start_as_current_span(test_name) as span:
+            span.set_attribute("test.type", test_type)
+            span.set_attribute("test.framework", "pytest")
+            
+            try:
+                yield span
+            except Exception as e:
+                span.record_exception(e)
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                raise
+
+
+# Singleton instance
+_telemetry_instance: Optional[TelemetryManager] = None
+
+
+def get_telemetry() -> Optional[TelemetryManager]:
+    """Get telemetry instance (singleton)."""
+    global _telemetry_instance
+    
+    if _telemetry_instance is None and os.environ.get("ENABLE_TELEMETRY", "true").lower() != "false":
+        _telemetry_instance = TelemetryManager()
+    
+    return _telemetry_instance
+
+
+def setup_telemetry(service_name: str = "billing-test") -> Optional[TelemetryManager]:
+    """Setup telemetry with providers."""
+    if not TELEMETRY_AVAILABLE:
+        logger.info("Telemetry not available - dependencies not installed")
+        return None
+        
+    if os.environ.get("ENABLE_TELEMETRY", "true").lower() == "false":
+        logger.info("Telemetry disabled via environment variable")
+        return None
+    
+    # Configure telemetry providers
+    configure_telemetry(service_name)
+    
+    return get_telemetry()
+
+
+def configure_telemetry(service_name: str = "billing-test") -> None:
+    """Configure OpenTelemetry providers."""
+    if not TELEMETRY_AVAILABLE:
+        return
+        
+    # Create resource
+    resource = Resource.create({
+        "service.name": service_name,
+        "service.version": "1.0.0",
+    })
+    
+    # Setup tracer provider
+    tracer_provider = TracerProvider(resource=resource)
+    
+    # Add Jaeger exporter if configured
+    if os.environ.get("JAEGER_ENABLED", "false").lower() == "true":
+        jaeger_exporter = JaegerExporter(
+            agent_host_name=os.environ.get("JAEGER_HOST", "localhost"),
+            agent_port=int(os.environ.get("JAEGER_PORT", "6831")),
         )
-        
-        start_time = time.time()
-        success = True
-        
-        try:
-            yield span
-        except Exception as e:
-            success = False
-            span.record_exception(e)
-            span.set_status(Status(StatusCode.ERROR, str(e)))
-            raise
-        else:
-            span.set_status(Status(StatusCode.OK))
-        finally:
-            duration = time.time() - start_time
-            
-            # Record metrics
-            self.test_counter.add(
-                1,
-                attributes={
-                    "test.name": test_name,
-                    "test.type": test_type,
-                    "test.result": "passed" if success else "failed"
-                }
-            )
-            
-            self.test_duration.record(
-                duration,
-                attributes={
-                    "test.name": test_name,
-                    "test.type": test_type
-                }
-            )
-            
-            self.test_success_gauge.add(
-                1 if success else -1,
-                attributes={"test.type": test_type}
-            )
-            
-            span.set_attribute("test.duration_seconds", duration)
-            span.set_attribute("test.result", "passed" if success else "failed")
-            span.end()
-    
-    def record_api_call(self, endpoint: str, method: str, status_code: int, 
-                       response_time_ms: float):
-        """Record API call metrics."""
-        self.api_call_counter.add(
-            1,
-            attributes={
-                "endpoint": endpoint,
-                "method": method,
-                "status_code": str(status_code),
-                "status_class": f"{status_code // 100}xx"
-            }
+        tracer_provider.add_span_processor(
+            BatchSpanProcessor(jaeger_exporter)
         )
-        
-        if "mock" in endpoint.lower():
-            self.mock_response_time.record(
-                response_time_ms,
-                attributes={
-                    "endpoint": endpoint,
-                    "method": method
-                }
-            )
     
-    def create_span(self, name: str, **attributes) -> trace.Span:
-        """Create a new span with attributes."""
-        span = self.tracer.start_span(name)
-        for key, value in attributes.items():
-            span.set_attribute(key, value)
-        return span
+    # Add console exporter for debugging
+    if os.environ.get("TELEMETRY_CONSOLE", "false").lower() == "true":
+        tracer_provider.add_span_processor(
+            BatchSpanProcessor(ConsoleSpanExporter())
+        )
     
-    def get_metrics_endpoint(self) -> str:
-        """Get Prometheus metrics endpoint URL."""
-        return "http://localhost:9090/metrics"
-
-
-# Global telemetry instance
-_telemetry: Optional[TestTelemetry] = None
-
-
-def setup_telemetry(service_name: str = "billing-test") -> TestTelemetry:
-    """Set up global telemetry instance."""
-    global _telemetry
-    if _telemetry is None:
-        _telemetry = TestTelemetry(service_name)
-    return _telemetry
-
-
-def get_telemetry() -> Optional[TestTelemetry]:
-    """Get global telemetry instance."""
-    return _telemetry
+    trace.set_tracer_provider(tracer_provider)
+    
+    # Setup meter provider
+    meter_provider = MeterProvider(resource=resource)
+    metrics.set_meter_provider(meter_provider)

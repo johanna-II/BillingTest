@@ -4,7 +4,7 @@ import calendar
 import contextlib
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional, Union
 
 from config import url
 
@@ -141,6 +141,39 @@ class MeteringManager:
         except APIRequestException as e:
             logger.exception("Failed to send metering data: %s", e)
             raise
+    
+    def send_iaas_metering(
+        self,
+        counter_name: str, 
+        counter_unit: str,
+        counter_volume: Union[int, float, str],
+        counter_type: Optional[Union[CounterType, str]] = None,
+        app_key: Optional[str] = None,
+        target_time: Optional[str] = None,
+        uuid: Optional[str] = None,
+        app_id: Optional[str] = None,
+        project_id: Optional[str] = None
+    ) -> dict[str, Any]:
+        """
+        Send IaaS metering data (legacy compatibility method).
+        
+        This is an alias for send_metering() for backward compatibility.
+        """
+        # Use instance appkey if app_key not provided (legacy pattern)
+        if app_key is None:
+            app_key = getattr(self, 'appkey', None)
+            if app_key is None:
+                raise ValueError("app_key must be provided or set as self.appkey")
+        
+        # Call send_metering with only supported parameters
+        # (ignoring legacy parameters: target_time, uuid, app_id, project_id)
+        return self.send_metering(
+            app_key=app_key,
+            counter_name=counter_name,
+            counter_unit=counter_unit,
+            counter_volume=str(counter_volume),
+            counter_type=counter_type or CounterType.DELTA
+        )
 
     def delete_metering(self, app_keys: str | list[str]) -> dict[str, Any]:
         """Delete metering data for specified app keys.
@@ -221,44 +254,3 @@ class MeteringManager:
 
         return {"results": results}
 
-
-# Backward compatibility wrapper
-class Metering:
-    """Legacy wrapper for backward compatibility."""
-
-    def __init__(self, month: str) -> None:
-        self._manager = MeteringManager(month)
-        self.month = month
-        self._appkey = ""
-        self._iaas_template = self._manager._iaas_template
-
-    def __repr__(self) -> str:
-        return f"Metering(month: {self.month}, appkey: {self.appkey}, iaas_template: {self._iaas_template})"
-
-    @property
-    def appkey(self):
-        return self._appkey
-
-    @appkey.setter
-    def appkey(self, appkey) -> None:
-        self._appkey = appkey
-
-    def delete_metering(self) -> None:
-        """Legacy method for deleting metering."""
-        try:
-            # Assume self.appkey is a list in legacy code
-            app_keys = self.appkey if isinstance(self.appkey, list) else [self.appkey]
-            self._manager.delete_metering(app_keys)
-        except Exception:
-            pass
-
-    def send_iaas_metering(self, **kwargs) -> None:
-        """Legacy method for sending metering."""
-        with contextlib.suppress(Exception):
-            self._manager.send_metering(
-                app_key=self.appkey,
-                counter_name=kwargs.get("counter_name", ""),
-                counter_type=kwargs.get("counter_type", ""),
-                counter_unit=kwargs.get("counter_unit", ""),
-                counter_volume=kwargs.get("counter_volume", ""),
-            )

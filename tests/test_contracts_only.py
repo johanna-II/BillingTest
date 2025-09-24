@@ -1,8 +1,8 @@
 import pytest
-from libs import InitializeConfig
-from libs import Metering
-from libs import Contract
-import libs.calculation as calc
+from libs.InitializeConfig import InitializeConfig
+from libs.Metering import MeteringManager as Metering
+from libs.Contract import ContractManager as Contract
+import libs.Calculation as calc
 import math
 import logging
 
@@ -25,7 +25,6 @@ class TestContractOnly:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):

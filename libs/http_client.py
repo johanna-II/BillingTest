@@ -94,18 +94,15 @@ class TelemetryManager:
             yield None
             return
         
-        span = self._telemetry.create_span(operation, **attributes)
+        span = self._telemetry.create_span(operation, attributes=attributes)
         try:
             yield span
         except Exception as e:
             if span:
                 span.record_exception(e)
-                span.set_status(
-                    self._telemetry.tracer._tracer.Status(
-                        self._telemetry.tracer._tracer.StatusCode.ERROR,
-                        str(e)
-                    )
-                )
+                # Set error status on span
+                span.set_attribute("error", True)
+                span.set_attribute("error.message", str(e))
             raise
         finally:
             if span:
@@ -396,7 +393,7 @@ class BillingAPIClient:
                     endpoint=parsed_url.path,
                     method=method.value,
                     status_code=response.status_code,
-                    response_time_ms=elapsed_ms
+                    response_time=elapsed_ms / 1000  # Convert back to seconds
                 )
                 
                 # Validate and return response
@@ -510,87 +507,3 @@ class BillingAPIClient:
     def clear_auth_token(self) -> None:
         """Remove authorization token."""
         self.session.headers.pop("Authorization", None)
-
-
-# Backward compatibility - deprecated
-class SendDataSession:
-    """
-    Legacy wrapper for backward compatibility.
-    
-    .. deprecated:: 2.0
-        Use BillingAPIClient directly instead.
-    """
-    
-    def __init__(self, method: str, url: str) -> None:
-        import warnings
-        warnings.warn(
-            "SendDataSession is deprecated. Use BillingAPIClient directly.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        
-        self.method = method
-        self.url = url
-        self._data: Optional[RequestData] = None
-        self._json: Optional[JsonData] = None
-        self._headers: Headers = {}
-        
-        # Extract base URL and endpoint
-        parsed = urlparse(url)
-        base_url = f"{parsed.scheme}://{parsed.netloc}"
-        
-        self._client = BillingAPIClient(base_url)
-        self._endpoint = parsed.path
-        if parsed.query:
-            self._endpoint += f"?{parsed.query}"
-    
-    def __repr__(self) -> str:
-        return (
-            f"SendDataSession(method={self.method!r}, url={self.url!r}, "
-            f"headers={len(self._headers)} items)"
-        )
-    
-    # Properties for backward compatibility
-    @property
-    def data(self) -> Optional[RequestData]:
-        return self._data
-    
-    @data.setter
-    def data(self, value: RequestData) -> None:
-        self._data = value
-    
-    @property
-    def json(self) -> Optional[JsonData]:
-        return self._json
-    
-    @json.setter
-    def json(self, value: JsonData) -> None:
-        self._json = value
-    
-    @property
-    def headers(self) -> Headers:
-        return self._headers
-    
-    @headers.setter
-    def headers(self, value: Headers) -> None:
-        self._headers = value
-    
-    def request(self, **kwargs) -> Any:
-        """Make request using new client."""
-        response_data = self._client.request(
-            method=self.method,
-            endpoint=self._endpoint,
-            headers=self._headers or None,
-            json_data=self._json or None,
-            data=self._data or None,
-        )
-        
-        # Create mock response for compatibility
-        class MockResponse:
-            def __init__(self, data):
-                self._data = data
-            
-            def json(self):
-                return self._data
-        
-        return MockResponse(response_data)

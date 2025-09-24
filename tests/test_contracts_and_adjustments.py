@@ -1,9 +1,10 @@
 import pytest
-from libs import InitializeConfig
-from libs import Metering
-from libs import Contract
-import libs.calculation as calc
-import libs.adjustment as adj
+from libs.InitializeConfig import InitializeConfig
+from libs.Metering import MeteringManager as Metering
+from libs.Contract import ContractManager as Contract
+import libs.Calculation as calc
+from libs.Adjustment import AdjustmentManager
+from libs.constants import AdjustmentTarget
 import math
 import logging
 
@@ -22,12 +23,11 @@ class TestNoContracts:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
@@ -62,21 +62,23 @@ class TestNoContracts:
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.PROJECT)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
-            billingGroupid=self.config.billing_group_id[0],
+            billingGroupId=self.config.billing_group_id[0],
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
 
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 고정할인+고정할증
     @future_deprecated
     def test_contadjTC1(self):
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -102,8 +104,8 @@ class TestNoContracts:
             adjustment=2000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         expected_result = (
@@ -118,7 +120,7 @@ class TestNoContracts:
     # 약정 없음, 프로젝트 퍼센트할인+고정할증, 빌링그룹 고정할인+고정할증
     @future_deprecated
     def test_contadjTC2(self):
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -144,8 +146,8 @@ class TestNoContracts:
             adjustment=2000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         statements_no_vat = (
@@ -165,7 +167,7 @@ class TestNoContracts:
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 퍼센트할인+고정할증
     @future_deprecated
     def test_contadjTC3(self):
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -191,8 +193,8 @@ class TestNoContracts:
             adjustment=2000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         statements_no_vat = (
@@ -210,7 +212,7 @@ class TestNoContracts:
     # 약정 없음, 프로젝트 퍼센트할인+고정할증, 빌링그룹 퍼센트할인+고정할증
     @future_deprecated
     def test_contadjTC4(self):
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -236,8 +238,8 @@ class TestNoContracts:
             adjustment=2000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         project_stats = (
@@ -258,12 +260,11 @@ class TestPeriodContract:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
@@ -272,17 +273,19 @@ class TestPeriodContract:
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
-        self.config.clean_metering()
-        adjObj = adj.Adjustments(self.config.month)
+        # self.config.clean_metering() - 더 이상 필요하지 않습니다
+        adjObj = AdjustmentManager(self.config.month)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.PROJECT)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
-            billingGroupid=self.config.billing_group_id[0],
+            billingGroupId=self.config.billing_group_id[0],
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
 
     @future_deprecated
     def test_contadjTC5(self):
@@ -314,7 +317,7 @@ class TestPeriodContract:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -340,8 +343,8 @@ class TestPeriodContract:
             adjustment=3000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -362,7 +365,7 @@ class TestPeriodContract:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -388,8 +391,8 @@ class TestPeriodContract:
             adjustment=3000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -428,7 +431,7 @@ class TestPeriodContract:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -454,8 +457,8 @@ class TestPeriodContract:
             adjustment=3000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -476,7 +479,7 @@ class TestPeriodContract:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -502,8 +505,8 @@ class TestPeriodContract:
             adjustment=3000,
         )
 
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -517,12 +520,11 @@ class TestVolumeContract:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.clean_data()
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
@@ -531,17 +533,19 @@ class TestVolumeContract:
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
-        self.config.clean_metering()
-        adjObj = adj.Adjustments(self.config.month)
+        # self.config.clean_metering() - 더 이상 필요하지 않습니다
+        adjObj = AdjustmentManager(self.config.month)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.PROJECT)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
-            billingGroupid=self.config.billing_group_id[0],
+            billingGroupId=self.config.billing_group_id[0],
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
 
     @future_deprecated
     def test_contadjTC9(self):
@@ -555,7 +559,7 @@ class TestVolumeContract:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -580,8 +584,8 @@ class TestVolumeContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -620,7 +624,7 @@ class TestVolumeContract:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -645,8 +649,8 @@ class TestVolumeContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -667,7 +671,7 @@ class TestVolumeContract:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -692,8 +696,8 @@ class TestVolumeContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -732,7 +736,7 @@ class TestVolumeContract:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -757,8 +761,8 @@ class TestVolumeContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -772,12 +776,12 @@ class TestPartnerContract:
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.clean_data()
+        # self.config.clean_data() - 더 이상 필요하지 않습니다
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
-        self.config.before_test()  # to change paymentStatus as REGISTERED
+        self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(
             self.config.month, self.config.billing_group_id[0]
         )
@@ -786,17 +790,19 @@ class TestPartnerContract:
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
-        self.config.clean_metering()
-        adjObj = adj.Adjustments(self.config.month)
+        # self.config.clean_metering() - 더 이상 필요하지 않습니다
+        adjObj = AdjustmentManager(self.config.month)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="Project", projectId=self.config.project_id[0]
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.PROJECT)
         adjlist = adjObj.inquiry_adjustment(
             adjustmentTarget="BillingGroup",
-            billingGroupid=self.config.billing_group_id[0],
+            billingGroupId=self.config.billing_group_id[0],
         )
-        adjObj.delete_adjustment(adjlist)
+        if adjlist.get("adjustments"):
+            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
 
     @future_deprecated
     def test_contadjTC13(self):
@@ -828,7 +834,7 @@ class TestPartnerContract:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -853,8 +859,8 @@ class TestPartnerContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -875,7 +881,7 @@ class TestPartnerContract:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -900,8 +906,8 @@ class TestPartnerContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -922,7 +928,7 @@ class TestPartnerContract:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -947,8 +953,8 @@ class TestPartnerContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(
@@ -987,7 +993,7 @@ class TestPartnerContract:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        adjObj = adj.Adjustments(self.config.month)
+        adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
             projectId=self.config.project_id[0],
@@ -1012,8 +1018,8 @@ class TestPartnerContract:
             adjustmentType="STATIC_EXTRA",
             adjustment=3000,
         )
-        calcObj = calc.Calculation(self.config.month, self.config.uuid)
-        calcObj.recalculation_all()
+        calcObj = calc(self.config.month, self.config.uuid)
+        calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         self.config.verify_assert(

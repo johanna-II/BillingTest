@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import logging
+import uuid
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from config import url
 
 from .constants import PaymentStatus
 from .exceptions import APIRequestException, ValidationException
-from .http_client import BillingAPIClient
+from .payment_api_client import PaymentAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -237,8 +238,8 @@ class PaymentManager:
         self.uuid = uuid
         
         # Initialize API client
-        self._client = client or BillingAPIClient(url.BASE_BILLING_URL)
-        self._api = PaymentAPIClient(self._client)
+        self._client = client or PaymentAPIClient(url.BASE_BILLING_URL)
+        self._api = self._client  # Backward compatibility alias
         
         logger.info(f"Initialized PaymentManager for {month}, UUID: {uuid}")
 
@@ -270,10 +271,10 @@ class PaymentManager:
         try:
             # Choose API based on parameter
             if use_admin_api:
-                response = self._api.get_statements_admin(self.month, self.uuid)
+                response = self._client.get_statements_admin(self.month, self.uuid)
                 source = "admin"
             else:
-                response = self._api.get_statements_console(self.month, self.uuid)
+                response = self._client.get_statements_console(self.month, self.uuid)
                 source = "console"
             
             # Extract statements
@@ -320,7 +321,7 @@ class PaymentManager:
         PaymentValidator.validate_payment_group_id(payment_group_id)
         
         try:
-            response = self._api.change_status(self.month, payment_group_id, target_status)
+            response = self._client.change_status(self.month, payment_group_id, target_status)
             logger.info(f"Successfully changed payment status for {self.month}")
             return response
             
@@ -346,7 +347,7 @@ class PaymentManager:
         PaymentValidator.validate_payment_group_id(payment_group_id)
         
         try:
-            response = self._api.cancel_payment(self.month, payment_group_id)
+            response = self._client.cancel_payment(self.month, payment_group_id)
             logger.info(f"Successfully cancelled payment for {self.month}")
             return response
             
@@ -387,7 +388,7 @@ class PaymentManager:
             )
             
             try:
-                response = self._api.make_payment(self.month, payment_group_id, self.uuid)
+                response = self._client.make_payment(self.month, payment_group_id, self.uuid)
                 logger.info(f"Successfully made payment for {self.month}")
                 return response
                 
@@ -422,7 +423,7 @@ class PaymentManager:
             APIRequestException: If inquiry fails
         """
         try:
-            response = self._api.get_unpaid_statements(self.month, self.uuid)
+            response = self._client.get_unpaid_statements(self.month, self.uuid)
             
             statements = response.get("statements", [])
             if not statements:
@@ -511,105 +512,212 @@ class PaymentManager:
             "is_ready": status == PaymentStatus.READY,
             "is_registered": status == PaymentStatus.REGISTERED,
         }
-
-
-# Backward compatibility wrapper - deprecated
-class Payments:
-    """
-    Legacy wrapper for backward compatibility.
     
-    .. deprecated:: 2.0
-        Use PaymentManager directly instead.
-    """
-
-    def __init__(self, month: str) -> None:
-        warnings.warn(
-            "Payments class is deprecated. Use PaymentManager directly.",
-            DeprecationWarning,
-            stacklevel=2
+    def check_unpaid_amount(self, payment_group_id: str) -> float:
+        """
+        Check unpaid amount for a payment group (legacy compatibility).
+        
+        This is an alias for check_unpaid() for backward compatibility.
+        
+        Args:
+            payment_group_id: Payment group ID (not used in current implementation)
+            
+        Returns:
+            Unpaid amount
+        """
+        return self.check_unpaid()
+    
+    def get_payment_statement(self) -> Dict[str, Any]:
+        """
+        Get payment statement for the month (legacy compatibility).
+        
+        Returns:
+            Dictionary containing statement data
+        """
+        try:
+            # Get billing statements (not payment statements)
+            # This should return data with charge, totalAmount, etc.
+            response = self._client.get("billing/console/statements", params={
+                "uuid": self.uuid,
+                "month": self.month
+            })
+            return response
+        except Exception as e:
+            logger.warning(f"Failed to get billing statements: {e}")
+            # Return empty structure if fails
+            return {"statements": []}
+    
+    def create_payment_record(self, payment_group_id: str, amount: float, payment_method: str) -> Dict[str, Any]:
+        """
+        Create a new payment record.
+        
+        Args:
+            payment_group_id: Payment group ID
+            amount: Payment amount
+            payment_method: Payment method (e.g., CREDIT_CARD)
+            
+        Returns:
+            Created payment record data
+            
+        Raises:
+            ValidationException: If amount is invalid
+        """
+        if amount <= 0:
+            raise ValidationException("Amount must be positive")
+        
+        # Call API through mock-able interface
+        return self._client.create_payment(
+            payment_group_id=payment_group_id,
+            amount=amount,
+            payment_method=payment_method
         )
+    
+    def get_payment_details(self, payment_id: str) -> Dict[str, Any]:
+        """
+        Get detailed information about a payment.
         
-        self.month = month
-        self._uuid = ""
-        self._projectId = ""
-        self._manager: Optional[PaymentManager] = None
-
-    def __repr__(self) -> str:
-        return f"Payments(month={self.month!r}, uuid={self._uuid!r})"
-
-    @property
-    def uuid(self) -> str:
-        return self._uuid
-
-    @uuid.setter
-    def uuid(self, value: str) -> None:
-        self._uuid = value
-        self._manager = PaymentManager(self.month, value) if value else None
-
-    @property
-    def projectId(self) -> str:
-        return self._projectId
-
-    @projectId.setter
-    def projectId(self, value: str) -> None:
-        self._projectId = value
-
-    # Legacy method mappings
-    def inquiry_payment_admin(self) -> Tuple[str, str]:
-        """Legacy method for admin payment inquiry."""
-        if not self._manager:
-            return "", ""
+        Args:
+            payment_id: Payment ID
+            
+        Returns:
+            Payment details
+        """
+        return self._client.get_payment_details(payment_id)
+    
+    def process_refund(self, payment_id: str, amount: float, reason: str = None) -> Dict[str, Any]:
+        """
+        Process a refund for a payment.
         
-        try:
-            group_id, status = self._manager.get_payment_status(use_admin_api=True)
-            return group_id, status.value
-        except Exception as e:
-            logger.exception(f"Legacy inquiry_payment_admin failed: {e}")
-            return "", ""
-
-    def inquiry_payment(self) -> Tuple[str, str]:
-        """Legacy method for console payment inquiry."""
-        if not self._manager:
-            return "", ""
+        Args:
+            payment_id: Payment ID to refund
+            amount: Refund amount
+            reason: Refund reason (optional)
+            
+        Returns:
+            Refund processing result
+        """
+        if amount <= 0:
+            raise ValidationException("Refund amount must be positive")
         
-        try:
-            group_id, status = self._manager.get_payment_status(use_admin_api=False)
-            return group_id, status.value
-        except Exception as e:
-            logger.exception(f"Legacy inquiry_payment failed: {e}")
-            return "", ""
-
-    def change_payment(self, pgId: str) -> None:
-        """Legacy method for changing payment status."""
-        if self._manager:
-            try:
-                self._manager.change_payment_status(pgId)
-            except Exception as e:
-                logger.exception(f"Legacy change_payment failed: {e}")
-
-    def cancel_payment(self, pgId: str) -> None:
-        """Legacy method for cancelling payment."""
-        if self._manager:
-            try:
-                self._manager.cancel_payment(pgId)
-            except Exception as e:
-                logger.exception(f"Legacy cancel_payment failed: {e}")
-
-    def payment(self, pgId: str) -> None:
-        """Legacy method for making payment."""
-        if self._manager:
-            try:
-                self._manager.make_payment(pgId)
-            except Exception as e:
-                logger.exception(f"Legacy payment failed: {e}")
-
-    def unpaid(self) -> float:
-        """Legacy method for checking unpaid amount."""
-        if not self._manager:
+        return self._client.process_refund(
+            payment_id=payment_id,
+            amount=amount,
+            reason=reason
+        )
+    
+    def get_payment_history(self, payment_group_id: str = None, start_date: str = None, end_date: str = None, **kwargs) -> List[Dict[str, Any]]:
+        """
+        Get payment history for a payment group.
+        
+        Args:
+            payment_group_id: Payment group ID (optional)
+            start_date: Start date (optional)
+            end_date: End date (optional)
+            **kwargs: Additional parameters
+            
+        Returns:
+            List of payment records
+        """
+        # Use payment_group_id from init if not provided
+        if payment_group_id is None:
+            payment_group_id, _ = self.get_payment_status()
+        
+        return self._client.get_payment_history(
+            payment_group_id=payment_group_id,
+            start_date=start_date,
+            end_date=end_date,
+            **kwargs
+        )
+    
+    def validate_payment_amount(self, amount: float, min_amount: float = 0.01, max_amount: float = 1000000.0) -> bool:
+        """
+        Validate if payment amount is within acceptable range.
+        
+        Args:
+            amount: Amount to validate
+            min_amount: Minimum allowed amount
+            max_amount: Maximum allowed amount
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        if amount is None:
+            return False
+        return min_amount <= amount <= max_amount
+    
+    def calculate_late_fee(self, amount: float, days_late: int, fee_rate: float = 0.001) -> float:
+        """
+        Calculate late payment fee.
+        
+        Args:
+            amount: Payment amount
+            days_late: Number of days late
+            fee_rate: Daily fee rate (default 0.1%)
+            
+        Returns:
+            Late fee amount
+        """
+        if days_late <= 0:
             return 0.0
         
-        try:
-            return self._manager.check_unpaid()
-        except Exception as e:
-            logger.exception(f"Legacy unpaid failed: {e}")
-            return 0.0
+        # Simple late fee calculation
+        return amount * fee_rate * days_late
+    
+    def retry_failed_payment(self, payment_id: str, max_retries: int = 3, retry_count: int = 1) -> Dict[str, Any]:
+        """
+        Retry a failed payment.
+        
+        Args:
+            payment_id: Payment ID to retry
+            max_retries: Maximum number of retries
+            retry_count: Current retry count
+            
+        Returns:
+            Retry result
+        """
+        last_error = None
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                return self._client.retry_payment(
+                    payment_id=payment_id,
+                    retry_count=attempt
+                )
+            except APIRequestException as e:
+                last_error = e
+                if attempt < max_retries:
+                    logger.warning(f"Retry {attempt} failed: {e}")
+                    continue
+                else:
+                    raise
+    
+    def process_batch_payments(self, payment_requests: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Process multiple payments in batch.
+        
+        Args:
+            payment_requests: List of payment requests
+            
+        Returns:
+            Batch processing result
+        """
+        if not payment_requests:
+            raise ValidationException("Payment requests list cannot be empty")
+        
+        return self._client.process_batch_payments(payment_requests)
+    
+    def validate_payment_method(self, payment_method: str, allowed_methods: List[str] = None) -> bool:
+        """
+        Validate if payment method is allowed.
+        
+        Args:
+            payment_method: Payment method to validate
+            allowed_methods: List of allowed methods (optional)
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        if allowed_methods is None:
+            allowed_methods = ["CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "PAYPAL", "CASH"]
+        
+        return payment_method in allowed_methods

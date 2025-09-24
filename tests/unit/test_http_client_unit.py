@@ -10,8 +10,7 @@ from libs.http_client import (
     RetryConfig,
     HTTPMethod,
     TelemetryManager,
-    retry_on_exception,
-    SendDataSession
+    retry_on_exception
 )
 from libs.exceptions import APIRequestException, ErrorCode, ErrorContext
 from libs.constants import HTTPStatus
@@ -348,7 +347,8 @@ class TestRetryDecorator:
 class TestTelemetryManager:
     """Unit tests for TelemetryManager class."""
     
-    def test_telemetry_disabled(self):
+    @patch('libs.observability.get_telemetry', return_value=None)
+    def test_telemetry_disabled(self, mock_get_telemetry):
         """Test telemetry when not available."""
         manager = TelemetryManager()
         
@@ -357,7 +357,7 @@ class TestTelemetryManager:
             assert span is None
         
         # Record should not raise
-        manager.record_api_call(endpoint="/test", method="GET", status_code=200)
+        manager.record_api_call(endpoint="/test", method="GET", status_code=200, response_time=0.1)
     
     @patch('libs.observability.get_telemetry')
     def test_telemetry_enabled(self, mock_get_telemetry):
@@ -377,49 +377,7 @@ class TestTelemetryManager:
         
         mock_telemetry.create_span.assert_called_once_with(
             "test.operation",
-            key="value"
+            attributes={"key": "value"}
         )
         mock_span.end.assert_called_once()
 
-
-class TestSendDataSession:
-    """Unit tests for backward compatibility wrapper."""
-    
-    def test_legacy_wrapper_initialization(self):
-        """Test legacy wrapper initialization."""
-        with pytest.warns(DeprecationWarning):
-            session = SendDataSession("GET", "https://api.example.com/test")
-        
-        assert session.method == "GET"
-        assert session.url == "https://api.example.com/test"
-        assert session._endpoint == "/test"
-    
-    def test_legacy_wrapper_properties(self):
-        """Test legacy wrapper property setters/getters."""
-        with pytest.warns(DeprecationWarning):
-            session = SendDataSession("POST", "https://api.example.com/test")
-        
-        # Test property setters
-        session.data = "test data"
-        session.json = {"key": "value"}
-        session.headers = {"Content-Type": "application/json"}
-        
-        # Test property getters
-        assert session.data == "test data"
-        assert session.json == {"key": "value"}
-        assert session.headers == {"Content-Type": "application/json"}
-    
-    @patch('libs.http_client.BillingAPIClient')
-    def test_legacy_wrapper_request(self, mock_client_cls):
-        """Test legacy wrapper request method."""
-        mock_client = Mock()
-        mock_client.request.return_value = {"result": "success"}
-        mock_client_cls.return_value = mock_client
-        
-        with pytest.warns(DeprecationWarning):
-            session = SendDataSession("POST", "https://api.example.com/test")
-        
-        session.json = {"key": "value"}
-        response = session.request()
-        
-        assert response.json() == {"result": "success"}

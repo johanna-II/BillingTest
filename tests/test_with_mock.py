@@ -26,7 +26,8 @@ def mock_server_context():
     max_retries = 30
     for i in range(max_retries):
         try:
-            response = requests.get("http://localhost:5000/health")
+            mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
+            response = requests.get(f"{mock_url}/health")
             if response.status_code == 200:
                 print("Mock server is ready!")
                 break

@@ -9,8 +9,8 @@ import uuid
 from typing import Dict, Any, Optional
 
 from libs import InitializeConfig
-from libs import Metering, Credit, Calculation, Contract, Batch
-from libs.Payments import Payments
+from libs import MeteringManager, CreditManager, CalculationManager, ContractManager, BatchManager
+from libs import PaymentManager
 
 
 @pytest.fixture
@@ -157,10 +157,13 @@ def standard_credit_amounts():
 def _reset_mock_server_data(uuid_param: str):
     """Helper function to reset mock server data for a specific UUID."""
     import requests
+    import os
     
     try:
+        # Get mock server URL from environment or use default
+        mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
         response = requests.post(
-            "http://localhost:5000/test/reset",
+            f"{mock_url}/test/reset",
             json={"uuid": uuid_param},
             timeout=1
         )

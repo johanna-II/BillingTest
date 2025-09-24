@@ -15,8 +15,8 @@ from libs.Metering import MeteringManager
 from libs.Credit import CreditManager
 from libs.Contract import ContractManager
 from libs.Batch import BatchManager
-from libs.calculation import CalculationManager
-from libs.adjustment import AdjustmentManager
+from libs.Calculation import CalculationManager
+from libs.Adjustment import AdjustmentManager
 
 
 @dataclass

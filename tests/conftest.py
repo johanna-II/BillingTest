@@ -10,6 +10,26 @@ This module provides:
 
 from __future__ import annotations
 
+# Fix gevent/pytest-xdist conflict before any imports
+import os
+import sys
+
+def _disable_gevent_in_parallel_mode():
+    """Disable gevent monkey patching when running tests in parallel."""
+    # Check if pytest-xdist is being used
+    if any(arg.startswith('-n') for arg in sys.argv) or 'xdist' in sys.modules:
+        os.environ['GEVENT_SUPPORT'] = 'false'
+        os.environ['LOCUST_HEADLESS'] = 'true'
+        # Mock gevent modules to prevent import
+        class MockGevent:
+            def __getattr__(self, name):
+                return lambda *args, **kwargs: None
+        if 'gevent' not in sys.modules:
+            sys.modules['gevent'] = MockGevent()
+            sys.modules['gevent.monkey'] = MockGevent()
+
+_disable_gevent_in_parallel_mode()
+
 import logging
 import os
 import sys
@@ -26,12 +46,26 @@ from _pytest.fixtures import SubRequest
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Configure logging - make it safe for parallel execution
+def setup_logging():
+    """Setup logging configuration safe for parallel execution."""
+    # Only configure if not already configured
+    if not logging.getLogger().handlers:
+        # Use NullHandler in parallel mode to avoid file conflicts
+        if any(arg.startswith('-n') for arg in sys.argv) or 'xdist' in sys.modules:
+            handler = logging.NullHandler()
+        else:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            ))
+        
+        logging.getLogger().addHandler(handler)
+        logging.getLogger().setLevel(logging.INFO)
+    
+    return logging.getLogger(__name__)
+
+logger = setup_logging()
 
 
 @dataclass
@@ -56,8 +90,6 @@ class TestConfig:
 # Plugin configuration
 pytest_plugins = [
     "tests.fixtures.test_data",
-    # Uncomment to enable telemetry
-    # "tests.pytest_telemetry",
 ]
 
 
@@ -307,9 +339,13 @@ def mock_server(use_mock: bool) -> Optional[Generator[str, None, None]]:
     
     # Import mock server management
     try:
-        from tests.fixtures.mock_server import MockServerManager
+        from tests.fixtures.mock_server import MockServerManager, find_free_port
         
-        port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
+        # Use dynamic port to avoid conflicts in parallel execution
+        port = int(os.environ.get("MOCK_SERVER_PORT", "0"))
+        if port == 0:
+            port = find_free_port()
+            
         manager = MockServerManager(port=port)
         
         # Start server
@@ -325,6 +361,13 @@ def mock_server(use_mock: bool) -> Optional[Generator[str, None, None]]:
     except ImportError:
         logger.warning("Mock server fixtures not available")
         yield None
+
+
+# Mock server URL fixture
+@pytest.fixture(scope="session")
+def mock_server_url(mock_server) -> Optional[str]:
+    """Provide mock server URL if available."""
+    return mock_server
 
 
 # Test data fixtures

@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from config import url
 
@@ -22,18 +22,19 @@ logger = logging.getLogger(__name__)
 class BatchManager:
     """Manages batch job operations for billing system."""
 
-    def __init__(self, month: str) -> None:
+    def __init__(self, month: str, client: Optional[BillingAPIClient] = None) -> None:
         """Initialize batch manager.
 
         Args:
             month: Target month in YYYY-MM format
+            client: Optional BillingAPIClient instance for dependency injection
 
         Raises:
             ValidationException: If month format is invalid
         """
         self._validate_month_format(month)
         self.month = month
-        self._client = BillingAPIClient(url.BASE_BILLING_URL)
+        self._client = client if client else BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
         return f"BatchManager(month={self.month})"
@@ -175,38 +176,3 @@ class BatchManager:
                 logger.exception("Failed to request {job_code.value}: %s", e)
 
         return results
-
-
-# Backward compatibility wrapper
-class Batches:
-    """Legacy wrapper for backward compatibility."""
-
-    def __init__(self, month: str) -> None:
-        self.month = month
-        self._batchJobCode = ""
-        self._manager = BatchManager(month)
-
-    def __repr__(self) -> str:
-        return f"Batches(month: {self.month}, batchJobCode: {self._batchJobCode})"
-
-    @property
-    def batch_job_code(self):
-        return self._batchJobCode
-
-    @batch_job_code.setter
-    def batch_job_code(self, batchJobCode) -> None:
-        self._batchJobCode = batchJobCode
-    
-    # Backward compatibility alias
-    @property
-    def batchJobCode(self):
-        return self._batchJobCode
-    
-    @batchJobCode.setter
-    def batchJobCode(self, value) -> None:
-        self._batchJobCode = value
-
-    def send_batch_request(self) -> None:
-        """Legacy method for sending batch request."""
-        with contextlib.suppress(Exception):
-            self._manager.request_batch_job(self.batchJobCode)

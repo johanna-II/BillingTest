@@ -160,7 +160,7 @@ omit = [
     "*/tests/*", 
     "*/conftest.py",
     "libs/dependency_injection.py",
-    "libs/observability/telemetry.py"
+    "libs/observability/*"
 ]
 
 [tool.coverage.report]
