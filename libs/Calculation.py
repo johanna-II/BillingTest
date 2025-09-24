@@ -1,12 +1,10 @@
 """Calculation management for billing system."""
 
-import contextlib
 import logging
 from typing import Any
 
 from config import url
 
-from .constants import BatchJobCode
 from .exceptions import APIRequestException
 from .http_client import BillingAPIClient
 
@@ -58,7 +56,8 @@ class CalculationManager:
             if self._wait_for_calculation_completion(timeout):
                 logger.info("Recalculation completed successfully")
             else:
-                logger.warning("Recalculation did not complete within %s seconds", timeout
+                logger.warning(
+                    "Recalculation did not complete within %s seconds", timeout
                 )
 
             return response
@@ -84,7 +83,7 @@ class CalculationManager:
             status_field="status",
             success_value="COMPLETED",
             timeout=timeout,
-            check_interval=check_interval
+            check_interval=check_interval,
         )
 
     def delete_resources(self) -> dict[str, Any]:

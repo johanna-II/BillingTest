@@ -1,9 +1,7 @@
 """Contract management for billing system."""
 
-import contextlib
 import logging
-from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from config import url
 
@@ -19,7 +17,12 @@ logger = logging.getLogger(__name__)
 class ContractManager:
     """Manages billing contracts for billing groups."""
 
-    def __init__(self, month: str, billing_group_id: str, client: Optional[BillingAPIClient] = None) -> None:
+    def __init__(
+        self,
+        month: str,
+        billing_group_id: str,
+        client: BillingAPIClient | None = None,
+    ) -> None:
         """Initialize contract manager.
 
         Args:
@@ -43,12 +46,12 @@ class ContractManager:
         """Validate month format is YYYY-MM."""
         import re
         from datetime import datetime
-        
+
         # First check the exact format with regex
         if not re.match(r"^\d{4}-\d{2}$", month):
             msg = f"Invalid month format: {month}. Expected YYYY-MM"
             raise ValidationException(msg)
-        
+
         # Then validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
@@ -86,7 +89,9 @@ class ContractManager:
 
         endpoint = f"billing/admin/billing-groups/{self.billing_group_id}"
 
-        logger.info("Applying contract {contract_id} to billing group {self.billing_group_id} from %s", self.month
+        logger.info(
+            "Applying contract {contract_id} to billing group {self.billing_group_id} from %s",
+            self.month,
         )
 
         try:
@@ -176,7 +181,8 @@ class ContractManager:
 
         endpoint = f"billing/admin/contracts/{contract_id}/products/prices"
 
-        logger.info("Getting price for counter {counter_name} in contract %s", contract_id
+        logger.info(
+            "Getting price for counter {counter_name} in contract %s", contract_id
         )
 
         # Retry logic for potential temporary failures
@@ -189,7 +195,9 @@ class ContractManager:
                 price = prices.get("price", 0)
                 original_price = prices.get("originalPrice", 0)
 
-                logger.info("Counter {counter_name} - Discounted: {price}, Original: %s", original_price
+                logger.info(
+                    "Counter {counter_name} - Discounted: {price}, Original: %s",
+                    original_price,
                 )
 
                 return {
@@ -207,7 +215,8 @@ class ContractManager:
                 if attempt < max_retries - 1:
                     logger.warning("Attempt %s failed, retrying...", attempt + 1)
                     continue
-                logger.exception("Failed to get counter price after {max_retries} attempts: %s", e
+                logger.exception(
+                    "Failed to get counter price after {max_retries} attempts: %s", e
                 )
                 raise
         return None

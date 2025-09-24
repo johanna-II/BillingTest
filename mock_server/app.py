@@ -2,30 +2,27 @@
 
 from __future__ import annotations
 
-import json
 import os
+import threading
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from flask import Flask, jsonify, request, make_response
-from flask_cors import CORS
+from flask import Flask, jsonify, make_response, request
 from flask_caching import Cache
-import threading
+from flask_cors import CORS
 
 from .mock_data import (
-    COMPUTE_METERING_TEMPLATE,
-    generate_adjustment_data,
     generate_batch_progress,
     generate_billing_detail,
     generate_contract_data,
     generate_credit_data,
-    generate_payment_data,
 )
 from .test_data_manager import get_data_manager
 
 try:
-    from .openapi_handler import setup_openapi_handler, get_openapi_handler
+    from .openapi_handler import get_openapi_handler, setup_openapi_handler
+
     OPENAPI_AVAILABLE = True
 except ImportError:
     OPENAPI_AVAILABLE = False
@@ -36,35 +33,41 @@ app = Flask(__name__)
 CORS(app)
 
 # Configure caching for better performance
-cache = Cache(app, config={
-    'CACHE_TYPE': 'simple',
-    'CACHE_DEFAULT_TIMEOUT': 300,  # 5 minute cache
-    'CACHE_THRESHOLD': 1000  # Cache up to 1000 items
-})
+cache = Cache(
+    app,
+    config={
+        "CACHE_TYPE": "simple",
+        "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minute cache
+        "CACHE_THRESHOLD": 1000,  # Cache up to 1000 items
+    },
+)
 
 # Register Swagger UI
 try:
-    import sys
     import os
+    import sys
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, current_dir)
-    
+
     from swagger_ui import swagger_bp
-    app.register_blueprint(swagger_bp, url_prefix='/docs')
+
+    app.register_blueprint(swagger_bp, url_prefix="/docs")
     print("Swagger UI successfully registered at /docs")
 except ImportError as e:
     print(f"Failed to import swagger_ui: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Thread lock for thread-safe operations
 data_lock = threading.Lock()
 
 # Performance optimization: disable Flask debug features
-app.config['PROPAGATE_EXCEPTIONS'] = False
-app.config['TRAP_HTTP_EXCEPTIONS'] = False
-app.config['JSON_SORT_KEYS'] = False
-app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+app.config["PROPAGATE_EXCEPTIONS"] = False
+app.config["TRAP_HTTP_EXCEPTIONS"] = False
+app.config["JSON_SORT_KEYS"] = False
+app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 
 # Get data manager instance
 data_manager = get_data_manager()
@@ -83,13 +86,16 @@ billing_data = {}
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
-    spec_path = os.path.join(os.path.dirname(__file__), '..', 'docs', 'openapi', 'billing-api.yaml')
+    spec_path = os.path.join(
+        os.path.dirname(__file__), "..", "docs", "openapi", "billing-api.yaml"
+    )
     if os.path.exists(spec_path):
         try:
             setup_openapi_handler(spec_path)
             print(f"OpenAPI handler initialized with spec: {spec_path}")
         except Exception as e:
             import traceback
+
             print(f"Failed to initialize OpenAPI handler: {e}")
             print(f"Traceback: {traceback.format_exc()}")
             OPENAPI_AVAILABLE = False
@@ -98,23 +104,15 @@ if OPENAPI_AVAILABLE:
 def create_success_response(data: dict[str, Any] | None = None) -> dict[str, Any]:
     """Create standard success response."""
     return {
-        "header": {
-            "isSuccessful": True,
-            "resultCode": 0,
-            "resultMessage": "SUCCESS"
-        },
-        **(data or {})
+        "header": {"isSuccessful": True, "resultCode": 0, "resultMessage": "SUCCESS"},
+        **(data or {}),
     }
 
 
 def create_error_response(message: str, code: int = -1) -> tuple[dict[str, Any], int]:
     """Create standard error response."""
     return {
-        "header": {
-            "isSuccessful": False,
-            "resultCode": code,
-            "resultMessage": message
-        }
+        "header": {"isSuccessful": False, "resultCode": code, "resultMessage": message}
     }, 400
 
 
@@ -122,7 +120,7 @@ def create_error_response(message: str, code: int = -1) -> tuple[dict[str, Any],
 @app.route("/", methods=["GET"])
 def welcome():
     """Welcome page with API documentation links."""
-    host = request.host_url.rstrip('/')
+    host = request.host_url.rstrip("/")
     return f"""
     <html>
     <head>
@@ -220,7 +218,9 @@ def welcome():
 @app.route("/health", methods=["GET"])
 def health():
     """Health check endpoint."""
-    return create_success_response({"status": "healthy", "timestamp": datetime.utcnow().isoformat()})
+    return create_success_response(
+        {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    )
 
 
 # Metering endpoints
@@ -228,11 +228,11 @@ def health():
 def create_metering():
     """Create metering data."""
     data = request.json
-    test_uuid = request.headers.get('uuid', 'default')
-    
+    test_uuid = request.headers.get("uuid", "default")
+
     # Get UUID-specific metering store
     metering_store = data_manager.get_metering_data(test_uuid)
-    
+
     # Handle meterList format (what the actual client sends)
     if "meterList" in data:
         meter_ids = []
@@ -242,35 +242,43 @@ def create_metering():
                 "id": meter_id,
                 "timestamp": datetime.now().isoformat(),
                 "uuid": test_uuid,
-                **meter
+                **meter,
             }
             meter_ids.append(meter_id)
-        
+
         with open("mock_metering.log", "a") as f:
-            f.write(f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n")
-        
-        return jsonify(create_success_response({"message": f"Created {len(data['meterList'])} meters", "meterIds": meter_ids}))
-    else:
-        # Handle single meter format
-        meter_id = str(uuid.uuid4())
-        metering_store[meter_id] = {
-            "id": meter_id,
-            "timestamp": datetime.now().isoformat(),
-            "uuid": test_uuid,
-            **data
-        }
-        return jsonify(create_success_response({"meterId": meter_id}))
+            f.write(
+                f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n"
+            )
+
+        return jsonify(
+            create_success_response(
+                {
+                    "message": f"Created {len(data['meterList'])} meters",
+                    "meterIds": meter_ids,
+                }
+            )
+        )
+    # Handle single meter format
+    meter_id = str(uuid.uuid4())
+    metering_store[meter_id] = {
+        "id": meter_id,
+        "timestamp": datetime.now().isoformat(),
+        "uuid": test_uuid,
+        **data,
+    }
+    return jsonify(create_success_response({"meterId": meter_id}))
 
 
 @app.route("/billing/meters/<meter_id>", methods=["GET"])
 def get_metering(meter_id):
     """Get metering data."""
-    test_uuid = request.headers.get('uuid', 'default')
+    test_uuid = request.headers.get("uuid", "default")
     metering_store = data_manager.get_metering_data(test_uuid)
-    
+
     if meter_id not in metering_store:
         return create_error_response("Meter not found", 404)
-    
+
     return jsonify(create_success_response({"meter": metering_store[meter_id]}))
 
 
@@ -280,15 +288,15 @@ def create_batch_job():
     """Create batch job."""
     data = request.json
     job_id = str(uuid.uuid4())
-    
+
     batch_jobs[job_id] = {
         "batchJobCode": job_id,
         "status": "RUNNING",
         "completedCount": 0,
         "totalCount": 100,
-        "createdAt": datetime.now().isoformat()
+        "createdAt": datetime.now().isoformat(),
     }
-    
+
     return jsonify(create_success_response({"batchJobCode": job_id}))
 
 
@@ -300,13 +308,13 @@ def get_batch_progress():
     for job_id, job in batch_jobs.items():
         if job_id not in batch_progress:
             batch_progress[job_id] = 0
-        
+
         if job["status"] == "RUNNING":
             batch_progress[job_id] = min(batch_progress[job_id] + 20, 100)
-            
+
         progress_data = generate_batch_progress(job_id, batch_progress[job_id])
         result_list.append(progress_data)
-    
+
     return jsonify(create_success_response({"list": result_list}))
 
 
@@ -314,27 +322,31 @@ def get_batch_progress():
 def get_calculation_progress():
     """Get calculation progress for batch jobs."""
     # Get query parameters
-    month = request.args.get('month')
-    uuid_param = request.args.get('uuid')
-    
+    month = request.args.get("month")
+    uuid_param = request.args.get("uuid")
+
     # Check if we have a batch job for this combination
     job_key = f"{month}_{uuid_param}" if month and uuid_param else None
-    
+
     # Always return completed status for mock
-    result_list = [{
-        "batchJobCode": "API_CALCULATE_USAGE_AND_PRICE",
-        "progress": 100,
-        "maxProgress": 100,
-        "status": "COMPLETED"
-    }]
-    
+    result_list = [
+        {
+            "batchJobCode": "API_CALCULATE_USAGE_AND_PRICE",
+            "progress": 100,
+            "maxProgress": 100,
+            "status": "COMPLETED",
+        }
+    ]
+
     # For compatibility with wait_for_completion method
-    return jsonify({
-        "status": "COMPLETED",
-        "list": result_list,
-        "progress": 100,
-        "maxProgress": 100
-    })
+    return jsonify(
+        {
+            "status": "COMPLETED",
+            "list": result_list,
+            "progress": 100,
+            "maxProgress": 100,
+        }
+    )
 
 
 # Credit endpoints
@@ -342,7 +354,7 @@ def get_calculation_progress():
 def get_credit_balance():
     """Get credit balance."""
     uuid_param = request.headers.get("uuid")
-    
+
     # Return mock balance data
     balance_data = {
         "totalBalance": 1000.0,
@@ -350,19 +362,11 @@ def get_credit_balance():
         "pendingBalance": 200.0,
         "currency": "USD",
         "balances": [
-            {
-                "type": "FREE",
-                "amount": 500.0,
-                "expiryDate": "2024-12-31"
-            },
-            {
-                "type": "PAID",
-                "amount": 300.0,
-                "expiryDate": "2024-12-31"
-            }
-        ]
+            {"type": "FREE", "amount": 500.0, "expiryDate": "2024-12-31"},
+            {"type": "PAID", "amount": 300.0, "expiryDate": "2024-12-31"},
+        ],
     }
-    
+
     return jsonify(create_success_response(balance_data))
 
 
@@ -371,7 +375,7 @@ def get_credit_history():
     """Get credit history."""
     uuid_param = request.headers.get("uuid")
     balance_type = request.args.get("balancePriceTypeCode", "FREE")
-    
+
     # Get user's credit data
     total_credit_amt = 0
     credit_data = data_manager.credit_data
@@ -380,13 +384,17 @@ def get_credit_history():
         # For history, return the remaining amount (not total given)
         # This matches the test expectation that fully used credits show 0 in history
         total_credit_amt = data.get("restAmount", 0)
-    
+
     # Return mock credit history data
-    return jsonify(create_success_response({
-        "totalCreditAmt": total_credit_amt,
-        "balancePriceTypeCode": balance_type,
-        "history": []
-    }))
+    return jsonify(
+        create_success_response(
+            {
+                "totalCreditAmt": total_credit_amt,
+                "balancePriceTypeCode": balance_type,
+                "history": [],
+            }
+        )
+    )
 
 
 @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
@@ -394,63 +402,67 @@ def grant_campaign_credit(campaign_id):
     """Grant credit through campaign."""
     data = request.json
     uuid_param = request.headers.get("uuid")
-    
+
     # Store credit data
-    credit_amount = data.get('creditList', [{}])[0].get('creditAmt', 0)
-    credit_name = data.get('creditList', [{}])[0].get('creditName', 'Campaign Credit')
-    
+    credit_amount = data.get("creditList", [{}])[0].get("creditAmt", 0)
+    credit_name = data.get("creditList", [{}])[0].get("creditName", "Campaign Credit")
+
     credit_data = data_manager.credit_data
     if uuid_param not in credit_data:
         credit_data[uuid_param] = {
             "grantAmount": 0,
             "useAmount": 0,
             "refundAmount": 0,
-            "restAmount": 0
+            "restAmount": 0,
         }
-    
+
     # Add to granted amount and rest amount
     credit_data[uuid_param]["grantAmount"] += credit_amount
     credit_data[uuid_param]["restAmount"] += credit_amount
-    
-    return jsonify(create_success_response({
-        "campaignId": campaign_id,
-        "creditAmount": credit_amount,
-        "creditName": credit_name,
-        "status": "SUCCESS"
-    }))
+
+    return jsonify(
+        create_success_response(
+            {
+                "campaignId": campaign_id,
+                "creditAmount": credit_amount,
+                "creditName": credit_name,
+                "status": "SUCCESS",
+            }
+        )
+    )
 
 
 @app.route("/billing/coupons/<coupon_code>", methods=["POST"])
 def apply_coupon_credit(coupon_code):
     """Apply coupon credit to user."""
     uuid_param = request.headers.get("uuid")
-    
+
     # Default coupon amounts based on code pattern
     coupon_amounts = {
         "CAMPAIGN-001": 100000,  # Default test coupon
         "CAMPAIGN-002": 2000000,  # Large test coupon
     }
-    
+
     # Get amount from coupon code or use default
     amount = coupon_amounts.get(coupon_code, 100000)
-    
+
     # Initialize credit data if not exists
     with data_lock:
         if uuid_param not in credit_data:
             credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
-        
+
         # Update credit amounts
         current_total = credit_data[uuid_param]["totalAmount"]
         new_total = current_total + amount
-        
+
         # Regenerate credit data with new amount
         credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
-    
-    return jsonify(create_success_response({
-        "creditId": str(uuid.uuid4()),
-        "couponCode": coupon_code,
-        "amount": amount
-    }))
+
+    return jsonify(
+        create_success_response(
+            {"creditId": str(uuid.uuid4()), "couponCode": coupon_code, "amount": amount}
+        )
+    )
 
 
 @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
@@ -458,49 +470,48 @@ def grant_paid_credit(campaign_id):
     """Grant paid credit to user."""
     data = request.json
     uuid_param = request.headers.get("uuid")
-    
+
     # Extract credit info from request
     credit_info = {
         "creditName": data.get("creditName", "test"),
         "credit": data.get("credit", 0),
-        "uuidList": data.get("uuidList", [])
+        "uuidList": data.get("uuidList", []),
     }
-    
+
     # Use first UUID from list if header UUID not provided
     if not uuid_param and credit_info["uuidList"]:
         uuid_param = credit_info["uuidList"][0]
-    
+
     amount = credit_info["credit"]
-    
+
     # Initialize credit data if not exists
     with data_lock:
         if uuid_param not in credit_data:
             credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
-        
+
         # Update credit amounts
         current_total = credit_data[uuid_param]["totalAmount"]
         new_total = current_total + amount
-        
+
         # Regenerate credit data with new amount
         credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
-    
-    return jsonify(create_success_response({
-        "creditId": str(uuid.uuid4()),
-        "campaignId": campaign_id,
-        "amount": amount
-    }))
+
+    return jsonify(
+        create_success_response(
+            {"creditId": str(uuid.uuid4()), "campaignId": campaign_id, "amount": amount}
+        )
+    )
 
 
 @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["DELETE"])
 def cancel_campaign_credit(campaign_id):
     """Cancel credit for a specific campaign."""
     reason = request.args.get("reason", "test")
-    
+
     # For mock purposes, just return success
-    return jsonify(create_success_response({
-        "campaignId": campaign_id,
-        "reason": reason
-    }))
+    return jsonify(
+        create_success_response({"campaignId": campaign_id, "reason": reason})
+    )
 
 
 @app.route("/billing/admin/campaign/<campaign_id>/give", methods=["POST"])
@@ -509,20 +520,19 @@ def give_credit(campaign_id):
     data = request.json
     uuid_param = data.get("uuid")
     amount = data.get("amount", 0)
-    
+
     # Initialize credit data if not exists
     with data_lock:
         if uuid_param not in credit_data:
             credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
-        
+
         # Update credit amounts
         current_total = credit_data[uuid_param]["totalAmount"]
         new_total = current_total + amount
-        
+
         # Regenerate credit data with new amount
         credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
-    
-    
+
     return jsonify(create_success_response({"creditId": str(uuid.uuid4())}))
 
 
@@ -534,16 +544,16 @@ def cancel_credit():
     else:
         data = request.json
         uuid_param = data.get("uuid")
-    
+
     with data_lock:
         if uuid_param in credit_data:
             credit_data[uuid_param] = {
                 "totalAmount": 0,
                 "usedAmount": 0,
                 "restAmount": 0,
-                "credits": []
+                "credits": [],
             }
-    
+
     return jsonify(create_success_response())
 
 
@@ -551,22 +561,26 @@ def cancel_credit():
 def get_remaining_credits():
     """Get remaining credits."""
     uuid_param = request.args.get("uuid")
-    
+
     # Return mock remaining credits based on uuid
     if uuid_param in credit_data:
         data = credit_data[uuid_param]
-        return jsonify(create_success_response({
-            "remainingCredits": data.get("restAmount", 0),
-            "totalCredit": data.get("totalAmount", 0),
-            "usedCredit": data.get("usedAmount", 0)
-        }))
-    
+        return jsonify(
+            create_success_response(
+                {
+                    "remainingCredits": data.get("restAmount", 0),
+                    "totalCredit": data.get("totalAmount", 0),
+                    "usedCredit": data.get("usedAmount", 0),
+                }
+            )
+        )
+
     # Default response if no data exists
-    return jsonify(create_success_response({
-        "remainingCredits": 0,
-        "totalCredit": 0,
-        "usedCredit": 0
-    }))
+    return jsonify(
+        create_success_response(
+            {"remainingCredits": 0, "totalCredit": 0, "usedCredit": 0}
+        )
+    )
 
 
 # Billing endpoints
@@ -575,15 +589,15 @@ def get_billing_detail():
     """Get billing details."""
     uuid_param = request.args.get("uuid")
     month = request.args.get("month")
-    
+
     # Check if user has any discounts (e.g., from contracts)
     has_discount = uuid_param in contracts
-    
+
     # Calculate billing based on actual metering data
     compute_amount = 0
     storage_amount = 0
     network_amount = 0
-    
+
     # Calculate amounts based on metering data
     metering_count = 0
     metering_data = data_manager.metering_data
@@ -593,7 +607,7 @@ def get_billing_detail():
             # This is metering data
             counter_name = meter_data.get("counterName", "")
             volume = float(meter_data.get("counterVolume", 0))
-            
+
             # Calculate based on counter type
             if counter_name == "compute.g2.t4.c8m64":
                 # GPU instance: 166.67 per hour
@@ -608,11 +622,13 @@ def get_billing_detail():
             elif counter_name == "network.floating_ip":
                 # Floating IP: 25 per hour (adjusted to match test expectations)
                 network_amount += int(volume * 25)
-    
+
     # If no metering data, use default billing
     with open("mock_metering.log", "a") as f:
-        f.write(f"Billing calculation - metering_count: {metering_count}, compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n")
-    
+        f.write(
+            f"Billing calculation - metering_count: {metering_count}, compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
+        )
+
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
         billing_detail = generate_billing_detail(uuid_param, month, has_discount)
     else:
@@ -622,7 +638,7 @@ def get_billing_detail():
         charge = subtotal - discount
         vat = int(charge * 0.1)
         total = charge + vat
-        
+
         billing_detail = {
             "uuid": uuid_param,
             "month": month,
@@ -632,13 +648,13 @@ def get_billing_detail():
             "vat": vat,
             "discount": discount,
             "totalCredit": 0,
-            "statements": []
+            "statements": [],
         }
-    
+
     # Store for future reference
     billing_key = f"{uuid_param}:{month}"
     billing_data[billing_key] = billing_detail
-    
+
     # Check if user has credits
     user_credits = 0
     if uuid_param in credit_data:
@@ -646,45 +662,46 @@ def get_billing_detail():
         rest_credits = credit_data[uuid_param].get("restAmount", user_credits)
     else:
         rest_credits = 0
-    
+
     # Apply credits to the bill (consume credits)
     total_bill = billing_detail.get("totalAmount", 0)
     charge = billing_detail.get("charge", 0)
     original_vat = billing_detail.get("vat", 0)
-    
+
     # Calculate how much credit to use (use available rest credits)
     if rest_credits > 0:
         # Apply credit to charge amount (before VAT)
         credit_to_use = min(rest_credits, charge)
-        
+
         # Update credit data to reflect usage
         with data_lock:
             if uuid_param in credit_data:
                 total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
                 already_used = credit_data[uuid_param].get("usedAmount", 0)
                 credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
-                credit_data[uuid_param]["restAmount"] = max(0, total_credit_amount - (already_used + credit_to_use))
+                credit_data[uuid_param]["restAmount"] = max(
+                    0, total_credit_amount - (already_used + credit_to_use)
+                )
     else:
         credit_to_use = 0
-    
+
     # Add credit information to billing detail
     billing_detail["totalCredit"] = credit_to_use
-    
+
     # Recalculate VAT after credit application (as tests expect)
     if credit_to_use > 0:
         new_charge = charge - credit_to_use
         new_vat = int(new_charge * 0.1)
         new_total = new_charge + new_vat
-        
+
         # Update billing detail with recalculated values
         billing_detail["vat"] = new_vat
         billing_detail["totalAmount"] = new_total
-    
-    
+
     # Add top-level fields that tests expect
     # totalAmount stays original, totalPayments is what user actually pays
     original_total = billing_detail.get("totalAmount", 0)
-    
+
     response_data = {
         **billing_detail,
         "charge": billing_detail.get("charge", 0),
@@ -692,9 +709,9 @@ def get_billing_detail():
         "totalPayments": original_total,  # Will be adjusted by common_test()
         "discountAmount": billing_detail.get("discount", 0),
         "vat": billing_detail.get("vat", 0),
-        "totalCredit": credit_to_use
+        "totalCredit": credit_to_use,
     }
-    
+
     return jsonify(create_success_response(response_data))
 
 
@@ -703,7 +720,7 @@ def get_statements():
     """Get billing statements."""
     uuid_param = request.args.get("uuid")
     month = request.args.get("month")
-    
+
     # Get billing detail if exists
     billing_key = f"{uuid_param}:{month}"
     if billing_key in billing_data:
@@ -713,60 +730,48 @@ def get_statements():
         has_discount = uuid_param in contracts
         detail = generate_billing_detail(uuid_param, month, has_discount)
         billing_data[billing_key] = detail
-    
+
     # Get base charge before adjustments
     base_charge = detail.get("charge", 155000)
-    
+
     # Apply adjustments
     adjusted_charge = base_charge
-    
+
     # Apply project adjustments
     for adj_key, adj_data in adjustments.items():
         if adj_data.get("month") == month:
             # Check if this is a project adjustment
-            if adj_data.get("projectId") and adj_data.get("adjustmentType"):
+            if (adj_data.get("projectId") and adj_data.get("adjustmentType")) or (adj_data.get("billingGroupId") and adj_data.get("adjustmentType")):
                 adj_type = adj_data["adjustmentType"]
                 adj_amount = adj_data.get("adjustment", 0)
-                
+
                 if adj_type == "STATIC_DISCOUNT":
                     adjusted_charge -= adj_amount
                 elif adj_type == "STATIC_EXTRA":
                     adjusted_charge += adj_amount
                 elif adj_type == "PERCENT_DISCOUNT":
-                    adjusted_charge *= (1 - adj_amount / 100)
+                    adjusted_charge *= 1 - adj_amount / 100
                 elif adj_type == "PERCENT_EXTRA":
-                    adjusted_charge *= (1 + adj_amount / 100)
-                    
-            # Check if this is a billing group adjustment
-            elif adj_data.get("billingGroupId") and adj_data.get("adjustmentType"):
-                adj_type = adj_data["adjustmentType"]
-                adj_amount = adj_data.get("adjustment", 0)
-                
-                if adj_type == "STATIC_DISCOUNT":
-                    adjusted_charge -= adj_amount
-                elif adj_type == "STATIC_EXTRA":
-                    adjusted_charge += adj_amount
-                elif adj_type == "PERCENT_DISCOUNT":
-                    adjusted_charge *= (1 - adj_amount / 100)
-                elif adj_type == "PERCENT_EXTRA":
-                    adjusted_charge *= (1 + adj_amount / 100)
-    
+                    adjusted_charge *= 1 + adj_amount / 100
+
     # Calculate VAT and total with adjusted charge
     adjusted_charge = int(adjusted_charge)
     vat = int(adjusted_charge * 0.1)
     total = adjusted_charge + vat
-    
+
     statement_data = {
-        "statements": [{
-            "charge": adjusted_charge,
-            "totalAmount": total,
-            "vat": vat,
-            "discount": detail.get("discount", 0),
-            "items": detail.get("statements", [])
-        }],
-        "totalPayments": total
+        "statements": [
+            {
+                "charge": adjusted_charge,
+                "totalAmount": total,
+                "vat": vat,
+                "discount": detail.get("discount", 0),
+                "items": detail.get("statements", []),
+            }
+        ],
+        "totalPayments": total,
     }
-    
+
     return jsonify(create_success_response(statement_data))
 
 
@@ -776,26 +781,24 @@ def handle_contracts():
     """Handle contracts - create or list."""
     if request.method == "GET":
         # List contracts
-        billing_group_id = request.args.get('billingGroupId')
+        billing_group_id = request.args.get("billingGroupId")
         contract_list = []
-        
+
         for cid, contract in contracts.items():
-            if not billing_group_id or contract.get('billingGroupId') == billing_group_id:
+            if (
+                not billing_group_id
+                or contract.get("billingGroupId") == billing_group_id
+            ):
                 contract_list.append(contract)
-        
+
         return jsonify(create_success_response({"contracts": contract_list}))
-    else:
-        # Create contract
-        data = request.json
-        contract_id = str(uuid.uuid4())
-        
-        contracts[contract_id] = {
-            "contractId": contract_id,
-            "status": "ACTIVE",
-            **data
-        }
-        
-        return jsonify(create_success_response({"contractId": contract_id}))
+    # Create contract
+    data = request.json
+    contract_id = str(uuid.uuid4())
+
+    contracts[contract_id] = {"contractId": contract_id, "status": "ACTIVE", **data}
+
+    return jsonify(create_success_response({"contractId": contract_id}))
 
 
 @app.route("/billing/contracts/<contract_id>", methods=["GET"])
@@ -803,7 +806,7 @@ def get_contract(contract_id):
     """Get contract details."""
     if contract_id not in contracts:
         return create_error_response("Contract not found", 404)
-    
+
     return jsonify(create_success_response({"contract": contracts[contract_id]}))
 
 
@@ -857,7 +860,7 @@ def get_payment_status(payment_id):
         "paymentGroupId": payment_id,
         "status": "READY",
         "amount": 150000,
-        "dueDate": (datetime.now() + timedelta(days=30)).isoformat()
+        "dueDate": (datetime.now() + timedelta(days=30)).isoformat(),
     }
     return jsonify(create_success_response({"payment": mock_payment}))
 
@@ -867,16 +870,18 @@ def get_payments():
     """Get payments list."""
     uuid_param = request.args.get("uuid")
     month = request.args.get("month")
-    
+
     # Return mock payment data
-    mock_payments = [{
-        "paymentGroupId": f"PG-{uuid_param[:8] if uuid_param else 'DEFAULT'}",
-        "status": "READY",
-        "amount": 150000,
-        "month": month,
-        "dueDate": (datetime.now() + timedelta(days=30)).isoformat()
-    }]
-    
+    mock_payments = [
+        {
+            "paymentGroupId": f"PG-{uuid_param[:8] if uuid_param else 'DEFAULT'}",
+            "status": "READY",
+            "amount": 150000,
+            "month": month,
+            "dueDate": (datetime.now() + timedelta(days=30)).isoformat(),
+        }
+    ]
+
     return jsonify(create_success_response({"payments": mock_payments}))
 
 
@@ -884,21 +889,26 @@ def get_payments():
 def get_payment_statements(billing_group_id):
     """Get payment statements for billing group."""
     # Return mock payment status
-    return jsonify(create_success_response({
-        "paymentGroupId": f"PG-{billing_group_id[:8]}",
-        "paymentStatus": "READY"
-    }))
+    return jsonify(
+        create_success_response(
+            {"paymentGroupId": f"PG-{billing_group_id[:8]}", "paymentStatus": "READY"}
+        )
+    )
 
 
 @app.route("/billing/console/billing-info/<billing_group_id>", methods=["GET"])
 def get_billing_info(billing_group_id):
     """Get billing info for billing group."""
     # Return mock billing info
-    return jsonify(create_success_response({
-        "billingGroupId": billing_group_id,
-        "paymentStatus": "REGISTERED",
-        "paymentGroupId": f"PG-{billing_group_id[:8]}"
-    }))
+    return jsonify(
+        create_success_response(
+            {
+                "billingGroupId": billing_group_id,
+                "paymentStatus": "REGISTERED",
+                "paymentGroupId": f"PG-{billing_group_id[:8]}",
+            }
+        )
+    )
 
 
 @app.route("/billing/console/payment/<payment_id>", methods=["PUT"])
@@ -912,16 +922,16 @@ def create_calculation():
     """Create calculation job."""
     data = request.json
     job_id = str(uuid.uuid4())
-    
+
     # Store the calculation job
     batch_jobs[job_id] = {
         "batchJobCode": "API_CALCULATE_USAGE_AND_PRICE",
         "status": "COMPLETED",  # Set to completed for mock
         "completedCount": 100,
         "totalCount": 100,
-        "createdAt": datetime.now().isoformat()
+        "createdAt": datetime.now().isoformat(),
     }
-    
+
     return jsonify(create_success_response({"batchJobCode": job_id}))
 
 
@@ -933,17 +943,17 @@ def create_calculation():
 def get_payment_statements_console(month):
     """Get payment statements for console API."""
     uuid_param = request.headers.get("uuid")
-    
+
     # Return mock payment status
-    return jsonify(create_success_response({
-        "paymentGroupId": f"PG-{uuid_param[:8] if uuid_param else 'DEFAULT'}",
-        "paymentStatus": "READY",
-        "statements": [{
-            "amount": 150000,
-            "month": month,
-            "status": "READY"
-        }]
-    }))
+    return jsonify(
+        create_success_response(
+            {
+                "paymentGroupId": f"PG-{uuid_param[:8] if uuid_param else 'DEFAULT'}",
+                "paymentStatus": "READY",
+                "statements": [{"amount": 150000, "month": month, "status": "READY"}],
+            }
+        )
+    )
 
 
 # Billing Group endpoints
@@ -953,7 +963,9 @@ def update_billing_group(billing_group_id):
     return jsonify(create_success_response({"billingGroupId": billing_group_id}))
 
 
-@app.route("/billing/admin/billing-groups/<billing_group_id>/contracts", methods=["DELETE"])
+@app.route(
+    "/billing/admin/billing-groups/<billing_group_id>/contracts", methods=["DELETE"]
+)
 def delete_billing_group_contracts(billing_group_id):
     """Delete contracts from billing group."""
     return jsonify(create_success_response({"deletedCount": 1}))
@@ -964,11 +976,11 @@ def delete_billing_group_contracts(billing_group_id):
 def get_contract_prices(contract_id):
     """Get contract prices."""
     counter_name = request.args.get("counterName")
-    return jsonify(create_success_response({
-        "price": 100,
-        "counterName": counter_name,
-        "contractId": contract_id
-    }))
+    return jsonify(
+        create_success_response(
+            {"price": 100, "counterName": counter_name, "contractId": contract_id}
+        )
+    )
 
 
 # Credit endpoints - v5.0 API
@@ -976,34 +988,36 @@ def get_contract_prices(contract_id):
 def get_credits_v5():
     """Get credits (v5.0 API)."""
     uuid_param = request.headers.get("uuid")
-    
+
     if uuid_param in credit_data:
         data = credit_data[uuid_param]
         rest_amount = data.get("restAmount", 0)
-        return jsonify(create_success_response({
-            "stats": {
-                "totalAmount": rest_amount,
-                "restCreditsByBalancePriceTypeCode": [
-                    {
-                        "balancePriceTypeCode": "FREE",
-                        "restAmount": rest_amount
-                    }
-                ]
-            },
-            "totalCredit": data.get("totalAmount", 0),
-            "usedCredit": data.get("usedAmount", 0),
-            "restCredit": rest_amount
-        }))
-    
-    return jsonify(create_success_response({
-        "stats": {
-            "totalAmount": 0,
-            "restCreditsByBalancePriceTypeCode": []
-        },
-        "totalCredit": 0,
-        "usedCredit": 0,
-        "restCredit": 0
-    }))
+        return jsonify(
+            create_success_response(
+                {
+                    "stats": {
+                        "totalAmount": rest_amount,
+                        "restCreditsByBalancePriceTypeCode": [
+                            {"balancePriceTypeCode": "FREE", "restAmount": rest_amount}
+                        ],
+                    },
+                    "totalCredit": data.get("totalAmount", 0),
+                    "usedCredit": data.get("usedAmount", 0),
+                    "restCredit": rest_amount,
+                }
+            )
+        )
+
+    return jsonify(
+        create_success_response(
+            {
+                "stats": {"totalAmount": 0, "restCreditsByBalancePriceTypeCode": []},
+                "totalCredit": 0,
+                "usedCredit": 0,
+                "restCredit": 0,
+            }
+        )
+    )
 
 
 # Campaign credit management
@@ -1017,33 +1031,31 @@ def manage_campaign_credits(campaign_id):
             if uuid_param in credit_data:
                 credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
         return jsonify(create_success_response())
+    # Grant credits
+    data = request.json
+    # Handle different data structures
+    uuid_param = None
+    amount = 0
+
+    # Check for direct structure (from actual API)
+    if data.get("uuidList"):
+        uuid_param = data["uuidList"][0]
+        amount = data.get("credit", 0)
+    # Check for simplified structure
     else:
-        # Grant credits
-        data = request.json
-        # Handle different data structures
-        uuid_param = None
-        amount = 0
-        
-        # Check for direct structure (from actual API)
-        if "uuidList" in data and data["uuidList"]:
-            uuid_param = data["uuidList"][0]
-            amount = data.get("credit", 0)
-        # Check for simplified structure
-        else:
-            uuid_param = data.get("uuid")
-            amount = data.get("amount", 0)
-        
-        if uuid_param:
-            with data_lock:
-                if uuid_param not in credit_data:
-                    credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
-                
-                current_total = credit_data[uuid_param]["totalAmount"]
-                new_total = current_total + amount
-                credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
-            
-        
-        return jsonify(create_success_response({"creditId": str(uuid.uuid4())}))
+        uuid_param = data.get("uuid")
+        amount = data.get("amount", 0)
+
+    if uuid_param:
+        with data_lock:
+            if uuid_param not in credit_data:
+                credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
+
+            current_total = credit_data[uuid_param]["totalAmount"]
+            new_total = current_total + amount
+            credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
+
+    return jsonify(create_success_response({"creditId": str(uuid.uuid4())}))
 
 
 # Calculation endpoints - correct path
@@ -1052,16 +1064,16 @@ def create_calculations():
     """Create calculation job."""
     data = request.json
     job_id = str(uuid.uuid4())
-    
+
     # Store the calculation job
     batch_jobs[job_id] = {
         "batchJobCode": job_id,
         "status": "COMPLETED",  # Set to completed for mock
         "completedCount": 100,
         "totalCount": 100,
-        "createdAt": datetime.now().isoformat()
+        "createdAt": datetime.now().isoformat(),
     }
-    
+
     return jsonify(create_success_response({"batchJobCode": job_id}))
 
 
@@ -1071,92 +1083,107 @@ def project_adjustments():
     """Handle project adjustments."""
     if request.method == "GET":
         # Get query parameters
-        project_id = request.args.get('projectId')
-        month = request.args.get('month')
-        
+        project_id = request.args.get("projectId")
+        month = request.args.get("month")
+
         # Filter adjustments
         filtered = []
         for adj_id, adj in adjustments.items():
-            if adj.get('target') == 'Project' and adj.get('projectId') == project_id:
-                if not month or adj.get('month') == month:
+            if adj.get("target") == "Project" and adj.get("projectId") == project_id:
+                if not month or adj.get("month") == month:
                     filtered.append(adj)
-        
+
         return jsonify(create_success_response({"adjustments": filtered}))
-    else:
-        # Create adjustment
-        data = request.json
-        adj_id = str(uuid.uuid4())
-        
-        # Store adjustment
-        descriptions = data.get('descriptions', [])
-        description = descriptions[0]['message'] if descriptions else data.get('description', '')
-        
-        adjustments[adj_id] = {
-            "adjustmentId": adj_id,
-            "target": "Project",
-            "projectId": data.get('projectId'),
-            "month": data.get('monthFrom', data.get('month')),
-            "adjustmentType": data.get('adjustmentTypeCode', data.get('adjustmentType')),
-            "adjustmentValue": data.get('adjustment', data.get('adjustmentValue')),
-            "description": description,
-            "createdAt": datetime.now().isoformat()
-        }
-        
-        return jsonify(create_success_response({"adjustmentId": adj_id}))
+    # Create adjustment
+    data = request.json
+    adj_id = str(uuid.uuid4())
+
+    # Store adjustment
+    descriptions = data.get("descriptions", [])
+    description = (
+        descriptions[0]["message"] if descriptions else data.get("description", "")
+    )
+
+    adjustments[adj_id] = {
+        "adjustmentId": adj_id,
+        "target": "Project",
+        "projectId": data.get("projectId"),
+        "month": data.get("monthFrom", data.get("month")),
+        "adjustmentType": data.get(
+            "adjustmentTypeCode", data.get("adjustmentType")
+        ),
+        "adjustmentValue": data.get("adjustment", data.get("adjustmentValue")),
+        "description": description,
+        "createdAt": datetime.now().isoformat(),
+    }
+
+    return jsonify(create_success_response({"adjustmentId": adj_id}))
 
 
-@app.route("/billing/admin/billing-groups/adjustments", methods=["POST", "GET", "DELETE"])  
+@app.route(
+    "/billing/admin/billing-groups/adjustments", methods=["POST", "GET", "DELETE"]
+)
 def billing_group_adjustments():
     """Handle billing group adjustments."""
     if request.method == "GET":
         # Get query parameters
-        billing_group_id = request.args.get('billingGroupId')
-        month = request.args.get('month')
-        
+        billing_group_id = request.args.get("billingGroupId")
+        month = request.args.get("month")
+
         # Filter adjustments
         filtered = []
         for adj_id, adj in adjustments.items():
-            if adj.get('target') == 'BillingGroup' and adj.get('billingGroupId') == billing_group_id:
-                if not month or adj.get('month') == month:
+            if (
+                adj.get("target") == "BillingGroup"
+                and adj.get("billingGroupId") == billing_group_id
+            ):
+                if not month or adj.get("month") == month:
                     filtered.append(adj)
-        
+
         return jsonify(create_success_response({"adjustments": filtered}))
-    elif request.method == "DELETE":
+    if request.method == "DELETE":
         # Delete adjustments by IDs
-        adjustment_ids = request.args.get('adjustmentIds', '').split(',')
+        adjustment_ids = request.args.get("adjustmentIds", "").split(",")
         deleted_count = 0
-        
+
         for adj_id in adjustment_ids:
             adj_id = adj_id.strip()
             if adj_id in adjustments:
                 del adjustments[adj_id]
                 deleted_count += 1
-        
-        return jsonify(create_success_response({
-            "deletedCount": deleted_count,
-            "message": f"Deleted {deleted_count} adjustments"
-        }))
-    else:
-        # Create adjustment
-        data = request.json
-        adj_id = str(uuid.uuid4())
-        
-        # Store adjustment
-        descriptions = data.get('descriptions', [])
-        description = descriptions[0]['message'] if descriptions else data.get('description', '')
-        
-        adjustments[adj_id] = {
-            "adjustmentId": adj_id,
-            "target": "BillingGroup",
-            "billingGroupId": data.get('billingGroupId'),
-            "month": data.get('monthFrom', data.get('month')),
-            "adjustmentType": data.get('adjustmentTypeCode', data.get('adjustmentType')),
-            "adjustmentValue": data.get('adjustment', data.get('adjustmentValue')),
-            "description": description,
-            "createdAt": datetime.now().isoformat()
-        }
-        
-        return jsonify(create_success_response({"adjustmentId": adj_id}))
+
+        return jsonify(
+            create_success_response(
+                {
+                    "deletedCount": deleted_count,
+                    "message": f"Deleted {deleted_count} adjustments",
+                }
+            )
+        )
+    # Create adjustment
+    data = request.json
+    adj_id = str(uuid.uuid4())
+
+    # Store adjustment
+    descriptions = data.get("descriptions", [])
+    description = (
+        descriptions[0]["message"] if descriptions else data.get("description", "")
+    )
+
+    adjustments[adj_id] = {
+        "adjustmentId": adj_id,
+        "target": "BillingGroup",
+        "billingGroupId": data.get("billingGroupId"),
+        "month": data.get("monthFrom", data.get("month")),
+        "adjustmentType": data.get(
+            "adjustmentTypeCode", data.get("adjustmentType")
+        ),
+        "adjustmentValue": data.get("adjustment", data.get("adjustmentValue")),
+        "description": description,
+        "createdAt": datetime.now().isoformat(),
+    }
+
+    return jsonify(create_success_response({"adjustmentId": adj_id}))
 
 
 # Batch endpoints
@@ -1165,14 +1192,14 @@ def create_batch():
     """Create batch job."""
     data = request.json
     batch_id = str(uuid.uuid4())
-    
+
     batch_jobs[batch_id] = {
         "batchId": batch_id,
         "status": "STARTED",
         "createdAt": datetime.now().isoformat(),
-        **data
+        **data,
     }
-    
+
     return jsonify(create_success_response({"batchId": batch_id}))
 
 
@@ -1190,39 +1217,42 @@ def reset_test_data():
     """Reset all test data for a specific UUID."""
     data = request.json or {}
     uuid_param = data.get("uuid") or request.headers.get("uuid")
-    
+
     if uuid_param:
         # Use data manager to clear UUID-specific data
         data_manager.clear_uuid_data(uuid_param)
         logger.info(f"Cleared all test data for UUID: {uuid_param}")
-        
+
         # Log the action
         with open("mock_metering.log", "a") as f:
             f.write(f"Cleared all data for UUID: {uuid_param}\n")
-        
+
         # Clear cache for this UUID
         cache.delete_many(f"*{uuid_param}*")
-        
-        return jsonify(create_success_response({"message": f"Test data reset for UUID: {uuid_param}"}))
-    else:
-        # Reset all data if no UUID specified
-        credit_data.clear()
-        billing_data.clear()
-        metering_data.clear()
-        batch_jobs.clear()
-        contracts.clear()
-        batch_progress.clear()
-        
-        return jsonify(create_success_response({"message": "All test data reset"}))
+
+        return jsonify(
+            create_success_response(
+                {"message": f"Test data reset for UUID: {uuid_param}"}
+            )
+        )
+    # Reset all data if no UUID specified
+    credit_data.clear()
+    billing_data.clear()
+    metering_data.clear()
+    batch_jobs.clear()
+    contracts.clear()
+    batch_progress.clear()
+
+    return jsonify(create_success_response({"message": "All test data reset"}))
 
 
 # Contract Testing Support
-@app.route('/pact-states', methods=['POST'])
+@app.route("/pact-states", methods=["POST"])
 def provider_states():
     """Handle provider state setup for Pact verification."""
     data = request.json
-    state = data.get('state')
-    
+    state = data.get("state")
+
     # Handle different states
     if state == "A contract exists":
         # Ensure contract 12345 exists
@@ -1235,20 +1265,17 @@ def provider_states():
         project_id = "PROJ001"
         metering_data[project_id] = {
             "project_id": project_id,
-            "period": {
-                "start": "2025-01-01T00:00:00",
-                "end": "2025-01-31T23:59:59"
-            },
+            "period": {"start": "2025-01-01T00:00:00", "end": "2025-01-31T23:59:59"},
             "usage": [
                 {
                     "resource_type": "compute",
                     "resource_id": "vm-001",
                     "quantity": 744.0,
                     "unit": "hours",
-                    "cost": 74.40
+                    "cost": 74.40,
                 }
             ],
-            "total_cost": 74.40
+            "total_cost": 74.40,
         }
     elif state == "Payment exists":
         # Ensure payment PAY001 exists
@@ -1256,43 +1283,49 @@ def provider_states():
             "payment_id": "PAY001",
             "status": "PENDING",
             "amount": 1000.0,
-            "currency": "USD"
+            "currency": "USD",
         }
     elif state == "Contract does not exist":
         # Remove contract 99999 if it exists
         contracts.pop("99999", None)
-    
+
     return jsonify({"result": "success"}), 200
 
 
 # Additional Contract-compliant endpoints
-@app.route('/api/v1/contracts/<contract_id>', methods=['GET'])
+@app.route("/api/v1/contracts/<contract_id>", methods=["GET"])
 def get_contract_v1(contract_id):
     """Get contract details (v1 API for contract compliance)."""
     if contract_id not in contracts:
-        return jsonify({
-            "error": "NOT_FOUND",
-            "message": "Contract not found",
-            "code": 404
-        }), 404
-    
+        return (
+            jsonify(
+                {"error": "NOT_FOUND", "message": "Contract not found", "code": 404}
+            ),
+            404,
+        )
+
     return jsonify(contracts[contract_id]), 200
 
 
-@app.route('/api/v1/credits', methods=['POST'])
+@app.route("/api/v1/credits", methods=["POST"])
 def create_credit_v1():
     """Create credit transaction (v1 API for contract compliance)."""
     data = request.json
-    
+
     # Validate amount
-    if data.get('amount', 0) < 0:
-        return jsonify({
-            "error": "VALIDATION_ERROR",
-            "message": "Invalid credit amount",
-            "field": "amount",
-            "code": 400
-        }), 400
-    
+    if data.get("amount", 0) < 0:
+        return (
+            jsonify(
+                {
+                    "error": "VALIDATION_ERROR",
+                    "message": "Invalid credit amount",
+                    "field": "amount",
+                    "code": 400,
+                }
+            ),
+            400,
+        )
+
     credit_id = str(uuid.uuid4())
     credit = {
         "id": credit_id,
@@ -1302,175 +1335,186 @@ def create_credit_v1():
         "description": data.get("description", ""),
         "type": data.get("type", "ADJUSTMENT"),
         "status": "APPROVED",
-        "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    
+
     credit_data[credit_id] = credit
     return jsonify(credit), 201
 
 
-@app.route('/api/v1/metering', methods=['GET'])
+@app.route("/api/v1/metering", methods=["GET"])
 def get_metering_v1():
     """Get metering data (v1 API for contract compliance)."""
-    project_id = request.args.get('project_id')
-    month = request.args.get('month')
-    
+    project_id = request.args.get("project_id")
+    month = request.args.get("month")
+
     if project_id in metering_data:
         return jsonify(metering_data[project_id]), 200
-    
+
     # Generate default metering data
     data = {
         "project_id": project_id,
-        "period": {
-            "start": f"{month}-01T00:00:00",
-            "end": f"{month}-31T23:59:59"
-        },
+        "period": {"start": f"{month}-01T00:00:00", "end": f"{month}-31T23:59:59"},
         "usage": [
             {
                 "resource_type": "compute",
                 "resource_id": "vm-default",
                 "quantity": 744.0,
                 "unit": "hours",
-                "cost": 74.40
+                "cost": 74.40,
             }
         ],
-        "total_cost": 74.40
+        "total_cost": 74.40,
     }
-    
+
     return jsonify(data), 200
 
 
-@app.route('/api/v1/payments/<payment_id>', methods=['PATCH'])
+@app.route("/api/v1/payments/<payment_id>", methods=["PATCH"])
 def update_payment_v1(payment_id):
     """Update payment status (v1 API for contract compliance)."""
     data = request.json
-    
+
     if payment_id not in billing_data:
         billing_data[payment_id] = {
             "payment_id": payment_id,
             "amount": 1000.0,
-            "currency": "USD"
+            "currency": "USD",
         }
-    
+
     payment = billing_data[payment_id]
     payment["status"] = data.get("status", payment.get("status", "PENDING"))
-    payment["transaction_id"] = data.get("transaction_id", payment.get("transaction_id"))
-    payment["updated_at"] = data.get("completed_at", datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
-    
+    payment["transaction_id"] = data.get(
+        "transaction_id", payment.get("transaction_id")
+    )
+    payment["updated_at"] = data.get(
+        "completed_at", datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    )
+
     return jsonify(payment), 200
 
 
 # OpenAPI Support Endpoints
-@app.route('/openapi', methods=['GET'])
-@app.route('/openapi.json', methods=['GET'])
-@app.route('/openapi.yaml', methods=['GET'])
+@app.route("/openapi", methods=["GET"])
+@app.route("/openapi.json", methods=["GET"])
+@app.route("/openapi.yaml", methods=["GET"])
 def get_openapi_spec():
     """Get OpenAPI specification."""
     handler = get_openapi_handler()
     if not handler:
         return jsonify({"error": "OpenAPI not available"}), 404
-    
+
     spec = handler.spec_dict
-    
-    if request.path.endswith('.yaml'):
+
+    if request.path.endswith(".yaml"):
         import yaml
+
         response = make_response(yaml.dump(spec))
-        response.headers['Content-Type'] = 'application/x-yaml'
+        response.headers["Content-Type"] = "application/x-yaml"
         return response
-    
+
     return jsonify(spec)
 
 
-@app.route('/openapi/validate', methods=['POST'])
+@app.route("/openapi/validate", methods=["POST"])
 def validate_openapi_request():
     """Validate request against OpenAPI spec."""
     handler = get_openapi_handler()
     if not handler:
         return jsonify({"error": "OpenAPI not available"}), 404
-    
+
     data = request.json
-    method = data.get('method', 'GET')
-    path = data.get('path', '/')
-    body = data.get('body')
-    query_params = data.get('query_params')
-    
+    method = data.get("method", "GET")
+    path = data.get("path", "/")
+    body = data.get("body")
+    query_params = data.get("query_params")
+
     error = handler.validate_request(method, path, body, query_params)
-    
+
     if error:
         return jsonify({"valid": False, "error": error}), 400
-    
+
     return jsonify({"valid": True})
 
 
-@app.route('/openapi/generate/<path:api_path>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+@app.route(
+    "/openapi/generate/<path:api_path>",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+)
 def generate_openapi_response(api_path):
     """Generate response based on OpenAPI spec."""
     handler = get_openapi_handler()
     if not handler:
         # Fallback to default behavior
         return jsonify({"error": "OpenAPI not available"}), 404
-    
+
     # Construct full path
     full_path = f"/api/v1/{api_path}"
-    
+
     # Find operation
     operation = handler.find_operation(request.method, full_path)
     if not operation:
-        return jsonify({
-            "error": "NOT_FOUND",
-            "message": f"No operation found for {request.method} {full_path}",
-            "code": 404
-        }), 404
-    
+        return (
+            jsonify(
+                {
+                    "error": "NOT_FOUND",
+                    "message": f"No operation found for {request.method} {full_path}",
+                    "code": 404,
+                }
+            ),
+            404,
+        )
+
     # Validate request if it has body
     if request.is_json:
         error = handler.validate_request(
-            request.method, 
-            full_path, 
-            request.json,
-            request.args.to_dict()
+            request.method, full_path, request.json, request.args.to_dict()
         )
         if error:
-            return jsonify({
-                "error": "VALIDATION_ERROR",
-                "message": error,
-                "code": 400
-            }), 400
-    
+            return (
+                jsonify({"error": "VALIDATION_ERROR", "message": error, "code": 400}),
+                400,
+            )
+
     # Determine status code
     status_code = 200
-    if request.method == 'POST':
+    if request.method == "POST":
         status_code = 201
-    elif request.method == 'DELETE':
+    elif request.method == "DELETE":
         status_code = 204
-    
+
     # Generate response
     response_data = handler.generate_response(operation, status_code)
-    
+
     # Special handling for 204 No Content
     if status_code == 204:
-        return '', 204
-    
+        return "", 204
+
     return jsonify(response_data), status_code
 
 
 # Catch-all route for undefined API endpoints
-@app.route('/api/v1/<path:path>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+@app.route("/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 def handle_undefined_api(path):
     """Handle undefined API endpoints using OpenAPI if available."""
     handler = get_openapi_handler()
     if handler:
         # Try to handle with OpenAPI
         return generate_openapi_response(path)
-    
+
     # Default 404 response
-    return jsonify({
-        "error": "NOT_FOUND",
-        "message": f"Endpoint not found: /api/v1/{path}",
-        "code": 404
-    }), 404
+    return (
+        jsonify(
+            {
+                "error": "NOT_FOUND",
+                "message": f"Endpoint not found: /api/v1/{path}",
+                "code": 404,
+            }
+        ),
+        404,
+    )
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get('MOCK_SERVER_PORT', '5000'))
+    port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=True)

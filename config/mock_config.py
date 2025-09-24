@@ -10,11 +10,11 @@ MOCK_SERVER_PORT = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
 # Mock server URLs
 if USE_MOCK_SERVER:
     MOCK_BASE_URL = f"http://{MOCK_SERVER_HOST}:{MOCK_SERVER_PORT}"
-    
+
     # Override production URLs with mock URLs
     BASE_BILLING_URL = MOCK_BASE_URL
     BASE_METERING_URL = MOCK_BASE_URL
     BASE_CAP_URL = MOCK_BASE_URL
 else:
     # Use default production URLs from url.py
-    from .url import BASE_BILLING_URL, BASE_CAP_URL, BASE_METERING_URL
+    pass

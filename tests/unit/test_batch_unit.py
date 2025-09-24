@@ -1,13 +1,12 @@
 """Unit tests for BatchManager to improve coverage."""
 
-import pytest
 from unittest.mock import Mock, patch
-from datetime import datetime
+
+import pytest
 
 from libs.Batch import BatchManager
-from libs.exceptions import APIRequestException, ValidationException, TimeoutException
 from libs.constants import BatchJobCode
-from libs.http_client import BillingAPIClient
+from libs.exceptions import APIRequestException, ValidationException
 
 
 class TestBatchManagerUnit:
@@ -21,48 +20,47 @@ class TestBatchManagerUnit:
     @pytest.fixture
     def batch_manager(self, mock_client):
         """Create BatchManager with mocked dependencies."""
-        with patch('libs.Batch.BillingAPIClient', return_value=mock_client):
+        with patch("libs.Batch.BillingAPIClient", return_value=mock_client):
             manager = BatchManager("2024-01")
             manager._client = mock_client
             return manager
-
 
     def test_request_batch_job_success(self, batch_manager, mock_client):
         """Test successful batch job request."""
         mock_response = {"batchId": "batch-123", "status": "RUNNING"}
         mock_client.post.return_value = mock_response
-        
+
         result = batch_manager.request_batch_job(BatchJobCode.BATCH_CREDIT_EXPIRY)
-        
+
         assert result == mock_response
-        
+
         # Verify API call with correct endpoint and data
         expected_data = {
             "is_async": "true",
             "batchJobCode": "BATCH_CREDIT_EXPIRY",
-            "date": "2024-01-15T00:00:00+09:00"
+            "date": "2024-01-15T00:00:00+09:00",
         }
-        
+
         mock_client.post.assert_called_once_with(
             "billing/admin/batches",
             headers={"Accept": "application/json", "lang": "ko"},
-            json_data=expected_data
+            json_data=expected_data,
         )
 
     def test_request_batch_job_with_custom_params(self, batch_manager, mock_client):
         """Test batch job request with custom parameters."""
         mock_response = {"batchId": "batch-456"}
         mock_client.post.return_value = mock_response
-        
+
         result = batch_manager.request_batch_job(
             BatchJobCode.BATCH_PROCESS_PAYMENT,
             async_mode=False,
             execution_day=20,
-            locale="en"
+            locale="en",
         )
-        
+
         assert result == mock_response
-        
+
         # Check that custom params were used
         call_args = mock_client.post.call_args
         json_data = call_args[1]["json_data"]
@@ -74,35 +72,33 @@ class TestBatchManagerUnit:
         """Test batch job request with string job code."""
         mock_response = {"batchId": "batch-789"}
         mock_client.post.return_value = mock_response
-        
+
         # Should accept string job code
         result = batch_manager.request_batch_job("BATCH_GENERATE_STATEMENT")
-        
+
         assert result == mock_response
 
     def test_request_batch_job_invalid_code(self, batch_manager, mock_client):
         """Test batch job request with invalid job code."""
         with pytest.raises(ValidationException) as exc_info:
             batch_manager.request_batch_job("INVALID_JOB_CODE")
-        
+
         assert "Invalid batch job code" in str(exc_info.value)
 
     def test_request_batch_job_invalid_execution_day(self, batch_manager, mock_client):
         """Test batch job request with invalid execution day."""
         with pytest.raises(ValidationException) as exc_info:
             batch_manager.request_batch_job(
-                BatchJobCode.BATCH_CREDIT_EXPIRY,
-                execution_day=32  # Invalid day
+                BatchJobCode.BATCH_CREDIT_EXPIRY, execution_day=32  # Invalid day
             )
-        
-        assert "Execution day must be between 1 and 31" in str(exc_info.value)
 
+        assert "Execution day must be between 1 and 31" in str(exc_info.value)
 
     def test_get_batch_status(self, batch_manager):
         """Test get_batch_status method."""
         # Check current status - returns a dictionary with status info
         status = batch_manager.get_batch_status(BatchJobCode.BATCH_CREDIT_EXPIRY)
-        
+
         assert isinstance(status, dict)
         assert "job_code" in status
         assert "status" in status
@@ -113,35 +109,34 @@ class TestBatchManagerUnit:
         """Test requesting common batch jobs."""
         # Mock successful responses for each common job
         mock_client.post.return_value = {"batchId": "batch-common", "status": "STARTED"}
-        
+
         results = batch_manager.request_common_batch_jobs()
-        
+
         # Should request 3 common jobs
         expected_jobs = [
             BatchJobCode.BATCH_GENERATE_STATEMENT,
             BatchJobCode.API_CALCULATE_USAGE_AND_PRICE,
-            BatchJobCode.BATCH_CREDIT_EXPIRY
+            BatchJobCode.BATCH_CREDIT_EXPIRY,
         ]
-        
+
         assert len(results) == 3
         assert all(job.value in results for job in expected_jobs)
         assert all(result["success"] for result in results.values())
 
-    def test_request_common_batch_jobs_partial_failure(self, batch_manager, mock_client):
+    def test_request_common_batch_jobs_partial_failure(
+        self, batch_manager, mock_client
+    ):
         """Test requesting common batch jobs with partial failure."""
         # First two succeed, third fails
         mock_client.post.side_effect = [
             {"batchId": "batch-1", "status": "STARTED"},
             {"batchId": "batch-2", "status": "STARTED"},
-            APIRequestException("Third job failed")
+            APIRequestException("Third job failed"),
         ]
-        
+
         results = batch_manager.request_common_batch_jobs()
-        
+
         # Should have 3 results, 2 successful and 1 failed
         assert len(results) == 3
         success_count = sum(1 for r in results.values() if r["success"])
         assert success_count == 2
-
-
-

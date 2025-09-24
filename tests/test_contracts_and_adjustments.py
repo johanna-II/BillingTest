@@ -1,12 +1,14 @@
+import logging
+import math
+
 import pytest
-from libs.InitializeConfig import InitializeConfig
-from libs.Metering import MeteringManager as Metering
-from libs.Contract import ContractManager as Contract
+
 import libs.Calculation as calc
 from libs.Adjustment import AdjustmentManager
 from libs.constants import AdjustmentTarget
-import math
-import logging
+from libs.Contract import ContractManager as Contract
+from libs.InitializeConfig import InitializeConfig
+from libs.Metering import MeteringManager as Metering
 
 
 def future_deprecated(func):
@@ -28,9 +30,7 @@ class TestNoContracts:
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
-        self.contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -73,7 +73,9 @@ class TestNoContracts:
             billingGroupId=self.config.billing_group_id[0],
         )
         if adjlist.get("adjustments"):
-            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
+            adjObj.delete_adjustment(
+                adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP
+            )
 
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 고정할인+고정할증
     @future_deprecated
@@ -265,9 +267,7 @@ class TestPeriodContract:
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
-        self.contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
@@ -285,7 +285,9 @@ class TestPeriodContract:
             billingGroupId=self.config.billing_group_id[0],
         )
         if adjlist.get("adjustments"):
-            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
+            adjObj.delete_adjustment(
+                adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP
+            )
 
     @future_deprecated
     def test_contadjTC5(self):
@@ -525,9 +527,7 @@ class TestVolumeContract:
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
-        self.contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
@@ -545,7 +545,9 @@ class TestVolumeContract:
             billingGroupId=self.config.billing_group_id[0],
         )
         if adjlist.get("adjustments"):
-            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
+            adjObj.delete_adjustment(
+                adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP
+            )
 
     @future_deprecated
     def test_contadjTC9(self):
@@ -782,9 +784,7 @@ class TestPartnerContract:
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
-        self.contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
 
     @pytest.fixture(scope="function", autouse=True)
     def teardown(self, env, member, month):
@@ -802,7 +802,9 @@ class TestPartnerContract:
             billingGroupId=self.config.billing_group_id[0],
         )
         if adjlist.get("adjustments"):
-            adjObj.delete_adjustment(adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP)
+            adjObj.delete_adjustment(
+                adjlist["adjustments"], AdjustmentTarget.BILLING_GROUP
+            )
 
     @future_deprecated
     def test_contadjTC13(self):

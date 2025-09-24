@@ -1,8 +1,8 @@
 """Simple mock server runner for testing."""
 
+import os
 import sys
 from pathlib import Path
-import os
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -22,6 +22,6 @@ if __name__ == "__main__":
     print(f"  - Health check: http://localhost:{port}/health")
     print(f"  - API base: http://localhost:{port}/api/v1")
     print("\nPress CTRL+C to stop the server")
-    
+
     # Use Flask development server for simplicity
     app.run(host="0.0.0.0", port=port, debug=False)

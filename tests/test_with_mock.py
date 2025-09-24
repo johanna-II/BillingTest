@@ -14,19 +14,19 @@ def mock_server_context():
     """Context manager to start and stop mock server."""
     # Set environment variable to use mock server
     os.environ["USE_MOCK_SERVER"] = "true"
-    
+
     # Start mock server as subprocess
     server_process = subprocess.Popen(
         ["python", "-m", "mock_server.run_server"],
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
     )
-    
+
     # Wait for server to start
     max_retries = 30
     for i in range(max_retries):
         try:
-            mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
+            mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
             response = requests.get(f"{mock_url}/health")
             if response.status_code == 200:
                 print("Mock server is ready!")
@@ -36,7 +36,7 @@ def mock_server_context():
     else:
         server_process.terminate()
         raise RuntimeError("Mock server failed to start")
-    
+
     try:
         yield
     finally:

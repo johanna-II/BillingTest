@@ -1,8 +1,9 @@
 # Check if mock mode is enabled
 try:
     from .mock_config import USE_MOCK_SERVER
+
     if USE_MOCK_SERVER:
-        from .mock_config import BASE_BILLING_URL, BASE_METERING_URL, BASE_CAP_URL
+        from .mock_config import BASE_BILLING_URL, BASE_CAP_URL, BASE_METERING_URL
     else:
         # Default production URLs
         BASE_BILLING_URL = "https://billingtest.internal.com"

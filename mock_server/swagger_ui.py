@@ -1,11 +1,11 @@
 """Swagger UI integration for mock server."""
 
-from flask import Blueprint, render_template_string
 from pathlib import Path
-import yaml
-import json
 
-swagger_bp = Blueprint('swagger', __name__)
+import yaml
+from flask import Blueprint, render_template_string
+
+swagger_bp = Blueprint("swagger", __name__)
 
 
 SWAGGER_UI_TEMPLATE = """
@@ -66,48 +66,49 @@ SWAGGER_UI_TEMPLATE = """
 """
 
 
-@swagger_bp.route('/')
-@swagger_bp.route('/index.html')
+@swagger_bp.route("/")
+@swagger_bp.route("/index.html")
 def swagger_ui():
     """Serve Swagger UI."""
     # Load OpenAPI spec
-    spec_path = Path(__file__).parent.parent / 'docs' / 'openapi' / 'billing-api.yaml'
-    
+    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / "billing-api.yaml"
+
     if not spec_path.exists():
         return "OpenAPI specification not found", 404
-    
+
     # Load and parse YAML
-    with open(spec_path, 'r', encoding='utf-8') as f:
+    with open(spec_path, encoding="utf-8") as f:
         spec = yaml.safe_load(f)
-    
+
     # Render template with spec
     return render_template_string(SWAGGER_UI_TEMPLATE, spec=spec)
 
 
-@swagger_bp.route('/openapi.json')
+@swagger_bp.route("/openapi.json")
 def openapi_json():
     """Serve OpenAPI spec as JSON."""
-    spec_path = Path(__file__).parent.parent / 'docs' / 'openapi' / 'billing-api.yaml'
-    
+    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / "billing-api.yaml"
+
     if not spec_path.exists():
         return {"error": "OpenAPI specification not found"}, 404
-    
-    with open(spec_path, 'r', encoding='utf-8') as f:
+
+    with open(spec_path, encoding="utf-8") as f:
         spec = yaml.safe_load(f)
-    
+
     return spec
 
 
-@swagger_bp.route('/openapi.yaml')
+@swagger_bp.route("/openapi.yaml")
 def openapi_yaml():
     """Serve OpenAPI spec as YAML."""
-    spec_path = Path(__file__).parent.parent / 'docs' / 'openapi' / 'billing-api.yaml'
-    
+    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / "billing-api.yaml"
+
     if not spec_path.exists():
         return "OpenAPI specification not found", 404
-    
-    with open(spec_path, 'r', encoding='utf-8') as f:
+
+    with open(spec_path, encoding="utf-8") as f:
         content = f.read()
-    
+
     from flask import Response
-    return Response(content, mimetype='application/x-yaml')
+
+    return Response(content, mimetype="application/x-yaml")

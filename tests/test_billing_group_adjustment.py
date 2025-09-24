@@ -1,10 +1,11 @@
+import math
+
 import pytest
+
+from libs.Adjustment import AdjustmentManager as Adjustments
+from libs.Calculation import CalculationManager as Calculation
 from libs.InitializeConfig import InitializeConfig
 from libs.Metering import MeteringManager as Metering
-from libs.Calculation import CalculationManager as Calculation
-from libs.Adjustment import AdjustmentManager as Adjustments
-import math
-import os
 
 
 @pytest.mark.core
@@ -13,15 +14,19 @@ import os
 @pytest.mark.integration
 @pytest.mark.mock_required
 class TestAdjustmentOnly:
-    def _get_payment_and_verify(self, expected_charge_modifier=0, expected_rate_modifier=1.0):
+    def _get_payment_and_verify(
+        self, expected_charge_modifier=0, expected_rate_modifier=1.0
+    ):
         """Helper method to get payment statement and verify amounts"""
         payment_manager = self.config.payment_manager
         statement_result = payment_manager.get_payment_statement()
-        statements = statement_result.get("statements", [{}])[0] if statement_result else {}
-        
+        statements = (
+            statement_result.get("statements", [{}])[0] if statement_result else {}
+        )
+
         # 기본 charge 계산
         base_charge = statements.get("charge", 241213)
-        
+
         # Adjustment 적용
         if expected_rate_modifier != 1.0:
             # 퍼센트 할인/할증
@@ -29,22 +34,28 @@ class TestAdjustmentOnly:
         else:
             # 고정 금액 할인/할증
             modified_charge = base_charge + expected_charge_modifier
-            
+
         # VAT 계산 (10%)
         vat = math.floor(modified_charge * 0.1)
         expected_total = int(modified_charge) + vat
         actual_total = statements.get("amount", 0)
-        
-        assert actual_total == expected_total, f"Expected {expected_total}, got {actual_total}"
+
+        assert (
+            actual_total == expected_total
+        ), f"Expected {expected_total}, got {actual_total}"
         return statements, expected_total
-    
+
     @pytest.fixture(scope="class", autouse=True)
     def setup_class(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
         meteringObj = Metering(month=self.config.month)
         # Use the first appkey from config
-        app_key = self.config.appkey[0] if hasattr(self.config, 'appkey') and self.config.appkey else "test_app"
-        
+        app_key = (
+            self.config.appkey[0]
+            if hasattr(self.config, "appkey") and self.config.appkey
+            else "test_app"
+        )
+
         meteringObj.send_metering(
             app_key=app_key,
             counter_name="compute.c2.c8m8",
@@ -172,8 +183,10 @@ class TestAdjustmentOnly:
         # 복잡한 계산: 먼저 2000원 할증, 그 다음 10% 할인 적용
         payment_manager = self.config.payment_manager
         statement_result = payment_manager.get_payment_statement()
-        statements = statement_result.get("statements", [{}])[0] if statement_result else {}
-        
+        statements = (
+            statement_result.get("statements", [{}])[0] if statement_result else {}
+        )
+
         base_charge = statements.get("charge", 241213)
         # 1. 고정 할증 적용
         charge_with_extra = base_charge + 2000
@@ -183,5 +196,7 @@ class TestAdjustmentOnly:
         vat = math.floor(final_charge * 0.1)
         expected_total = int(final_charge) + vat
         actual_total = statements.get("amount", 0)
-        
-        assert actual_total == expected_total, f"Expected {expected_total}, got {actual_total}"
+
+        assert (
+            actual_total == expected_total
+        ), f"Expected {expected_total}, got {actual_total}"

@@ -1,12 +1,12 @@
 """Unit tests for PaymentManager to improve coverage."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from unittest.mock import Mock, patch
 
-from libs.Payments import PaymentManager
-from libs.exceptions import APIRequestException, ValidationException
+import pytest
+
 from libs.constants import PaymentStatus
+from libs.exceptions import APIRequestException
+from libs.Payments import PaymentManager
 
 
 class TestPaymentManagerUnit:
@@ -20,11 +20,10 @@ class TestPaymentManagerUnit:
     @pytest.fixture
     def payment_manager(self, mock_client):
         """Create PaymentManager with mocked dependencies."""
-        with patch('libs.Payments.PaymentAPIClient', return_value=mock_client):
+        with patch("libs.Payments.PaymentAPIClient", return_value=mock_client):
             manager = PaymentManager(month="2024-01", uuid="test-uuid-123")
             manager._client = mock_client
             return manager
-
 
     def test_get_payment_status_console_api(self, payment_manager, mock_client):
         """Test payment status retrieval using console API."""
@@ -36,7 +35,7 @@ class TestPaymentManagerUnit:
         mock_client.get_statements_console.return_value = mock_response
 
         payment_id, status = payment_manager.get_payment_status(use_admin_api=False)
-        
+
         assert payment_id == "pg-123"
         assert status == PaymentStatus.REGISTERED
         mock_client.get_statements_console.assert_called_once()
@@ -44,14 +43,12 @@ class TestPaymentManagerUnit:
     def test_get_payment_status_admin_api(self, payment_manager, mock_client):
         """Test payment status retrieval using admin API."""
         mock_response = {
-            "statements": [
-                {"paymentGroupId": "pg-123", "paymentStatusCode": "PAID"}
-            ]
+            "statements": [{"paymentGroupId": "pg-123", "paymentStatusCode": "PAID"}]
         }
         mock_client.get_statements_admin.return_value = mock_response
 
         payment_id, status = payment_manager.get_payment_status(use_admin_api=True)
-        
+
         assert payment_id == "pg-123"
         assert status == PaymentStatus.PAID
 
@@ -59,25 +56,22 @@ class TestPaymentManagerUnit:
         """Test payment status when no payments exist."""
         mock_client.get_statements_admin.return_value = {"statements": []}
         mock_client.get_statements_console.return_value = {"statements": []}
-        
+
         payment_id, status = payment_manager.get_payment_status()
-        
+
         assert payment_id == ""
         assert status == PaymentStatus.UNKNOWN
 
     def test_get_payment_status_with_payment(self, payment_manager, mock_client):
         """Test payment status retrieval."""
         mock_response = {
-            "statements": [{
-                "paymentGroupId": "pg-123",
-                "paymentStatusCode": "PAID"
-            }]
+            "statements": [{"paymentGroupId": "pg-123", "paymentStatusCode": "PAID"}]
         }
         mock_client.get_statements_admin.return_value = mock_response
         mock_client.get_statements_console.return_value = mock_response
-        
+
         payment_id, status = payment_manager.get_payment_status()
-        
+
         # Should return values from the payment list
         assert payment_id == "pg-123"
         assert status == PaymentStatus.PAID
@@ -86,9 +80,9 @@ class TestPaymentManagerUnit:
         """Test successful payment status change."""
         mock_response = {"status": "REGISTERED"}
         mock_client.change_status.return_value = mock_response
-        
+
         result = payment_manager.change_payment_status("pg-123")
-        
+
         assert result == mock_response
         mock_client.change_status.assert_called_once()
 
@@ -96,9 +90,9 @@ class TestPaymentManagerUnit:
         """Test successful payment cancellation."""
         mock_response = {"status": "CANCELLED"}
         mock_client.cancel_payment.return_value = mock_response
-        
+
         result = payment_manager.cancel_payment("pg-123")
-        
+
         assert result == mock_response
         mock_client.cancel_payment.assert_called_once()
 
@@ -106,9 +100,9 @@ class TestPaymentManagerUnit:
         """Test successful payment."""
         mock_response = {"paymentId": "pay-123", "status": "PAID"}
         mock_client.make_payment.return_value = mock_response
-        
+
         result = payment_manager.make_payment("pg-123")
-        
+
         assert result == mock_response
         mock_client.make_payment.assert_called_once()
 
@@ -117,33 +111,31 @@ class TestPaymentManagerUnit:
         # First attempt fails, second succeeds
         mock_client.make_payment.side_effect = [
             APIRequestException("Network error"),
-            {"paymentId": "pay-123", "status": "PAID"}
+            {"paymentId": "pay-123", "status": "PAID"},
         ]
-        
+
         result = payment_manager.make_payment("pg-123", retry_on_failure=True)
-        
+
         assert result == {"paymentId": "pay-123", "status": "PAID"}
         assert mock_client.make_payment.call_count == 2
 
     def test_make_payment_max_retries_exceeded(self, payment_manager, mock_client):
         """Test payment failure after max retries."""
         mock_client.make_payment.side_effect = APIRequestException("Network error")
-        
+
         with pytest.raises(APIRequestException):
             payment_manager.make_payment("pg-123", retry_on_failure=True, max_retries=2)
-        
+
         assert mock_client.make_payment.call_count == 2
 
     def test_check_unpaid_amount(self, payment_manager, mock_client):
         """Test unpaid amount calculation."""
         mock_client.get_unpaid_statements.return_value = {
-            "statements": [
-                {"totalAmount": 30000}
-            ]
+            "statements": [{"totalAmount": 30000}]
         }
-        
+
         unpaid_amount = payment_manager.check_unpaid()
-        
+
         assert unpaid_amount == 30000
 
     def test_payment_status_validation(self, payment_manager):
@@ -154,13 +146,11 @@ class TestPaymentManagerUnit:
             # Should not raise exception
             assert status in [s.value for s in PaymentStatus]
 
-
     def test_error_handling_in_cancel_payment(self, payment_manager, mock_client):
         """Test error handling in cancel payment."""
         mock_client.cancel_payment.side_effect = APIRequestException("Cannot cancel")
-        
+
         with pytest.raises(APIRequestException):
             payment_manager.cancel_payment("pg-123")
-        
-        mock_client.cancel_payment.assert_called_once()
 
+        mock_client.cancel_payment.assert_called_once()

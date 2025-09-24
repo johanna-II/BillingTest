@@ -12,39 +12,41 @@ COMPUTE_METERING_TEMPLATE = {
         "productType": "GPU_INSTANCE",
         "pricePerUnit": 166.67,  # per hour
         "unit": "HOURS",
-        "description": "GPU Instance g2.t4.c8m64"
+        "description": "GPU Instance g2.t4.c8m64",
     },
     "volume.ssd": {
         "productCode": "STORAGE",
         "productType": "BLOCK_STORAGE",
         "pricePerUnit": 0.0001,  # per GB per hour
         "unit": "GB_HOURS",
-        "description": "SSD Block Storage"
+        "description": "SSD Block Storage",
     },
     "bandwidth.public": {
         "productCode": "NETWORK",
         "productType": "BANDWIDTH",
         "pricePerUnit": 0.01,  # per GB
         "unit": "GB",
-        "description": "Public Bandwidth"
-    }
+        "description": "Public Bandwidth",
+    },
 }
 
+
 # Billing detail templates
-def generate_billing_detail(uuid: str, month: str, has_discount: bool = False) -> dict[str, Any]:
+def generate_billing_detail(
+    uuid: str, month: str, has_discount: bool = False
+) -> dict[str, Any]:
     """Generate realistic billing detail data."""
-    
     # Calculate base amounts
     compute_amount = 120000  # 720 hours * 166.67
     storage_amount = 30000
     network_amount = 5000
-    
+
     subtotal = compute_amount + storage_amount + network_amount
     discount = subtotal * 0.1 if has_discount else 0
     charge = subtotal - discount
     vat = int(charge * 0.1)
     total = charge + vat
-    
+
     return {
         "uuid": uuid,
         "month": month,
@@ -66,9 +68,9 @@ def generate_billing_detail(uuid: str, month: str, has_discount: bool = False) -
                         "unit": "HOURS",
                         "quantity": 720,
                         "unitPrice": 166.67,
-                        "amount": compute_amount
+                        "amount": compute_amount,
                     }
-                ]
+                ],
             },
             {
                 "productCode": "STORAGE",
@@ -81,9 +83,9 @@ def generate_billing_detail(uuid: str, month: str, has_discount: bool = False) -
                         "unit": "GB_HOURS",
                         "quantity": 300000,  # 300GB * 1000 hours
                         "unitPrice": 0.0001,
-                        "amount": storage_amount
+                        "amount": storage_amount,
                     }
-                ]
+                ],
             },
             {
                 "productCode": "NETWORK",
@@ -96,11 +98,11 @@ def generate_billing_detail(uuid: str, month: str, has_discount: bool = False) -
                         "unit": "GB",
                         "quantity": 500,
                         "unitPrice": 0.01,
-                        "amount": network_amount
+                        "amount": network_amount,
                     }
-                ]
-            }
-        ]
+                ],
+            },
+        ],
     }
 
 
@@ -109,25 +111,29 @@ def generate_credit_data(uuid: str, credit_amount: int = 0) -> dict[str, Any]:
     """Generate credit data for user."""
     # Start with no usage for testing
     used_amount = 0
-    
+
     return {
         "uuid": uuid,
         "totalAmount": credit_amount,
         "usedAmount": used_amount,
         "restAmount": credit_amount,
-        "credits": [
-            {
-                "creditId": f"CRD-{uuid[:8]}",
-                "campaignId": "CAMPAIGN-001",
-                "creditCode": "FREE_CREDIT",
-                "amount": credit_amount,
-                "usedAmount": used_amount,
-                "restAmount": credit_amount,
-                "status": "ACTIVE",
-                "expireDate": (datetime.now() + timedelta(days=365)).isoformat(),
-                "createdAt": datetime.now().isoformat()
-            }
-        ] if credit_amount > 0 else []
+        "credits": (
+            [
+                {
+                    "creditId": f"CRD-{uuid[:8]}",
+                    "campaignId": "CAMPAIGN-001",
+                    "creditCode": "FREE_CREDIT",
+                    "amount": credit_amount,
+                    "usedAmount": used_amount,
+                    "restAmount": credit_amount,
+                    "status": "ACTIVE",
+                    "expireDate": (datetime.now() + timedelta(days=365)).isoformat(),
+                    "createdAt": datetime.now().isoformat(),
+                }
+            ]
+            if credit_amount > 0
+            else []
+        ),
     }
 
 
@@ -135,7 +141,7 @@ def generate_credit_data(uuid: str, credit_amount: int = 0) -> dict[str, Any]:
 def generate_contract_data(contract_type: str = "REGULAR") -> dict[str, Any]:
     """Generate contract data."""
     discount_rate = 0.1 if contract_type == "COMMITMENT" else 0
-    
+
     return {
         "contractType": contract_type,
         "status": "ACTIVE",
@@ -145,8 +151,8 @@ def generate_contract_data(contract_type: str = "REGULAR") -> dict[str, Any]:
         "details": {
             "minimumCommitment": 1000000 if contract_type == "COMMITMENT" else 0,
             "currentUsage": 0,
-            "products": ["COMPUTE", "STORAGE", "NETWORK"]
-        }
+            "products": ["COMPUTE", "STORAGE", "NETWORK"],
+        },
     }
 
 
@@ -155,7 +161,7 @@ def generate_batch_progress(job_code: str, current_progress: int = 0) -> dict[st
     """Generate batch job progress data."""
     total = 100
     is_completed = current_progress >= total
-    
+
     return {
         "batchJobCode": job_code,
         "status": "COMPLETED" if is_completed else "RUNNING",
@@ -164,12 +170,18 @@ def generate_batch_progress(job_code: str, current_progress: int = 0) -> dict[st
         "progress": min(current_progress / total * 100, 100),
         "startTime": datetime.now().isoformat(),
         "endTime": datetime.now().isoformat() if is_completed else None,
-        "message": "Batch job completed successfully" if is_completed else f"Processing... {current_progress}/{total}"
+        "message": (
+            "Batch job completed successfully"
+            if is_completed
+            else f"Processing... {current_progress}/{total}"
+        ),
     }
 
 
 # Payment data templates
-def generate_payment_data(uuid: str, amount: int, status: str = "PAID") -> dict[str, Any]:
+def generate_payment_data(
+    uuid: str, amount: int, status: str = "PAID"
+) -> dict[str, Any]:
     """Generate payment data."""
     return {
         "paymentId": f"PAY-{uuid[:8]}",
@@ -179,15 +191,14 @@ def generate_payment_data(uuid: str, amount: int, status: str = "PAID") -> dict[
         "paymentMethod": "CREDIT_CARD",
         "paymentDate": datetime.now().isoformat() if status == "PAID" else None,
         "dueDate": (datetime.now() + timedelta(days=30)).isoformat(),
-        "details": {
-            "cardNumber": "**** **** **** 1234",
-            "cardType": "VISA"
-        }
+        "details": {"cardNumber": "**** **** **** 1234", "cardType": "VISA"},
     }
 
 
 # Adjustment data templates
-def generate_adjustment_data(uuid: str, adjustment_type: str, amount: int) -> dict[str, Any]:
+def generate_adjustment_data(
+    uuid: str, adjustment_type: str, amount: int
+) -> dict[str, Any]:
     """Generate adjustment data."""
     return {
         "adjustmentId": f"ADJ-{uuid[:8]}",
@@ -200,6 +211,6 @@ def generate_adjustment_data(uuid: str, adjustment_type: str, amount: int) -> di
         "details": {
             "originalAmount": amount * 1.1,
             "adjustedAmount": amount,
-            "adjustmentRate": 0.1
-        }
+            "adjustmentRate": 0.1,
+        },
     }

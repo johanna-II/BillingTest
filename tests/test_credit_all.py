@@ -1,10 +1,12 @@
-import pytest
 import math
 import os
+
+import pytest
+
+from libs.Calculation import CalculationManager as Calculation
+from libs.Credit import CreditManager as Credit
 from libs.InitializeConfig import InitializeConfig
 from libs.Metering import MeteringManager as Metering
-from libs.Credit import CreditManager as Credit
-from libs.Calculation import CalculationManager as Calculation
 
 
 @pytest.mark.core
@@ -21,24 +23,23 @@ class TestCreditAll:
             )
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()
-        
+
         # Reset mock server data for this UUID if using mock server
         if os.environ.get("USE_MOCK_SERVER", "false").lower() == "true":
             import requests
+
             try:
                 # Get mock server URL from environment or use default
-                mock_url = os.environ.get('MOCK_SERVER_URL', 'http://localhost:5000')
+                mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
                 # Use shorter timeout for faster tests
                 response = requests.post(
-                    f"{mock_url}/test/reset",
-                    json={"uuid": self.config.uuid},
-                    timeout=1
+                    f"{mock_url}/test/reset", json={"uuid": self.config.uuid}, timeout=1
                 )
                 if response.status_code == 200:
                     print(f"Mock server data reset for UUID: {self.config.uuid}")
             except Exception as e:
                 print(f"Warning: Failed to reset mock server data: {e}")
-        
+
         self.meteringObj = Metering(month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.credit = Credit()
@@ -62,7 +63,8 @@ class TestCreditAll:
         )
         self.calcObj.recalculation_all()
         self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 100000
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            100000,
         )  # 100,000 / 무료, 지급형, 전체형 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
@@ -73,7 +75,7 @@ class TestCreditAll:
             (statements["charge"] - 100000) * 0.1
         )
         rest_credit, total_credit_amt = self.credit.inquiry_rest_credit()
-        
+
         assert (statements_with_credit == total_payments == expect_result) and (
             rest_credit == total_credit_amt == 0
         )
@@ -98,9 +100,13 @@ class TestCreditAll:
             counter_volume="720",
         )
         self.calcObj.recalculation_all()
-        self.credit.give_credit(self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 100000)  # 100,000 / 무료, 쿠폰형, 이벤트 크레딧
         self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 2000000
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            100000,
+        )  # 100,000 / 무료, 쿠폰형, 이벤트 크레딧
+        self.credit.give_credit(
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            2000000,
         )  # 2,000,000 / 무료, 쿠폰형, 전체형 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
@@ -133,7 +139,8 @@ class TestCreditAll:
         )
         self.calcObj.recalculation_all()
         self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 2000000
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            2000000,
         )  # 2,000,000 / 무료, 지급형, 전체형 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
@@ -166,7 +173,12 @@ class TestCreditAll:
         )
         self.calcObj.recalculation_all()
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=100000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=100000,
         )  # 유료, 이벤트 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
@@ -206,7 +218,12 @@ class TestCreditAll:
         )
         self.calcObj.recalculation_all()
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=2000000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=2000000,
         )  # 유료, 전체형 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
@@ -227,10 +244,20 @@ class TestCreditAll:
         )
         self.calcObj.recalculation_all()
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=2000000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=2000000,
         )  # 유료, 이벤트 크레딧
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=100000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=100000,
         )  # 유료, 전체형 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
@@ -264,9 +291,17 @@ class TestCreditAll:
         )
 
         self.calcObj.recalculation_all()
-        self.credit.give_credit(self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 100000)  # 무료, 쿠폰형, 전체형 크레딧
+        self.credit.give_credit(
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            100000,
+        )  # 무료, 쿠폰형, 전체형 크레딧
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=2000000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=2000000,
         )  # 유료, 전체형 크레딧
 
         # 결제 후 금액 비교
@@ -306,9 +341,17 @@ class TestCreditAll:
         )
 
         self.calcObj.recalculation_all()
-        self.credit.give_credit(self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 100000)  # 무료, 지급형, 이벤트 크레딧
+        self.credit.give_credit(
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            100000,
+        )  # 무료, 지급형, 이벤트 크레딧
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=100000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=100000,
         )  # 유료, 전체형 크레딧
 
         # 결제 후 금액 비교
@@ -331,9 +374,17 @@ class TestCreditAll:
         )
 
         self.calcObj.recalculation_all()
-        self.credit.give_credit(self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001", 1000000)  # 무료, 지급형, 이벤트 크레딧
+        self.credit.give_credit(
+            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+            1000000,
+        )  # 무료, 지급형, 이벤트 크레딧
         self.credit.give_paid_credit(
-            campaignId=self.credit.paid_campaign_id[0] if self.credit.paid_campaign_id else "CAMPAIGN-001", creditAmount=1000000
+            campaignId=(
+                self.credit.paid_campaign_id[0]
+                if self.credit.paid_campaign_id
+                else "CAMPAIGN-001"
+            ),
+            creditAmount=1000000,
         )  # 유료, 이벤트 크레딧
 
         # 결제 후 금액 비교

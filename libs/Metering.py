@@ -1,10 +1,9 @@
 """Metering management for billing system."""
 
 import calendar
-import contextlib
 import logging
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any
 
 from config import url
 
@@ -40,12 +39,12 @@ class MeteringManager:
     def _validate_month_format(month: str) -> None:
         """Validate month format is YYYY-MM."""
         import re
-        
+
         # First check the exact format with regex
         if not re.match(r"^\d{4}-\d{2}$", month):
             msg = f"Invalid month format: {month}. Expected YYYY-MM"
             raise ValidationException(msg)
-        
+
         # Then validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
@@ -131,7 +130,9 @@ class MeteringManager:
 
         request_data: MeteringRequest = {"meterList": [metering_data]}
 
-        logger.info("Sending metering data for {app_key}: {counter_name} = {counter_volume} %s", counter_unit
+        logger.info(
+            "Sending metering data for {app_key}: {counter_name} = {counter_volume} %s",
+            counter_unit,
         )
 
         try:
@@ -141,30 +142,30 @@ class MeteringManager:
         except APIRequestException as e:
             logger.exception("Failed to send metering data: %s", e)
             raise
-    
+
     def send_iaas_metering(
         self,
-        counter_name: str, 
+        counter_name: str,
         counter_unit: str,
-        counter_volume: Union[int, float, str],
-        counter_type: Optional[Union[CounterType, str]] = None,
-        app_key: Optional[str] = None,
-        target_time: Optional[str] = None,
-        uuid: Optional[str] = None,
-        app_id: Optional[str] = None,
-        project_id: Optional[str] = None
+        counter_volume: int | float | str,
+        counter_type: CounterType | str | None = None,
+        app_key: str | None = None,
+        target_time: str | None = None,
+        uuid: str | None = None,
+        app_id: str | None = None,
+        project_id: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Send IaaS metering data (legacy compatibility method).
-        
+        """Send IaaS metering data (legacy compatibility method).
+
         This is an alias for send_metering() for backward compatibility.
         """
         # Use instance appkey if app_key not provided (legacy pattern)
         if app_key is None:
-            app_key = getattr(self, 'appkey', None)
+            app_key = getattr(self, "appkey", None)
             if app_key is None:
-                raise ValueError("app_key must be provided or set as self.appkey")
-        
+                msg = "app_key must be provided or set as self.appkey"
+                raise ValueError(msg)
+
         # Call send_metering with only supported parameters
         # (ignoring legacy parameters: target_time, uuid, app_id, project_id)
         return self.send_metering(
@@ -172,7 +173,7 @@ class MeteringManager:
             counter_name=counter_name,
             counter_unit=counter_unit,
             counter_volume=str(counter_volume),
-            counter_type=counter_type or CounterType.DELTA
+            counter_type=counter_type or CounterType.DELTA,
         )
 
     def delete_metering(self, app_keys: str | list[str]) -> dict[str, Any]:
@@ -250,7 +251,8 @@ class MeteringManager:
                 results.append(
                     {"success": False, "counter": item["counter_name"], "error": str(e)}
                 )
-                logger.exception("Failed to send metering for %s: %s", item['counter_name'], e)
+                logger.exception(
+                    "Failed to send metering for %s: %s", item["counter_name"], e
+                )
 
         return {"results": results}
-

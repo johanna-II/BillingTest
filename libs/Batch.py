@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from config import url
 
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 class BatchManager:
     """Manages batch job operations for billing system."""
 
-    def __init__(self, month: str, client: Optional[BillingAPIClient] = None) -> None:
+    def __init__(self, month: str, client: BillingAPIClient | None = None) -> None:
         """Initialize batch manager.
 
         Args:
@@ -44,10 +43,11 @@ class BatchManager:
         """Validate month format is YYYY-MM."""
         # First check the exact format with regex
         import re
+
         if not re.match(r"^\d{4}-\d{2}$", month):
             msg = f"Invalid month format: {month}. Expected YYYY-MM"
             raise ValidationException(msg)
-        
+
         # Then validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
@@ -89,16 +89,12 @@ class BatchManager:
                 f"Invalid batch job code: {job_code_str}. "
                 f"Valid codes are: {', '.join(valid_codes)}"
             )
-            raise ValidationException(
-                msg
-            )
+            raise ValidationException(msg)
 
         # Validate execution day
         if not 1 <= execution_day <= 31:
             msg = f"Execution day must be between 1 and 31: {execution_day}"
-            raise ValidationException(
-                msg
-            )
+            raise ValidationException(msg)
 
         # Build execution timestamp
         execution_date = f"{self.month}-{execution_day:02d}T00:00:00+09:00"

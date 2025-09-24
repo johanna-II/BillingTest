@@ -1,6 +1,7 @@
 """Tests for project-level billing adjustments."""
 
 import math
+
 import pytest
 
 from libs.constants import CounterType

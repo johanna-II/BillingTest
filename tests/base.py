@@ -1,20 +1,19 @@
 """Base classes and utilities for billing tests."""
 
 import math
-from typing import Dict, Any, Tuple, Optional, List
-import pytest
 from dataclasses import dataclass
 
+import pytest
+
 from libs import (
+    Adjustments,
+    Calculation,
+    Contract,
+    CounterType,
+    Credit,
     InitializeConfig,
     Metering,
-    Calculation,
     Payments,
-    Adjustments,
-    Contract,
-    Credit,
-    Batch,
-    CounterType,
 )
 
 
@@ -58,12 +57,11 @@ class BaseBillingTest:
 
         Override this method in subclasses for specific cleanup needs.
         """
-        pass
 
     def send_metering_data(
         self,
         test_config: InitializeConfig,
-        metering_items: List[MeteringItem],
+        metering_items: list[MeteringItem],
         app_key_index: int = 0,
     ) -> None:
         """Send metering data for testing.
@@ -104,7 +102,7 @@ class BaseBillingTest:
 
         return calc_obj
 
-    def get_payment_info(self, test_config: InitializeConfig) -> Tuple[str, str]:
+    def get_payment_info(self, test_config: InitializeConfig) -> tuple[str, str]:
         """Get payment information.
 
         Args:
@@ -171,7 +169,7 @@ class BaseAdjustmentTest(BaseBillingTest):
         adjustment_type: str,
         adjustment_amount: float,
         target_type: str = "Project",
-        target_id: Optional[str] = None,
+        target_id: str | None = None,
     ) -> Adjustments:
         """Apply adjustment to billing.
 
@@ -216,7 +214,7 @@ class BaseAdjustmentTest(BaseBillingTest):
                 adjustmentTarget="Project", projectId=project_id
             )
             if adj_list:
-                adj_obj.delete_adjustment(adj_list)  
+                adj_obj.delete_adjustment(adj_list)
 
         # Clean billing group adjustments
         adj_list = adj_obj.inquiry_adjustment(
@@ -260,7 +258,7 @@ class BaseCreditTest(BaseBillingTest):
         self,
         test_config: InitializeConfig,
         campaign_id: str,
-        amount: Optional[int] = None,
+        amount: int | None = None,
     ) -> Credit:
         """Grant credit to user.
 

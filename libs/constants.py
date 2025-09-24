@@ -1,5 +1,4 @@
-"""
-Constants and enumerations used throughout the billing test suite.
+"""Constants and enumerations used throughout the billing test suite.
 
 This module provides centralized definitions for all constants, enums,
 and configuration values used in the billing system.
@@ -8,14 +7,14 @@ and configuration values used in the billing system.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum, IntEnum, auto
-from typing import Final, FrozenSet
+from enum import IntEnum, StrEnum
+from typing import Final
 
 
 # Enumerations
 class BatchJobCode(StrEnum):
     """Batch job codes for billing operations."""
-    
+
     API_CALCULATE_USAGE_AND_PRICE = "API_CALCULATE_USAGE_AND_PRICE"
     BATCH_GENERATE_STATEMENT = "BATCH_GENERATE_STATEMENT"
     BATCH_PROCESS_PAYMENT = "BATCH_PROCESS_PAYMENT"
@@ -29,19 +28,19 @@ class BatchJobCode(StrEnum):
 
 class AdjustmentType(StrEnum):
     """Types of billing adjustments."""
-    
+
     FIXED_DISCOUNT = "FIXED_DISCOUNT"
     RATE_DISCOUNT = "RATE_DISCOUNT"
     FIXED_SURCHARGE = "FIXED_SURCHARGE"
     RATE_SURCHARGE = "RATE_SURCHARGE"
     CREDIT_ADJUSTMENT = "CREDIT_ADJUSTMENT"
     TAX_ADJUSTMENT = "TAX_ADJUSTMENT"
-    
+
     @property
     def is_discount(self) -> bool:
         """Check if this is a discount type."""
         return "DISCOUNT" in self.value
-    
+
     @property
     def is_surcharge(self) -> bool:
         """Check if this is a surcharge type."""
@@ -50,7 +49,7 @@ class AdjustmentType(StrEnum):
 
 class AdjustmentTarget(StrEnum):
     """Targets for billing adjustments."""
-    
+
     BILLING_GROUP = "BillingGroup"
     PROJECT = "Project"
     CAMPAIGN = "Campaign"
@@ -60,7 +59,7 @@ class AdjustmentTarget(StrEnum):
 
 class PaymentStatus(StrEnum):
     """Payment status codes."""
-    
+
     READY = "READY"
     REGISTERED = "REGISTERED"
     PAID = "PAID"
@@ -70,7 +69,7 @@ class PaymentStatus(StrEnum):
     REFUNDED = "REFUNDED"
     PARTIALLY_PAID = "PARTIALLY_PAID"
     UNKNOWN = "UNKNOWN"
-    
+
     @property
     def is_final(self) -> bool:
         """Check if this is a final status."""
@@ -78,9 +77,9 @@ class PaymentStatus(StrEnum):
             PaymentStatus.PAID,
             PaymentStatus.CANCELLED,
             PaymentStatus.FAILED,
-            PaymentStatus.REFUNDED
+            PaymentStatus.REFUNDED,
         }
-    
+
     @property
     def is_active(self) -> bool:
         """Check if this is an active status."""
@@ -88,13 +87,13 @@ class PaymentStatus(StrEnum):
             PaymentStatus.READY,
             PaymentStatus.REGISTERED,
             PaymentStatus.PENDING,
-            PaymentStatus.PARTIALLY_PAID
+            PaymentStatus.PARTIALLY_PAID,
         }
 
 
 class CreditType(StrEnum):
     """Types of credits."""
-    
+
     FREE = "FREE"
     PAID = "PAID"
     PROMOTIONAL = "PROMOTIONAL"
@@ -102,7 +101,7 @@ class CreditType(StrEnum):
     CAMPAIGN = "CAMPAIGN"
     REFUND = "REFUND"
     BONUS = "BONUS"
-    
+
     @property
     def requires_payment(self) -> bool:
         """Check if this credit type requires payment."""
@@ -111,11 +110,11 @@ class CreditType(StrEnum):
 
 class CounterType(StrEnum):
     """Types of metering counters."""
-    
+
     DELTA = "DELTA"
     GAUGE = "GAUGE"
     CUMULATIVE = "CUMULATIVE"
-    
+
     @property
     def is_incremental(self) -> bool:
         """Check if this counter type is incremental."""
@@ -124,13 +123,13 @@ class CounterType(StrEnum):
 
 class MemberCountry(StrEnum):
     """Member country codes."""
-    
+
     KR = "kr"
     JP = "jp"
     US = "us"
     EU = "eu"
     ETC = "etc"
-    
+
     @property
     def display_name(self) -> str:
         """Get display name for the country."""
@@ -139,21 +138,21 @@ class MemberCountry(StrEnum):
             MemberCountry.JP: "Japan",
             MemberCountry.US: "United States",
             MemberCountry.EU: "Europe",
-            MemberCountry.ETC: "Other"
+            MemberCountry.ETC: "Other",
         }
         return names.get(self, self.value)
 
 
 class ContractType(StrEnum):
     """Contract types for billing."""
-    
+
     VOLUME = "VOLUME"
     PERIOD = "PERIOD"
     COMMITMENT = "COMMITMENT"
     PARTNER = "PARTNER"
     SUBSCRIPTION = "SUBSCRIPTION"
     PAY_AS_YOU_GO = "PAY_AS_YOU_GO"
-    
+
     @property
     def has_commitment(self) -> bool:
         """Check if this contract type has commitment."""
@@ -162,7 +161,7 @@ class ContractType(StrEnum):
 
 class DiscountType(StrEnum):
     """Discount types for contracts."""
-    
+
     PERCENTAGE = "PERCENTAGE"
     FIXED_AMOUNT = "FIXED_AMOUNT"
     TIERED = "TIERED"
@@ -171,12 +170,12 @@ class DiscountType(StrEnum):
 
 class BillingCycle(StrEnum):
     """Billing cycle options."""
-    
+
     MONTHLY = "MONTHLY"
     QUARTERLY = "QUARTERLY"
     ANNUALLY = "ANNUALLY"
     CUSTOM = "CUSTOM"
-    
+
     @property
     def months(self) -> int:
         """Get number of months in the billing cycle."""
@@ -184,19 +183,19 @@ class BillingCycle(StrEnum):
             BillingCycle.MONTHLY: 1,
             BillingCycle.QUARTERLY: 3,
             BillingCycle.ANNUALLY: 12,
-            BillingCycle.CUSTOM: 0  # Variable
+            BillingCycle.CUSTOM: 0,  # Variable
         }
         return cycle_months.get(self, 0)
 
 
 class Currency(StrEnum):
     """Supported currencies."""
-    
+
     USD = "USD"
     KRW = "KRW"
     JPY = "JPY"
     EUR = "EUR"
-    
+
     @property
     def symbol(self) -> str:
         """Get currency symbol."""
@@ -204,10 +203,10 @@ class Currency(StrEnum):
             Currency.USD: "$",
             Currency.KRW: "₩",
             Currency.JPY: "¥",
-            Currency.EUR: "€"
+            Currency.EUR: "€",
         }
         return symbols.get(self, self.value)
-    
+
     @property
     def decimal_places(self) -> int:
         """Get standard decimal places for the currency."""
@@ -218,7 +217,7 @@ class Currency(StrEnum):
 # HTTP Status codes for specific handling
 class HTTPStatus(IntEnum):
     """HTTP status codes with billing-specific handling."""
-    
+
     OK = 200
     CREATED = 201
     ACCEPTED = 202
@@ -234,22 +233,22 @@ class HTTPStatus(IntEnum):
     BAD_GATEWAY = 502
     SERVICE_UNAVAILABLE = 503
     GATEWAY_TIMEOUT = 504
-    
+
     @property
     def is_success(self) -> bool:
         """Check if this is a success status."""
         return 200 <= self < 300
-    
+
     @property
     def is_client_error(self) -> bool:
         """Check if this is a client error."""
         return 400 <= self < 500
-    
+
     @property
     def is_server_error(self) -> bool:
         """Check if this is a server error."""
         return 500 <= self < 600
-    
+
     @property
     def is_retryable(self) -> bool:
         """Check if this status indicates a retryable error."""
@@ -258,7 +257,7 @@ class HTTPStatus(IntEnum):
             HTTPStatus.INTERNAL_SERVER_ERROR,
             HTTPStatus.BAD_GATEWAY,
             HTTPStatus.SERVICE_UNAVAILABLE,
-            HTTPStatus.GATEWAY_TIMEOUT
+            HTTPStatus.GATEWAY_TIMEOUT,
         }
 
 
@@ -266,7 +265,7 @@ class HTTPStatus(IntEnum):
 @dataclass(frozen=True)
 class TimeoutConfig:
     """Timeout configuration values."""
-    
+
     default: int = 60
     connect: int = 10
     read: int = 60
@@ -279,23 +278,25 @@ class TimeoutConfig:
 @dataclass(frozen=True)
 class RetryConfig:
     """Retry configuration values."""
-    
+
     max_attempts: int = 3
     backoff_factor: float = 1.0
     max_backoff: int = 60
-    status_codes: FrozenSet[int] = frozenset({
-        HTTPStatus.TOO_MANY_REQUESTS,
-        HTTPStatus.INTERNAL_SERVER_ERROR,
-        HTTPStatus.BAD_GATEWAY,
-        HTTPStatus.SERVICE_UNAVAILABLE,
-        HTTPStatus.GATEWAY_TIMEOUT
-    })
+    status_codes: frozenset[int] = frozenset(
+        {
+            HTTPStatus.TOO_MANY_REQUESTS,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            HTTPStatus.BAD_GATEWAY,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            HTTPStatus.GATEWAY_TIMEOUT,
+        }
+    )
 
 
 @dataclass(frozen=True)
 class PaginationConfig:
     """Pagination configuration values."""
-    
+
     default_page_size: int = 50
     max_page_size: int = 1000
     default_page: int = 1
@@ -331,7 +332,9 @@ DATETIME_FORMAT_SHORT: Final[str] = "%Y-%m-%d %H:%M:%S"
 
 # Validation patterns
 MONTH_PATTERN: Final[str] = r"^\d{4}-\d{2}$"
-UUID_PATTERN: Final[str] = r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+UUID_PATTERN: Final[str] = (
+    r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+)
 EMAIL_PATTERN: Final[str] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 
 # Size limits

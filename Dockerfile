@@ -20,8 +20,8 @@ ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VENV=/opt/poetry-venv
 ENV POETRY_CACHE_DIR=/opt/.cache
 
-RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION
-ENV PATH="/root/.local/bin:$PATH"
+RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python3 - --version $POETRY_VERSION
+ENV PATH="/opt/poetry/bin:$PATH"
 
 # Copy dependency files
 COPY poetry.lock pyproject.toml ./

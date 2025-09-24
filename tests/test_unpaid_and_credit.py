@@ -1,14 +1,16 @@
+from datetime import datetime
+
 import pytest
+from dateutil.relativedelta import relativedelta
+
+import libs.Calculation as calc
+from libs.Adjustment import AdjustmentManager
+from libs.Batch import BatchManager as Batches
+from libs.Contract import ContractManager as Contract
+from libs.Credit import CreditManager as Credit
 from libs.InitializeConfig import InitializeConfig
 from libs.Metering import MeteringManager as Metering
 from libs.Payments import PaymentManager as Payments
-from libs.Batch import BatchManager as Batches
-import libs.Calculation as calc
-from libs.Credit import CreditManager as Credit
-from libs.Adjustment import AdjustmentManager
-from libs.Contract import ContractManager as Contract
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 
 @pytest.mark.core
@@ -60,17 +62,13 @@ class TestUnpaidWithCredit:
             billingGroupid=self.config.billing_group_id[0],
         )
         adjObj.delete_adjustment(adjlist)
-        contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        contractObj = Contract(self.config.month, self.config.billing_group_id[0])
         contractObj.delete_contract()
 
     def test_unpaid_and_credit_TC1(self):
         self.config.month = self.calc_prev_month(month=0)
         self.send_prev_month_metering(month=0)
-        contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        contractObj = Contract(self.config.month, self.config.billing_group_id[0])
         contractObj.contractId = "<contractID>"
         contractObj.apply_contract()
         adjObj = AdjustmentManager(self.config.month)

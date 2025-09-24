@@ -1,10 +1,12 @@
+import logging
+import math
+
 import pytest
+
+import libs.Calculation as calc
+from libs.Contract import ContractManager as Contract
 from libs.InitializeConfig import InitializeConfig
 from libs.Metering import MeteringManager as Metering
-from libs.Contract import ContractManager as Contract
-import libs.Calculation as calc
-import math
-import logging
 
 
 def future_deprecated(func):
@@ -30,9 +32,7 @@ class TestContractOnly:
     def setup(self, env, member, month):
         self.config = InitializeConfig(env, member, month)
         self.config.before_test()  # to change paymentStatus as REGISTERED
-        self.contractObj = Contract(
-            self.config.month, self.config.billing_group_id[0]
-        )
+        self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
