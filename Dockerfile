@@ -6,7 +6,8 @@ RUN apt-get update && \
     python3-dev \
     default-libmysqlclient-dev \
     build-essential \
-    libffi-dev && \
+    libffi-dev \
+    curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -19,11 +20,8 @@ ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VENV=/opt/poetry-venv
 ENV POETRY_CACHE_DIR=/opt/.cache
 
-RUN python3 -m venv $POETRY_VENV && \
-    $POETRY_VENV/bin/pip install --upgrade pip && \
-    $POETRY_VENV/bin/pip install poetry==$POETRY_VERSION
-
-ENV PATH="${PATH}:${POETRY_VENV}/bin"
+RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION
+ENV PATH="/root/.local/bin:$PATH"
 
 # Copy dependency files
 COPY poetry.lock pyproject.toml ./

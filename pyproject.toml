@@ -5,7 +5,7 @@ description = "Billing System Test Suite"
 authors = ["Billing Test Team <062042@naver.com>"]
 readme = "README.md"
 license = "MIT"
-package-mode = false
+packages = [{include = "libs"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
