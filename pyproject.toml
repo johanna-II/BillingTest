@@ -2,7 +2,7 @@
 name = "billing-test"
 version = "0.1.0"
 description = "Billing System Test Suite"
-authors = ["062042@naver.com"]
+authors = ["Billing Test Team <062042@naver.com>"]
 readme = "README.md"
 license = "MIT"
 packages = [{include = "libs"}]
