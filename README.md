@@ -22,7 +22,7 @@ Production-ready billing system test suite with comprehensive coverage and autom
 ### Prerequisites
 
 - Python 3.11 or 3.12
-- Poetry 1.7.1 or higher
+- Poetry 2.2.1 or higher
 - Docker and Docker Compose
 
 ### Installation

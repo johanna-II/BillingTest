@@ -5,7 +5,7 @@ description = "Billing System Test Suite"
 authors = ["Billing Test Team <062042@naver.com>"]
 readme = "README.md"
 license = "MIT"
-packages = [{include = "libs"}]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -14,34 +14,34 @@ python-dateutil = "^2.9.0"
 beautifulsoup4 = "^4.12.3"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.8.0"
+black = "^24.10.0"
 ruff = "^0.8.0"
-mypy = "^1.11.2"
+mypy = "^1.13.0"
 types-requests = "^2.32.0"
 types-python-dateutil = "^2.9.0"
-bandit = "^1.7.5"
+bandit = "^1.8.0"
 pre-commit = "^3.8.0"
 pydoclint = "^0.5.9"
-vulture = "^2.11"
+vulture = "^2.14"
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.3.2"
+pytest = "^8.3.3"
 pytest-html = "^4.1.1"
 pytest-cov = "^5.0.0"
 pytest-asyncio = "^0.24.0"
 pytest-xdist = "^3.6.1"
-flask = "^3.0.0"
-flask-cors = "^4.0.0"
+flask = "^3.1.0"
+flask-cors = "^6.0.0"
 flask-caching = "^2.3.0"
-locust = "^2.20.0"
+locust = "^2.32.0"
 pact-python = "^2.3.3"
 pytest-timeout = "^2.4.0"
 
 [tool.poetry.group.observability.dependencies]
-opentelemetry-api = "^1.21.0"
-opentelemetry-sdk = "^1.21.0"
-opentelemetry-exporter-jaeger-thrift = "^1.21.0"
-opentelemetry-exporter-prometheus = "^0.44b0"
+opentelemetry-api = "^1.29.0"
+opentelemetry-sdk = "^1.29.0"
+opentelemetry-exporter-otlp = "^1.29.0"
+opentelemetry-exporter-prometheus = "^0.50b0"
 
 [tool.poetry.extras]
 test = ["pytest", "pytest-html", "pytest-cov"]
@@ -197,5 +197,5 @@ require-return-section-when-returning-nothing = true
 allow-init-docstring = false
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
