@@ -236,7 +236,7 @@ class TestAdjustmentExtended:
         result = self.adjustment_manager.apply_adjustment(
             adjustment=2000.0,
             adjustmentType="FIXED_SURCHARGE",
-            adjustmentTarget="PROJECT",
+            adjustmentTarget="Project",
             project_id="proj-789"
         )
         
@@ -253,7 +253,7 @@ class TestAdjustmentExtended:
         result = self.adjustment_manager.apply_adjustment(
             adjustment=1500.0,
             adjustmentType="RATE_SURCHARGE",
-            adjustmentTarget="BILLING_GROUP",
+            adjustmentTarget="BillingGroup",
             billing_group_id="bg-789"
         )
         

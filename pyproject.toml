@@ -5,6 +5,7 @@ description = "Billing System Test Suite"
 authors = ["062042@naver.com"]
 readme = "README.md"
 license = "MIT"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -33,7 +34,14 @@ flask = "^3.0.0"
 flask-cors = "^4.0.0"
 flask-caching = "^2.3.0"
 locust = "^2.20.0"
-pact-python = "^2.2.0"
+pact-python = "^2.3.3"
+pytest-timeout = "^2.4.0"
+
+[tool.poetry.group.observability.dependencies]
+opentelemetry-api = "^1.21.0"
+opentelemetry-sdk = "^1.21.0"
+opentelemetry-exporter-jaeger-thrift = "^1.21.0"
+opentelemetry-exporter-prometheus = "^0.44b0"
 
 [tool.poetry.extras]
 test = ["pytest", "pytest-html", "pytest-cov"]

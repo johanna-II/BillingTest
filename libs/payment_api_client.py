@@ -100,3 +100,9 @@ class PaymentAPIClient(BillingAPIClient):
             "paymentIds": payment_ids,
             "action": action
         })
+    
+    def process_batch_payments(self, payment_requests: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Process batch payments."""
+        return self.post("billing/payment/batch", json={
+            "requests": payment_requests
+        })
