@@ -94,3 +94,39 @@ It provides API endpoints based on the OpenAPI specification in `docs/openapi/bi
 
 - Check mock server logs in Docker: `docker compose -f docker-compose.test.yml logs mock-server`
 - Run with verbose output: Add `-v` flag to pytest commands
+
+### CI/CD Issues
+
+#### pytest-benchmark Version Error
+
+**Problem**: `ERROR: No matching distribution found for pytest-benchmark>=6.0.0`
+
+**Solution**: Latest version is 5.1.0. Update requirements.txt:
+
+```bash
+pytest-benchmark>=5.0.0
+```
+
+#### Mock Server Dependencies
+
+**Problem**: `ModuleNotFoundError: No module named 'flask_caching'`
+
+**Solution**:
+
+1. Force rebuild Docker images:
+
+   ```bash
+   make docker-build-no-cache
+   ```
+
+2. Or set environment variable:
+
+   ```bash
+   export DOCKER_BUILD_NO_CACHE=true
+   ```
+
+#### Docker Compose Version Warning
+
+**Problem**: `the attribute 'version' is obsolete`
+
+**Solution**: Already fixed - removed `version` from docker-compose files.

@@ -43,7 +43,7 @@ jsonschema>=4.20.0
 
 # Performance testing
 locust>=2.31.0
-pytest-benchmark>=6.0.0
+pytest-benchmark>=5.0.0
 psutil>=6.1.0
 
 # Security testing
