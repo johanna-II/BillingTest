@@ -8,25 +8,16 @@ from typing import Any
 # Optional imports - telemetry is optional feature
 try:
     from opentelemetry import metrics, trace
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
     from opentelemetry.trace import Status, StatusCode
 
-    # Try to import Jaeger exporter - might not be available
-    try:
-        from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-
-        JAEGER_AVAILABLE = True
-    except ImportError:
-        JaegerExporter = None  # type: ignore[misc]
-        JAEGER_AVAILABLE = False
-
     TELEMETRY_AVAILABLE = True
 except ImportError:
     TELEMETRY_AVAILABLE = False
-    JAEGER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -189,13 +180,13 @@ def configure_telemetry(service_name: str = "billing-test") -> None:
     # Setup tracer provider
     tracer_provider = TracerProvider(resource=resource)
 
-    # Add Jaeger exporter if configured
-    if os.environ.get("JAEGER_ENABLED", "false").lower() == "true":
-        jaeger_exporter = JaegerExporter(
-            agent_host_name=os.environ.get("JAEGER_HOST", "localhost"),
-            agent_port=int(os.environ.get("JAEGER_PORT", "6831")),
+    # Add OTLP exporter if configured (compatible with Jaeger's OTLP receiver)
+    if os.environ.get("OTLP_ENABLED", "false").lower() == "true":
+        otlp_exporter = OTLPSpanExporter(
+            endpoint=os.environ.get("OTLP_ENDPOINT", "localhost:4317"),
+            insecure=os.environ.get("OTLP_INSECURE", "true").lower() == "true",
         )
-        tracer_provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
+        tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
 
     # Add console exporter for debugging
     if os.environ.get("TELEMETRY_CONSOLE", "false").lower() == "true":
