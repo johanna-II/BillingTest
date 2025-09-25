@@ -1,0 +1,6 @@
+# Mock server dependencies
+flask==3.1.0
+flask-cors==6.0.0
+flask-caching==2.3.0
+waitress==3.0.2
+requests==2.32.3

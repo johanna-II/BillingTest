@@ -100,6 +100,8 @@ ignore = [
     "ANN201",  # Missing return type annotation for public function
     "T201",    # Print found (CLI tools need print statements)
     "ANN001",  # Missing type annotation for function argument
+    "C417",    # Unnecessary map usage
+    "RUF018",  # Avoid assignment expressions in assert
     "ANN002",  # Missing type annotation for *args
     "ANN003",  # Missing type annotation for **kwargs
     "FBT001",  # Boolean positional arg in function definition

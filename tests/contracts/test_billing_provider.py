@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 import requests
@@ -92,10 +93,11 @@ class TestProviderVerification:
         """Verify the mock server satisfies all consumer contracts."""
         # Find all pact files
         pact_files = []
-        if os.path.exists(PACT_DIR):
-            for file in os.listdir(PACT_DIR):
-                if file.endswith(".json"):
-                    pact_files.append(os.path.join(PACT_DIR, file))
+        pact_dir_path = Path(PACT_DIR)
+        if pact_dir_path.exists():
+            for file in pact_dir_path.iterdir():
+                if file.suffix == ".json":
+                    pact_files.append(str(file))
 
         if not pact_files:
             pytest.skip("No pact files found to verify")

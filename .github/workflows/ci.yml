@@ -48,13 +48,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
       - name: Run tests with Docker
         run: |
           # Docker Compose is included in GitHub Actions Ubuntu runners
           docker compose version || docker-compose --version
           
+          # Install required packages for the test runner
+          pip install requests
+          
           # Run specific test type
-          bash -c "cd $(pwd) && python scripts/run_tests.py ${{ matrix.test-type }}"
+          python scripts/run_tests.py ${{ matrix.test-type }}
+        env:
+          DOCKER_BUILD_NO_CACHE: "true"
 
   # Security scan
   security:

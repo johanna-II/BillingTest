@@ -5,12 +5,23 @@ WORKDIR /app
 # Install curl for healthcheck
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir flask flask-cors
+# Copy and install dependencies
+# First try specific mock requirements, fallback to general requirements
+COPY requirements-mock.txt requirements.txt* ./
+RUN if [ -f requirements-mock.txt ]; then \
+        pip install --no-cache-dir -r requirements-mock.txt; \
+    else \
+        pip install --no-cache-dir flask==3.1.0 flask-cors==6.0.0 flask-caching==2.3.0 waitress==3.0.2 requests==2.32.3; \
+    fi
 
 # Copy mock server code
 COPY mock_server /app/mock_server
+
+# Copy OpenAPI spec (optional, will be mounted in docker-compose)
+COPY docs/openapi /app/docs/openapi
+
+# Set Python path
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Expose port
 EXPOSE 5000

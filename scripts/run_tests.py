@@ -71,6 +71,21 @@ class TestRunner:
         os.chdir(self.project_root)
 
         try:
+            # Build mock server if requested (CI environments should set this)
+            if os.environ.get("DOCKER_BUILD_NO_CACHE", "").lower() == "true":
+                print("Building mock server image (no cache)...")
+                subprocess.run(
+                    [
+                        *self.docker_compose_cmd,
+                        "-f",
+                        "docker-compose.test.yml",
+                        "build",
+                        "--no-cache",
+                        "mock-server",
+                    ],
+                    check=True,
+                )
+
             # Start mock server
             print("Starting mock server...")
             subprocess.run(
@@ -107,7 +122,7 @@ class TestRunner:
 
             success = True
             for test in test_types:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"Running {test} tests...")
                 print("=" * 60)
 
@@ -204,7 +219,7 @@ class TestRunner:
 
             success = True
             for test_name, cmd in test_commands.items():
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"Running {test_name} tests...")
                 print("=" * 60)
 

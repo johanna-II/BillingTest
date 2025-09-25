@@ -35,6 +35,13 @@ test-docker-integration:
 test-docker-contracts:
 	python scripts/run_tests.py contracts
 
+# Build Docker images
+docker-build:
+	docker compose -f docker-compose.test.yml build
+
+docker-build-no-cache:
+	docker compose -f docker-compose.test.yml build --no-cache
+
 # Local tests (no Docker)
 test-local:
 	python scripts/run_tests.py --local
@@ -58,14 +65,10 @@ lint-check:
 format:
 	@echo "Formatting code with Black..."
 	black .
-	@echo "Formatting code with Ruff..."
-	ruff format .
 
 format-check:
 	@echo "Checking code formatting with Black..."
 	black --check --diff .
-	@echo "Checking code formatting with Ruff..."
-	ruff format --check --diff .
 
 # Type checking
 mypy type-check:
