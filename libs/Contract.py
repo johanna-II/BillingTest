@@ -219,7 +219,9 @@ class ContractManager:
                     "Failed to get counter price after {max_retries} attempts: %s", e
                 )
                 raise
-        return None
+        # This should never be reached due to the raise above
+        msg = "Unexpected code path in get_counter_price"
+        raise RuntimeError(msg)
 
     def get_multiple_counter_prices(
         self, contract_id: str, counter_names: list[str]

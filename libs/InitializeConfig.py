@@ -16,6 +16,7 @@ from .Credit import CreditManager
 from .exceptions import ConfigurationException
 from .http_client import BillingAPIClient
 from .Metering import MeteringManager
+from .payment_api_client import PaymentAPIClient
 from .Payments import PaymentManager
 
 logger = logging.getLogger(__name__)
@@ -175,7 +176,12 @@ class DefaultManagerFactory:
 
     def create_payment_manager(self, month: str, uuid: str) -> PaymentManager:
         """Create payment manager instance."""
-        return PaymentManager(month, uuid, client=self._client)
+        # If client is PaymentAPIClient, use it directly
+        # Otherwise, let PaymentManager create its own client
+        if isinstance(self._client, PaymentAPIClient):
+            return PaymentManager(month, uuid, client=self._client)
+        # Let PaymentManager handle client creation
+        return PaymentManager(month, uuid)
 
     def create_credit_manager(self, uuid: str) -> CreditManager:
         """Create credit manager instance."""
@@ -330,17 +336,9 @@ class ConfigurationManager:
         # Basic validation is done in dataclass __post_init__
         # Additional validation can be added here
 
-        # Handle billing_group_id as either string or list
+        # Check if billing_group_id is a test ID
         bg_id = config.billing_group_id
-        if (
-            isinstance(bg_id, str)
-            and bg_id.startswith("test_")
-            and not config.campaign_id
-        ) or (
-            isinstance(bg_id, list)
-            and any(bg_item.startswith("test_") for bg_item in bg_id)
-            and not config.campaign_id
-        ):
+        if bg_id.startswith("test_") and not config.campaign_id:
             logger.warning("Test billing group detected but no campaign IDs configured")
 
 
@@ -391,6 +389,7 @@ class InitializeConfig:
         self._config_manager.validate_config(self._config)
 
         # Initialize API client if using custom factory
+        self._manager_factory: ManagerFactory
         if manager_factory is None:
             from config import url
 

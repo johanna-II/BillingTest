@@ -20,7 +20,7 @@ try:
 
         JAEGER_AVAILABLE = True
     except ImportError:
-        JaegerExporter = None  # type: ignore[assignment, misc]
+        JaegerExporter = None  # type: ignore[misc]
         JAEGER_AVAILABLE = False
 
     TELEMETRY_AVAILABLE = True

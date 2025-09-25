@@ -122,7 +122,9 @@ class TelemetryManager:
 
 
 def retry_on_exception(
-    exceptions: tuple[type, ...] = (requests.RequestException,),
+    exceptions: type[Exception] | tuple[type[Exception], ...] = (
+        requests.RequestException,
+    ),
     max_retries: int = 3,
     backoff_factor: float = 1.0,
 ) -> Callable[[F], F]:
@@ -495,16 +497,14 @@ class BillingAPIClient:
     ) -> bool:
         """Check if response indicates completion."""
         # Handle nested status fields (e.g., "result.status")
-        current = response
+        current: Any = response
         for field in status_field.split("."):
             if isinstance(current, dict) and field in current:
                 current = current[field]
             else:
                 return False
 
-        # Handle comparison with proper type checking
-        if isinstance(success_value, str) and isinstance(current, dict):
-            return False
+        # At this point, current should be a string value to compare
         return current == success_value
 
     def set_auth_token(self, token: str) -> None:

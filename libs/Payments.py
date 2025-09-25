@@ -16,6 +16,8 @@ from .exceptions import APIRequestException, ValidationException
 if TYPE_CHECKING:
     from .http_client import BillingAPIClient
 
+from .payment_api_client import PaymentAPIClient
+
 logger = logging.getLogger(__name__)
 
 # Type aliases
@@ -97,8 +99,8 @@ class PaymentValidator:
             raise ValidationException(msg)
 
 
-class PaymentAPIClient:
-    """Handles API communication for payments."""
+class PaymentAPIWrapper:
+    """Wraps BillingAPIClient for payment-specific operations."""
 
     ADMIN_API_ENDPOINT = "billing/admin/payments"
     CONSOLE_API_PREFIX = "billing/payments"
@@ -197,7 +199,7 @@ class PaymentManager:
     """
 
     def __init__(
-        self, month: str, uuid: str, client: BillingAPIClient | None = None
+        self, month: str, uuid: str, client: PaymentAPIClient | None = None
     ) -> None:
         """Initialize payment manager.
 
@@ -216,7 +218,12 @@ class PaymentManager:
         self.uuid = uuid
 
         # Initialize API client
-        self._client = client or PaymentAPIClient(url.BASE_BILLING_URL)
+        self._client: PaymentAPIClient = client or PaymentAPIClient(
+            url.BASE_BILLING_URL
+        )
+        self._wrapper = PaymentAPIWrapper(
+            self._client
+        )  # Wrapper for additional methods
         self._api = self._client  # Backward compatibility alias
 
         logger.info(f"Initialized PaymentManager for {month}, UUID: {uuid}")

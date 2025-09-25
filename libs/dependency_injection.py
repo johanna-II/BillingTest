@@ -62,10 +62,10 @@ class DIContainer:
             if self._singletons[service_type] is None:
                 # Create singleton instance
                 self._singletons[service_type] = self._services[service_type]()
-            return self._singletons[service_type]
+            return self._singletons[service_type]  # type: ignore[no-any-return]
 
         # Create new instance
-        return self._services[service_type]()
+        return self._services[service_type]()  # type: ignore[no-any-return]
 
     def clear(self) -> None:
         """Clear all registered services."""
@@ -97,7 +97,7 @@ def create_http_client(
 
     from .http_client import RetryConfig
 
-    retry_config = RetryConfig(max_retries=retry_count) if retry_count else None
+    retry_config = RetryConfig(total=retry_count) if retry_count else None
     return BillingAPIClient(base_url, timeout=timeout, retry_config=retry_config)
 
 
@@ -109,9 +109,8 @@ def create_payment_manager(month: str, uuid: str) -> PaymentManager:
         """PaymentManager with dependency injection."""
 
         def __init__(self, month: str, uuid: str) -> None:
+            # PaymentAPIClient will get injected directly from container
             super().__init__(month, uuid)
-            # Inject HTTP client from container
-            self._client = get_container().get(BillingAPIClient)
 
     return DIPaymentManager(month, uuid)
 
@@ -230,7 +229,7 @@ def inject(**dependencies):
     def decorator(cls_or_func):
         if isinstance(cls_or_func, type):
             # Class decorator
-            original_init = cls_or_func.__init__
+            original_init = cls_or_func.__init__  # type: ignore[misc]
 
             def new_init(self, *args, **kwargs) -> None:
                 # Inject dependencies
@@ -239,7 +238,7 @@ def inject(**dependencies):
                         kwargs[name] = get_container().get(service_type)
                 original_init(self, *args, **kwargs)
 
-            cls_or_func.__init__ = new_init
+            cls_or_func.__init__ = new_init  # type: ignore[misc]
             return cls_or_func
 
         # Function decorator

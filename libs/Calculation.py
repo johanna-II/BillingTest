@@ -81,13 +81,15 @@ class CalculationManager:
         Returns:
             True if completed successfully, False if timeout
         """
-        return self._client.wait_for_completion(
+        result = self._client.wait_for_completion(
             check_endpoint=f"billing/admin/progress?month={self.month}&uuid={self.uuid}",
             status_field="status",
             success_value="COMPLETED",
             timeout=timeout,
             check_interval=check_interval,
         )
+        # Convert result to bool - assuming success if no exception
+        return bool(result)
 
     def delete_resources(self) -> dict[str, Any]:
         """Delete calculation resources for the month.
