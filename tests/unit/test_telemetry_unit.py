@@ -180,9 +180,9 @@ class TestTelemetryUnit:
         self, mock_meter_provider, mock_tracer_provider, mock_resource
     ) -> None:
         """Test telemetry configuration with Jaeger enabled."""
-        os.environ["JAEGER_ENABLED"] = "true"
-        os.environ["JAEGER_HOST"] = "localhost"
-        os.environ["JAEGER_PORT"] = "6831"
+        os.environ["OTLP_ENABLED"] = "true"
+        os.environ["OTLP_ENDPOINT"] = "localhost:4317"
+        os.environ["OTLP_INSECURE"] = "true"
 
         try:
             with patch("libs.observability.telemetry.OTLPSpanExporter") as mock_otlp:
@@ -192,9 +192,9 @@ class TestTelemetryUnit:
                 mock_tracer_provider.assert_called_once()
                 mock_meter_provider.assert_called_once()
         finally:
-            os.environ.pop("JAEGER_ENABLED", None)
-            os.environ.pop("JAEGER_HOST", None)
-            os.environ.pop("JAEGER_PORT", None)
+            os.environ.pop("OTLP_ENABLED", None)
+            os.environ.pop("OTLP_ENDPOINT", None)
+            os.environ.pop("OTLP_INSECURE", None)
 
     def test_span_attributes_handling(self, telemetry, mock_tracer) -> None:
         """Test span attribute handling with various types."""

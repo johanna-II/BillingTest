@@ -1,48 +1,36 @@
-# Makefile for Billing Test Project
+.PHONY: help install test lint format clean docker-build test-docker test-local
 
-.PHONY: help install test lint lint-check format format-check mypy type-check pre-commit clean
-
+# Default target
 help:
 	@echo "Available commands:"
-	@echo "  install       - Install dependencies"
-	@echo "  test          - Run all tests"
-	@echo "  lint          - Run linter with auto-fix for safe issues"
-	@echo "  lint-check    - Run linter check only (no auto-fix)"
-	@echo "  format        - Format code with black"
-	@echo "  format-check  - Check code formatting without changing files"
-	@echo "  mypy          - Run type checking"
-	@echo "  type-check    - Alias for mypy"
-	@echo "  pre-commit    - Run pre-commit hooks"
-	@echo "  clean         - Clean up cache files"
+	@echo "  make install       - Install dependencies with Poetry"
+	@echo "  make test          - Run all tests (Docker)"
+	@echo "  make test-unit     - Run unit tests only"
+	@echo "  make test-local    - Run tests locally (no Docker)"
+	@echo "  make lint          - Run linting and auto-fix"
+	@echo "  make format        - Format code with Black"
+	@echo "  make clean         - Clean up temporary files"
+	@echo "  make docker-build  - Build Docker images"
 
+# Installation
 install:
-	pip install -r requirements.txt
+	poetry install
 	pre-commit install
 
+# Testing - Docker (default)
 test:
-	pytest
-
-# Docker-based tests
-test-docker:
 	python scripts/run_tests.py
 
-test-docker-unit:
+test-unit:
 	python scripts/run_tests.py unit
 
-test-docker-integration:
+test-integration:
 	python scripts/run_tests.py integration
 
-test-docker-contracts:
+test-contracts:
 	python scripts/run_tests.py contracts
 
-# Build Docker images
-docker-build:
-	docker compose -f docker-compose.test.yml build
-
-docker-build-no-cache:
-	docker compose -f docker-compose.test.yml build --no-cache
-
-# Local tests (no Docker)
+# Testing - Local (no Docker)
 test-local:
 	python scripts/run_tests.py --local
 
@@ -52,16 +40,29 @@ test-local-unit:
 test-local-integration:
 	python scripts/run_tests.py integration --local
 
-# Linting commands
+# Testing with coverage
+test-coverage:
+	python scripts/run_tests.py unit --coverage
+
+# Docker management
+docker-build:
+	docker compose -f docker-compose.test.yml build
+
+docker-build-no-cache:
+	docker compose -f docker-compose.test.yml build --no-cache
+
+docker-clean:
+	docker compose -f docker-compose.test.yml down -v
+
+# Linting and formatting
 lint:
-	@echo "Running Ruff with auto-fix for safe issues..."
+	@echo "Running Ruff linter with auto-fix..."
 	ruff check . --fix --show-fixes
 
 lint-check:
 	@echo "Running Ruff check only (no auto-fix)..."
 	ruff check .
 
-# Formatting commands
 format:
 	@echo "Formatting code with Black..."
 	black .
@@ -75,13 +76,24 @@ mypy type-check:
 	@echo "Running MyPy type checking..."
 	mypy libs/ --strict
 
-# Pre-commit
-pre-commit:
-	pre-commit run --all-files
-
-# Clean up
+# Cleaning
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} +
+	@echo "Cleaning up temporary files..."
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
-	rm -rf .mypy_cache .pytest_cache .ruff_cache
-	rm -rf htmlcov coverage.xml .coverage
+	find . -type f -name "*.pyo" -delete
+	find . -type f -name ".coverage" -delete
+	find . -type f -name "coverage.xml" -delete
+
+# CI/CD helpers
+ci-setup:
+	@echo "Setting up CI environment..."
+	pip install requests
+
+ci-test:
+	@echo "Running CI tests..."
+	python scripts/run_tests.py unit

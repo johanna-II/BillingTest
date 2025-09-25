@@ -66,7 +66,7 @@ class TestRunner:
         print("❌ Mock server failed to start")
         return False
 
-    def run_docker_tests(self, test_type="all"):
+    def run_docker_tests(self, test_type="all", coverage=False):
         """Run tests using Docker Compose."""
         os.chdir(self.project_root)
 
@@ -137,6 +137,15 @@ class TestRunner:
                         "tests/unit/",
                         "-v",
                     ]
+                    if coverage:
+                        cmd.extend(
+                            [
+                                "--cov=libs",
+                                "--cov-report=term-missing",
+                                "--cov-report=xml",
+                                "--cov-omit=libs/observability/*,libs/dependency_injection.py",
+                            ]
+                        )
                 elif test == "integration":
                     cmd = ["run", "--rm", "test-integration"]
                 elif test == "contracts":
@@ -179,7 +188,7 @@ class TestRunner:
                 check=False,
             )
 
-    def run_local_tests(self, test_type="all"):
+    def run_local_tests(self, test_type="all", coverage=False):
         """Run tests locally without Docker."""
         os.chdir(self.project_root)
 
@@ -212,10 +221,28 @@ class TestRunner:
                     "integration": ["pytest", "tests/integration/", "-v", "--use-mock"],
                     "contracts": ["pytest", "tests/contracts/", "-v", "--use-mock"],
                 }
+                if coverage and "unit" in test_commands:
+                    test_commands["unit"].extend(
+                        [
+                            "--cov=libs",
+                            "--cov-report=term-missing",
+                            "--cov-report=xml",
+                            "--cov-omit=libs/observability/*,libs/dependency_injection.py",
+                        ]
+                    )
             else:
                 test_commands = {
                     test_type: ["pytest", f"tests/{test_type}/", "-v", "--use-mock"]
                 }
+                if coverage and test_type == "unit":
+                    test_commands[test_type].extend(
+                        [
+                            "--cov=libs",
+                            "--cov-report=term-missing",
+                            "--cov-report=xml",
+                            "--cov-omit=libs/observability/*,libs/dependency_injection.py",
+                        ]
+                    )
 
             success = True
             for test_name, cmd in test_commands.items():
@@ -276,6 +303,10 @@ Examples:
         "--local", action="store_true", help="Run tests locally without Docker"
     )
 
+    parser.add_argument(
+        "--coverage", action="store_true", help="Run with coverage report"
+    )
+
     args = parser.parse_args()
 
     # Create test runner
@@ -284,9 +315,9 @@ Examples:
     # Run tests
     try:
         if args.local:
-            success = runner.run_local_tests(args.test_type)
+            success = runner.run_local_tests(args.test_type, coverage=args.coverage)
         else:
-            success = runner.run_docker_tests(args.test_type)
+            success = runner.run_docker_tests(args.test_type, coverage=args.coverage)
 
         if success:
             print("\n✅ All tests passed!")

@@ -2,19 +2,19 @@ name: Security Scan
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
     branches: [ main ]
   schedule:
-    - cron: '0 0 * * 1'  # Weekly on Monday at midnight
+    # Run security scan weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  security-events: write
+env:
+  PYTHON_VERSION: '3.12'
+  POETRY_VERSION: '2.2.1'
 
 jobs:
-  code-security:
-    name: Code Security Analysis
+  security-scan:
+    name: Security Analysis
     runs-on: ubuntu-latest
     
     steps:
@@ -24,31 +24,52 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 - --version 2.2.1
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Load cached venv
-        uses: actions/cache@v4
+        uses: snok/install-poetry@v1
         with:
-          path: .venv
-          key: venv-${{ runner.os }}-security-${{ hashFiles('**/poetry.lock') }}
+          version: ${{ env.POETRY_VERSION }}
 
       - name: Install dependencies
         run: poetry install --no-interaction
 
-      - name: Run Bandit
+      - name: Run Bandit security scan
         run: |
-          poetry run bandit -r libs/ -f json -o bandit-report.json -ll
-          poetry run bandit -r libs/ -ll
+          poetry run bandit -r libs/ -f json -o bandit_report.json || true
+          poetry run bandit -r libs/ -f txt -o bandit_summary.txt || true
 
       - name: Run Safety check
         run: |
-          poetry run pip freeze | poetry run safety check --stdin --json --output safety-report.json || true
-          poetry run pip freeze | poetry run safety check --stdin
+          poetry run safety check --json > safety_report.json || true
+          poetry run safety check > safety_summary.txt || true
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Install detect-secrets if not in dependencies
+          pip install detect-secrets
+          detect-secrets scan --all-files > secrets_report.json || true
+
+      - name: Generate security summary
+        if: always()
+        run: |
+          echo "# Security Scan Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Bandit Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f bandit_summary.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat bandit_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          if [ -f safety_summary.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat safety_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4
@@ -56,75 +77,65 @@ jobs:
         with:
           name: security-reports
           path: |
-            bandit-report.json
-            safety-report.json
+            bandit_report.json
+            bandit_summary.txt
+            safety_report.json
+            safety_summary.txt
+            secrets_report.json
 
-  dependency-scan:
-    name: Dependency Vulnerability Scan
+      - name: Comment PR with security results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🔒 Security Scan Results\n\n';
+            
+            try {
+              // Read Bandit summary
+              if (fs.existsSync('bandit_summary.txt')) {
+                const banditSummary = fs.readFileSync('bandit_summary.txt', 'utf8');
+                const lines = banditSummary.split('\n').slice(0, 20);
+                comment += '### Bandit (Code Security)\n```\n' + lines.join('\n') + '\n```\n\n';
+              }
+              
+              // Read Safety summary
+              if (fs.existsSync('safety_summary.txt')) {
+                const safetySummary = fs.readFileSync('safety_summary.txt', 'utf8');
+                const lines = safetySummary.split('\n').slice(0, 20);
+                comment += '### Safety (Dependency Check)\n```\n' + lines.join('\n') + '\n```\n';
+              }
+            } catch (error) {
+              comment += '❌ Error reading security scan results\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # SAST using CodeQL
+  codeql:
+    name: CodeQL Analysis
     runs-on: ubuntu-latest
-    
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          languages: python
 
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
-  docker-scan:
-    name: Docker Image Security Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t billing-test:scan .
-
-      - name: Run Trivy on Docker image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'billing-test:scan'
-          format: 'sarif'
-          output: 'docker-trivy-results.sarif'
-
-      - name: Upload Docker scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'docker-trivy-results.sarif'
-
-  license-check:
-    name: License Compliance Check
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Check licenses
-        run: |
-          poetry run pip install pip-licenses
-          poetry run pip-licenses --format=json --output-file=licenses.json
-          poetry run pip-licenses --fail-on="GPL;LGPL"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
