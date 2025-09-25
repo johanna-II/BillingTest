@@ -91,6 +91,7 @@ ignore = [
     "N999",    # Invalid module name (for test files)
     "N806",    # Variable in function should be lowercase
     "N802",    # Function name should be lowercase
+    "EXE001",  # Shebang is present but file is not executable (Windows compatibility)
     "G004",    # Logging f-string (performance is not critical in tests)
     "F821",    # Undefined name (often false positives with fixtures)
     "S311",    # Standard pseudo-random generators for non-crypto use
@@ -119,6 +120,7 @@ ignore = [
     "PTH100",  # os.path.abspath instead of Path.resolve (legacy code)
     "PTH103",  # os.makedirs instead of Path.mkdir (legacy code)
     "PTH110",  # os.path.exists instead of Path.exists (legacy code)
+    "PTH208",  # os.listdir instead of Path.iterdir (legacy code)
     "ARG001",  # Unused function argument (fixtures)
     "ARG002",  # Unused method argument (overrides)
     "ANN401",  # Any type (sometimes needed)
