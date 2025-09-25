@@ -37,20 +37,20 @@ class BaseBillingTest:
     DEFAULT_TIMEOUT = 300  # 5 minutes
 
     @pytest.fixture(scope="class")
-    def test_config(self, env: str, member: str, month: str) -> InitializeConfig:
+    def init_config(self, env: str, member: str, month: str) -> InitializeConfig:
         """Initialize test configuration."""
         return InitializeConfig(env, member, month)
 
     @pytest.fixture(autouse=True)
-    def setup_and_teardown(self, test_config: InitializeConfig) -> None:
+    def setup_and_teardown(self, init_config: InitializeConfig) -> None:
         """Common setup and teardown for each test."""
         # Setup: Ensure payment status is REGISTERED
-        test_config.before_test()
+        init_config.before_test()
 
         yield
 
         # Teardown: Clean up test data
-        self._cleanup_test_data(test_config)
+        self._cleanup_test_data(init_config)
 
     def _cleanup_test_data(self, test_config: InitializeConfig) -> None:
         """Clean up test data after each test.

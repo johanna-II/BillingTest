@@ -185,10 +185,10 @@ class TestTelemetryUnit:
         os.environ["JAEGER_PORT"] = "6831"
 
         try:
-            with patch("libs.observability.telemetry.JaegerExporter") as mock_jaeger:
+            with patch("libs.observability.telemetry.OTLPSpanExporter") as mock_otlp:
                 configure_telemetry()
 
-                mock_jaeger.assert_called_once()
+                mock_otlp.assert_called_once()
                 mock_tracer_provider.assert_called_once()
                 mock_meter_provider.assert_called_once()
         finally:

@@ -1,5 +1,6 @@
 """API response time performance tests using pytest-benchmark."""
 
+import os
 import sys
 import time
 import uuid

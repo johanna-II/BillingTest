@@ -1,6 +1,7 @@
 """Security vulnerability tests for the billing API."""
 
 import json
+import os
 import uuid
 
 import pytest

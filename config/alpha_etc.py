@@ -1,6 +1,6 @@
 config = {
     "uuid": "<etc_UUID>",
-    "billing_group_id": ["<etc_bgId>"],
+    "billing_group_id": "<etc_bgId>",
     "org_id": ["<etc_orgID>"],
     "project_id": ["<etc_prjID>"],
     "appkey": ["<etc_appKey>"],

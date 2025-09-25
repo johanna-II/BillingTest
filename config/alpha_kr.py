@@ -1,6 +1,6 @@
 config = {
     "uuid": "<kr_UUID>",
-    "billing_group_id": ["<kr_bgId>"],
+    "billing_group_id": "<kr_bgId>",
     "org_id": ["<kr_orgID>"],
     "project_id": ["<kr_prjID>"],
     "appkey": ["<kr_appKey>"],

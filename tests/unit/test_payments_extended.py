@@ -155,7 +155,7 @@ class TestPaymentsExtended:
         }
         # Mock unpaid amount
         self.mock_client.get_unpaid_statements.return_value = {
-            "statements": [{"billingDetails": {"charge": 1000.0}}]
+            "statements": [{"totalAmount": 1000.0}]
         }
 
         summary = self.payment_manager.get_payment_summary()
@@ -173,7 +173,7 @@ class TestPaymentsExtended:
     def test_check_unpaid_amount(self) -> None:
         """Test check_unpaid_amount legacy method."""
         self.mock_client.get_unpaid_statements.return_value = {
-            "statements": [{"billingDetails": {"charge": 500.0}}]
+            "statements": [{"totalAmount": 500.0}]
         }
 
         amount = self.payment_manager.check_unpaid_amount("pg-123")
