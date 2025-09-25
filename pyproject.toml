@@ -35,7 +35,7 @@ flask = "^3.1.0"
 flask-cors = "^6.0.0"
 flask-caching = "^2.3.0"
 locust = "^2.32.0"
-pact-python = "^2.3.3"
+pact-python = "^3.0.0b1"
 pytest-timeout = "^2.4.0"
 
 [tool.poetry.group.observability.dependencies]
@@ -284,6 +284,12 @@ markers = [
     "performance: marks performance tests",
     "benchmark: marks benchmark tests",
     "security: marks security tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pkg_resources",
+    "ignore::DeprecationWarning:google.*",
+    "ignore::UserWarning:google.rpc",
+    "ignore::DeprecationWarning:importlib._bootstrap",
 ]
 
 [tool.coverage.run]

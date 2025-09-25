@@ -15,6 +15,8 @@ from libs.Metering import MeteringManager
 from libs.Payments import PaymentManager
 
 
+@pytest.mark.integration
+@pytest.mark.mock_required
 class TestManagersWithOpenAPIMock:
     """Test all managers with OpenAPI mock server."""
 
@@ -97,6 +99,8 @@ class TestManagersWithOpenAPIMock:
         assert status is not None
 
 
+@pytest.mark.integration
+@pytest.mark.mock_required
 class TestManagersMinimalMocking:
     """Test managers with minimal mocking - only at HTTP transport level."""
 
@@ -149,6 +153,8 @@ class TestManagersMinimalMocking:
         assert result["status"] == "STARTED"
 
 
+@pytest.mark.integration
+@pytest.mark.mock_required
 class TestContractBasedTesting:
     """Use OpenAPI contracts for testing instead of mocks."""
 

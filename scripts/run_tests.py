@@ -102,6 +102,18 @@ class TestRunner:
 
             # Wait for mock server
             if not self._wait_for_mock_server():
+                print("\n❌ Mock server failed to start")
+                print("\nContainer status:")
+                subprocess.run(
+                    [
+                        *self.docker_compose_cmd,
+                        "-f",
+                        "docker-compose.test.yml",
+                        "ps",
+                    ],
+                    check=False,
+                )
+                print("\nContainer logs:")
                 subprocess.run(
                     [
                         *self.docker_compose_cmd,
@@ -149,17 +161,7 @@ class TestRunner:
                 elif test == "integration":
                     cmd = ["run", "--rm", "test-integration"]
                 elif test == "contracts":
-                    cmd = [
-                        "run",
-                        "--rm",
-                        "test-full",
-                        "python",
-                        "-m",
-                        "pytest",
-                        "tests/contracts/",
-                        "-v",
-                        "--use-mock",
-                    ]
+                    cmd = ["run", "--rm", "test-contracts"]
 
                 result = subprocess.run(
                     [*self.docker_compose_cmd, "-f", "docker-compose.test.yml", *cmd],
@@ -195,7 +197,8 @@ class TestRunner:
         # Set environment for mock server
         env = os.environ.copy()
         env["USE_MOCK_SERVER"] = "true"
-        env["MOCK_SERVER_URL"] = "http://localhost:5000"
+        env["MOCK_SERVER_URL"] = "http://localhost:5000/api/v1"
+        env["MOCK_SERVER_PORT"] = "5000"
 
         # Start mock server
         print("Starting mock server...")

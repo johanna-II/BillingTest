@@ -1,10 +1,13 @@
-"""Consumer contract tests for Billing API interactions."""
+"""Consumer contract tests for Billing API interactions (Legacy Pact v2 - Deprecated)."""
 
 import os
 
 import pytest
 import requests
 from pact import Consumer, Like, Provider, Term
+
+# This file uses Pact Python v2 which is deprecated.
+# Please use test_billing_consumer_v3.py for new tests.
 
 # Pact configuration
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")

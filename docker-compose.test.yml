@@ -7,6 +7,9 @@ services:
       target: test
       args:
         PYTHON_VERSION: 3.12-slim
+    depends_on:
+      mock-server:
+        condition: service_healthy
     volumes:
       - .:/app
       - ./htmlcov:/app/htmlcov
@@ -14,6 +17,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - USE_MOCK_SERVER=true
+      - MOCK_SERVER_URL=http://mock-server:5000/api/v1
       - MOCK_SERVER_PORT=5000
     command: >
       python -m pytest
@@ -24,6 +28,7 @@ services:
       --cov-omit=libs/observability/*,libs/dependency_injection.py
       tests/unit
       -v
+      --use-mock
     networks:
       - test-network
 
@@ -90,6 +95,7 @@ services:
       - FLASK_APP=mock_server/app.py
       - FLASK_ENV=development
       - PYTHONUNBUFFERED=1
+      - MOCK_DATA_PATH=/app/mock_server/test_data.json
     volumes:
       - ./mock_server:/app/mock_server
       - ./docs/openapi:/app/docs/openapi
@@ -118,12 +124,38 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - USE_MOCK_SERVER=true
-      - MOCK_SERVER_URL=http://mock-server:5000
+      - MOCK_SERVER_URL=http://mock-server:5000/api/v1
     command: >
       python -m pytest
       tests/
       -m "integration or mock_required"
       -v
+      --use-mock
+    networks:
+      - test-network
+
+  # Contract test runner
+  test-contracts:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    depends_on:
+      mock-server:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./htmlcov:/app/htmlcov
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+      - USE_MOCK_SERVER=true
+      - MOCK_SERVER_URL=http://mock-server:5000/api/v1
+    command: >
+      python -m pytest
+      tests/contracts/
+      -v
+      --use-mock
     networks:
       - test-network
 
@@ -142,7 +174,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - USE_MOCK_SERVER=true
-      - MOCK_SERVER_URL=http://mock-server:5000
+      - MOCK_SERVER_URL=http://mock-server:5000/api/v1
     command: >
       python -m pytest
       tests/performance/

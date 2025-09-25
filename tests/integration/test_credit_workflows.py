@@ -12,6 +12,8 @@ from libs.Metering import MeteringManager
 from libs.Payments import PaymentManager
 
 
+@pytest.mark.integration
+@pytest.mark.mock_required
 class TestCreditWorkflows:
     """Test credit-related workflows."""
 

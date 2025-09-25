@@ -1505,6 +1505,85 @@ def handle_undefined_api(path):
     )
 
 
+# Provider states endpoint was already defined above, removed duplicate
+
+
+# Credits endpoints
+@app.route("/api/v1/credits", methods=["POST"])
+def create_credit():
+    """Create a new credit."""
+    data = request.get_json()
+
+    credit_id = f"CREDIT_{uuid.uuid4().hex[:8].upper()}"
+
+    response = {
+        "header": {"isSuccessful": True, "resultCode": 0, "resultMessage": "SUCCESS"},
+        "creditId": credit_id,
+        "status": "ACTIVE",
+        "customer_id": data.get("customer_id"),
+        "amount": data.get("amount"),
+        "currency": data.get("currency", "USD"),
+        "description": data.get("description"),
+        "type": data.get("type", "ADJUSTMENT"),
+        "created_at": datetime.now().isoformat(),
+    }
+
+    # Store in test data manager
+    credits_data = data_manager.get_data("credits", {})
+    credits_data[credit_id] = response
+    data_manager.set_data("credits", credits_data)
+
+    return jsonify(response), 201
+
+
+# Contract endpoints already defined above, removed duplicate
+
+
+# Billing groups endpoints already defined above, removed duplicate
+
+
+# Meter endpoints (for contract tests)
+@app.route("/api/v1/meters", methods=["POST"])
+def submit_meter_contract():
+    """Submit meter data (contract test version)."""
+    data = request.get_json()
+
+    meter_id = f"METER_{uuid.uuid4().hex[:8].upper()}"
+
+    response = {
+        "id": meter_id,
+        "status": "ACCEPTED",
+        "resource_id": data.get("resource_id"),
+        "timestamp": data.get("timestamp", datetime.now().isoformat() + "Z"),
+    }
+
+    return jsonify(response), 201
+
+
+# Payment endpoints already defined above, removed duplicate
+
+
+# Adjustment endpoints
+@app.route("/api/v1/adjustments", methods=["POST"])
+def create_adjustment():
+    """Create billing adjustment."""
+    data = request.get_json()
+
+    adjustment_id = f"ADJ_{uuid.uuid4().hex[:8].upper()}"
+    amount = data.get("amount", 100.0)
+    original_amount = 1500.0  # Default original amount
+
+    response = {
+        "adjustment_id": adjustment_id,
+        "status": "APPLIED",
+        "original_amount": original_amount,
+        "adjusted_amount": original_amount - amount,
+        "applied_at": datetime.now().isoformat() + "Z",
+    }
+
+    return jsonify(response), 201
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=True)

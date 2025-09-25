@@ -26,6 +26,7 @@ class TestAdjustmentIntegration:
         }
 
     @pytest.mark.integration
+    @pytest.mark.mock_required
     def test_adjustment_impact_on_billing(
         self, adjustment_context, test_app_keys
     ) -> None:
@@ -74,6 +75,7 @@ class TestAdjustmentIntegration:
             assert adjusted_amount == 0
 
     @pytest.mark.integration
+    @pytest.mark.mock_required
     def test_percentage_adjustment_calculation(
         self, adjustment_context, test_app_keys
     ) -> None:
@@ -116,6 +118,7 @@ class TestAdjustmentIntegration:
         assert abs(discounted_amount - expected_amount) < 1
 
     @pytest.mark.integration
+    @pytest.mark.mock_required
     def test_multiple_adjustments_stacking(
         self, adjustment_context, test_app_keys
     ) -> None:
@@ -167,6 +170,7 @@ class TestAdjustmentIntegration:
         assert final_amount >= 0
 
     @pytest.mark.integration
+    @pytest.mark.mock_required
     def test_adjustment_deletion_effect(
         self, adjustment_context, test_app_keys
     ) -> None:
@@ -214,6 +218,7 @@ class TestAdjustmentIntegration:
         assert amount_without_adjustment > amount_with_adjustment
 
     @pytest.mark.integration
+    @pytest.mark.mock_required
     @pytest.mark.slow
     def test_adjustment_pagination(self, adjustment_context) -> None:
         """Test adjustment pagination with many adjustments."""

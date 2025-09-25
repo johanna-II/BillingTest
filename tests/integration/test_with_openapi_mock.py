@@ -60,6 +60,7 @@ def openapi_mock_server():
 
 
 @pytest.mark.integration
+@pytest.mark.mock_required
 class TestWithOpenAPIMockServer:
     """Integration tests using OpenAPI mock server."""
 
@@ -177,6 +178,7 @@ class TestWithOpenAPIMockServer:
 
 
 @pytest.mark.integration
+@pytest.mark.mock_required
 class TestOpenAPIValidation:
     """Test that our implementation matches OpenAPI specification."""
 
