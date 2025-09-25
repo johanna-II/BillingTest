@@ -14,16 +14,19 @@ logger = logging.getLogger(__name__)
 class CalculationManager:
     """Manages billing calculations and resource cleanup."""
 
-    def __init__(self, month: str, uuid: str) -> None:
+    def __init__(
+        self, month: str, uuid: str, client: BillingAPIClient | None = None
+    ) -> None:
         """Initialize calculation manager.
 
         Args:
             month: Target month in YYYY-MM format
             uuid: User UUID for calculations
+            client: Optional HTTP client for API requests
         """
         self.month = month
         self.uuid = uuid
-        self._client = BillingAPIClient(url.BASE_BILLING_URL)
+        self._client = client or BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
         return f"CalculationManager(month={self.month}, uuid={self.uuid})"

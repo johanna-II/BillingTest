@@ -40,7 +40,7 @@ class EnvironmentConfig:
     give_campaign_id: list[str] = field(default_factory=list)
     paid_campaign_id: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if not self.uuid:
             msg = "UUID cannot be empty"

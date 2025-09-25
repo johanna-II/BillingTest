@@ -8,16 +8,25 @@ from typing import Any
 # Optional imports - telemetry is optional feature
 try:
     from opentelemetry import metrics, trace
-    from opentelemetry.exporter.jaeger.thrift import JaegerExporter
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
     from opentelemetry.trace import Status, StatusCode
 
+    # Try to import Jaeger exporter - might not be available
+    try:
+        from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+
+        JAEGER_AVAILABLE = True
+    except ImportError:
+        JaegerExporter = None  # type: ignore[assignment, misc]
+        JAEGER_AVAILABLE = False
+
     TELEMETRY_AVAILABLE = True
 except ImportError:
     TELEMETRY_AVAILABLE = False
+    JAEGER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +122,7 @@ class TelemetryManager:
         return span
 
     @contextmanager
-    def trace_test(self, test_name: str, test_type: str = "unit"):
+    def trace_test(self, test_name: str, test_type: str = "unit") -> Any:
         """Context manager to trace test execution."""
         if not TELEMETRY_AVAILABLE or not self.tracer:
             yield None

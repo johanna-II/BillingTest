@@ -89,13 +89,16 @@ def create_http_client(
     retry_count: int = DEFAULT_RETRY_COUNT,
 ) -> BillingAPIClient:
     """Factory for creating HTTP client."""
-    from . import url
+    from config import url
 
     if base_url is None:
         # Get from config
         base_url = getattr(url, "BASE_URL", "http://localhost:5000")
 
-    return BillingAPIClient(base_url, timeout=timeout, retry_count=retry_count)
+    from .http_client import RetryConfig
+
+    retry_config = RetryConfig(max_retries=retry_count) if retry_count else None
+    return BillingAPIClient(base_url, timeout=timeout, retry_config=retry_config)
 
 
 def create_payment_manager(month: str, uuid: str) -> PaymentManager:
@@ -195,7 +198,7 @@ def configure_dependencies(
         # Register mock implementations
         from unittest.mock import Mock
 
-        def create_mock_client():
+        def create_mock_client() -> BillingAPIClient:
             mock = Mock(spec=BillingAPIClient)
             mock.get.return_value = {"header": {"isSuccessful": True}}
             mock.post.return_value = {"header": {"isSuccessful": True}}

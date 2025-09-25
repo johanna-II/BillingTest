@@ -80,7 +80,7 @@ class TelemetryManager:
     """Manages telemetry integration."""
 
     def __init__(self) -> None:
-        self._telemetry = None
+        self._telemetry: Any = None
         self._enabled = False
         self._initialize_telemetry()
 
@@ -95,7 +95,7 @@ class TelemetryManager:
             logger.debug("Telemetry not available")
 
     @contextmanager
-    def span(self, operation: str, attributes: dict[str, Any]):
+    def span(self, operation: str, attributes: dict[str, Any]) -> Any:
         """Context manager for telemetry spans."""
         if not self._enabled or not self._telemetry:
             yield None
@@ -115,7 +115,7 @@ class TelemetryManager:
             if span:
                 span.end()
 
-    def record_api_call(self, **kwargs) -> None:
+    def record_api_call(self, **kwargs: Any) -> None:
         """Record API call metrics."""
         if self._enabled and self._telemetry:
             self._telemetry.record_api_call(**kwargs)
@@ -130,7 +130,7 @@ def retry_on_exception(
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             last_exception = None
 
             for attempt in range(max_retries):
@@ -152,7 +152,7 @@ def retry_on_exception(
                 raise last_exception
             return None
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -218,6 +218,7 @@ class BillingAPIClient:
         """Get the current session, creating if necessary."""
         if self._session is None:
             self._setup_session()
+        assert self._session is not None
         return self._session
 
     def close(self) -> None:
@@ -230,7 +231,12 @@ class BillingAPIClient:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         """Context manager exit - close session."""
         self.close()
 
@@ -408,23 +414,23 @@ class BillingAPIClient:
                 raise APIRequestException(msg)
 
     # Convenience methods for common HTTP verbs
-    def get(self, endpoint: str, **kwargs) -> JsonData:
+    def get(self, endpoint: str, **kwargs: Any) -> JsonData:
         """Make GET request."""
         return self.request(HTTPMethod.GET, endpoint, **kwargs)
 
-    def post(self, endpoint: str, **kwargs) -> JsonData:
+    def post(self, endpoint: str, **kwargs: Any) -> JsonData:
         """Make POST request."""
         return self.request(HTTPMethod.POST, endpoint, **kwargs)
 
-    def put(self, endpoint: str, **kwargs) -> JsonData:
+    def put(self, endpoint: str, **kwargs: Any) -> JsonData:
         """Make PUT request."""
         return self.request(HTTPMethod.PUT, endpoint, **kwargs)
 
-    def delete(self, endpoint: str, **kwargs) -> JsonData:
+    def delete(self, endpoint: str, **kwargs: Any) -> JsonData:
         """Make DELETE request."""
         return self.request(HTTPMethod.DELETE, endpoint, **kwargs)
 
-    def patch(self, endpoint: str, **kwargs) -> JsonData:
+    def patch(self, endpoint: str, **kwargs: Any) -> JsonData:
         """Make PATCH request."""
         return self.request(HTTPMethod.PATCH, endpoint, **kwargs)
 
@@ -496,6 +502,9 @@ class BillingAPIClient:
             else:
                 return False
 
+        # Handle comparison with proper type checking
+        if isinstance(success_value, str) and isinstance(current, dict):
+            return False
         return current == success_value
 
     def set_auth_token(self, token: str) -> None:

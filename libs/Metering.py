@@ -7,10 +7,10 @@ from typing import Any
 
 from config import url
 
+from .billing_types import MeteringData, MeteringRequest
 from .constants import CounterType
 from .exceptions import APIRequestException, ValidationException
 from .http_client import BillingAPIClient
-from .types import MeteringData, MeteringRequest
 
 logger = logging.getLogger(__name__)
 

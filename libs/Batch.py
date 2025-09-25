@@ -13,7 +13,7 @@ from .exceptions import APIRequestException, ValidationException
 from .http_client import BillingAPIClient
 
 if TYPE_CHECKING:
-    from .types import BatchRequestData
+    from .billing_types import BatchRequestData
 
 logger = logging.getLogger(__name__)
 

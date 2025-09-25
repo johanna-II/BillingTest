@@ -46,7 +46,7 @@ class CreditRequest:
     uuid_list: list[str] = field(default_factory=list)
     email_list: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate and set defaults after initialization."""
         # Set default dates if not provided
         if not self.expiration_date_from:
@@ -236,7 +236,12 @@ class CreditManager:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         """Context manager exit - close client if we created it."""
         if hasattr(self._client, "close"):
             self._client.close()
@@ -524,7 +529,7 @@ class CreditManager:
             raise
 
     def bulk_grant_credit(
-        self, campaign_ids: list[str], amount: CreditAmount, **kwargs
+        self, campaign_ids: list[str], amount: CreditAmount, **kwargs: Any
     ) -> dict[str, CreditData | Exception]:
         """Grant credit to multiple campaigns.
 
@@ -536,7 +541,7 @@ class CreditManager:
         Returns:
             Dictionary mapping campaign ID to result or exception
         """
-        results = {}
+        results: dict[str, CreditData | Exception] = {}
 
         for campaign_id in campaign_ids:
             try:
@@ -568,7 +573,7 @@ class CreditManager:
         Returns:
             Dictionary mapping campaign ID to result or exception
         """
-        results = {}
+        results: dict[str, CreditData | Exception] = {}
 
         for campaign_id in campaign_ids:
             try:
@@ -597,7 +602,7 @@ class Credit(CreditManager):
         Use CreditManager instead. This alias is kept for backward compatibility.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize with deprecation warning."""
         warnings.warn(
             "Credit class is deprecated. Use CreditManager instead.",

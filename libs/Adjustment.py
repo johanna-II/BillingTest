@@ -12,7 +12,7 @@ from .exceptions import APIRequestException, ValidationException
 from .http_client import BillingAPIClient
 
 if TYPE_CHECKING:
-    from .types import AdjustmentData
+    from .billing_types import AdjustmentData
 
 
 class LegacyAdjustmentParams(TypedDict, total=False):
@@ -46,7 +46,7 @@ class AdjustmentManager:
         """Return string representation of AdjustmentManager."""
         return f"AdjustmentManager(month={self.month})"
 
-    def apply_adjustment(self, **kwargs) -> dict[str, Any]:
+    def apply_adjustment(self, **kwargs: Any) -> dict[str, Any]:
         """Apply discount or surcharge to billing group or project.
 
         Supports both modern and legacy parameter names for backward compatibility.
@@ -93,6 +93,10 @@ class AdjustmentManager:
                 )
 
         # Validate and normalize parameters
+        if adjustment_type is None:
+            error_msg = "adjustment_type is required"
+            raise ValidationException(error_msg)
+
         adjustment_type_str = (
             adjustment_type.value
             if isinstance(adjustment_type, AdjustmentType)
@@ -109,7 +113,7 @@ class AdjustmentManager:
             raise ValidationException(error_msg)
 
         # Build request data
-        adjustment_data: AdjustmentData = {  # type: ignore[misc]
+        adjustment_data: AdjustmentData = {
             "adjustment": adjustment_amount,
             "adjustmentTypeCode": adjustment_type_str,
             "descriptions": [{"locale": DEFAULT_LOCALE, "message": description}],
@@ -212,8 +216,8 @@ class AdjustmentManager:
 
     def delete_adjustment(
         self,
-        adjustment_ids: str | list[str] | dict,
-        adjustment_target: AdjustmentTarget | str = None,
+        adjustment_ids: str | list[str] | dict[str, Any],
+        adjustment_target: AdjustmentTarget | str | None = None,
     ) -> None:
         """Delete one or more adjustments.
 
@@ -301,7 +305,12 @@ class AdjustmentManager:
 
         return len(adjustment_ids)
 
-    def inquiry_adjustment(self, billingGroupId=None, projectId=None, **kwargs):
+    def inquiry_adjustment(
+        self,
+        billingGroupId: str | None = None,
+        projectId: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Legacy method for getting adjustments."""
         if projectId:
             adjustments = self.get_adjustments(AdjustmentTarget.PROJECT, projectId)

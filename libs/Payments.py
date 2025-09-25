@@ -6,12 +6,15 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from config import url
 
 from .constants import PaymentStatus
 from .exceptions import APIRequestException, ValidationException
+
+if TYPE_CHECKING:
+    from .http_client import BillingAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +228,12 @@ class PaymentManager:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         """Context manager exit - close client if we created it."""
         if hasattr(self._client, "close"):
             self._client.close()
@@ -572,7 +580,7 @@ class PaymentManager:
         payment_group_id: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Get payment history for a payment group.
 
@@ -597,7 +605,10 @@ class PaymentManager:
         )
 
     def validate_payment_amount(
-        self, amount: float, min_amount: float = 0.01, max_amount: float = 1000000.0
+        self,
+        amount: float | None,
+        min_amount: float = 0.01,
+        max_amount: float = 1000000.0,
     ) -> bool:
         """Validate if payment amount is within acceptable range.
 
@@ -655,7 +666,9 @@ class PaymentManager:
                     logger.warning(f"Retry {attempt} failed: {e}")
                     continue
                 raise
-        return None
+        # This should never be reached due to the raise above
+        msg = "Max retries exceeded without raising exception"
+        raise RuntimeError(msg)
 
     def process_batch_payments(
         self, payment_requests: list[dict[str, Any]]

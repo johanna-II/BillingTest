@@ -9,7 +9,7 @@ from .exceptions import APIRequestException, ValidationException
 from .http_client import BillingAPIClient
 
 if TYPE_CHECKING:
-    from .types import ContractData
+    from .billing_types import ContractData
 
 logger = logging.getLogger(__name__)
 

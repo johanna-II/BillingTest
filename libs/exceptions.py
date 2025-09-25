@@ -288,7 +288,7 @@ class TimeoutException(BillingTestException):
             context: Error context
         """
         if context is None:
-            details = {}
+            details: dict[str, Any] = {}
             if timeout_seconds:
                 details["timeout_seconds"] = timeout_seconds
             if operation:

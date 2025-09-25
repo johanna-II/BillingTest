@@ -79,7 +79,7 @@ class PaymentAPIClient(BillingAPIClient):
         payment_group_id: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Get payment history."""
         params = {}
