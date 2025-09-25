@@ -98,6 +98,7 @@ ignore = [
     "DTZ005",  # datetime.now() without tzinfo (not critical for tests)
     "TRY401",  # Verbose log message
     "ANN201",  # Missing return type annotation for public function
+    "T201",    # Print found (CLI tools need print statements)
     "ANN001",  # Missing type annotation for function argument
     "ANN002",  # Missing type annotation for *args
     "ANN003",  # Missing type annotation for **kwargs

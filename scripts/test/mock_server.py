@@ -19,18 +19,27 @@ def find_free_port() -> int:
 
 
 def wait_for_server(url: str, timeout: int = 30) -> bool:
-    """Wait for mock server to be ready."""
+    """Wait for mock server to be ready with better error reporting."""
     start_time = time.time()
+    last_error = None
 
     while time.time() - start_time < timeout:
         try:
             response = requests.get(f"{url}/health", timeout=1)
             if response.status_code == 200:
                 return True
-        except:
-            pass
+            last_error = f"Health check returned status {response.status_code}"
+        except requests.exceptions.ConnectionError as e:
+            last_error = f"Connection error: {e}"
+        except requests.exceptions.Timeout:
+            last_error = "Request timeout"
+        except Exception as e:
+            last_error = f"Unexpected error: {e}"
+
         time.sleep(0.5)
 
+    if last_error:
+        print(f"Last error while waiting for server: {last_error}")
     return False
 
 

@@ -1,0 +1,89 @@
+name: Simple Test CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  POETRY_VERSION: '2.2.1'
+
+jobs:
+  test-with-mock:
+    name: Run Tests with Mock Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check Docker Compose availability
+        run: |
+          echo "Checking for docker compose commands..."
+          
+          # Modern docker has compose as a plugin
+          if docker compose version > /dev/null 2>&1; then
+            echo "DOCKER_COMPOSE=docker compose" >> $GITHUB_ENV
+            echo "✓ Found 'docker compose' (plugin version)"
+            docker compose version
+          # Legacy docker-compose
+          elif docker-compose --version > /dev/null 2>&1; then
+            echo "DOCKER_COMPOSE=docker-compose" >> $GITHUB_ENV
+            echo "✓ Found 'docker-compose' (standalone version)"
+            docker-compose --version
+          else
+            echo "❌ No docker compose command found"
+            echo "Attempting to use docker compose plugin..."
+            echo "DOCKER_COMPOSE=docker compose" >> $GITHUB_ENV
+          fi
+      
+      - name: Start mock server using Docker
+        run: |
+          # Use the determined docker compose command
+          echo "Starting mock server with: $DOCKER_COMPOSE"
+          
+          # Start mock server
+          $DOCKER_COMPOSE -f docker-compose.test.yml up -d mock-server
+          
+          # Wait for health check
+          echo "Waiting for mock server to be ready..."
+          for i in {1..60}; do
+            if curl -f http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✓ Mock server is ready! (attempt $i/60)"
+              break
+            fi
+            
+            if [ $i -eq 60 ]; then
+              echo "❌ Mock server failed to start"
+              echo "Container status:"
+              $DOCKER_COMPOSE -f docker-compose.test.yml ps
+              echo "Container logs:"
+              $DOCKER_COMPOSE -f docker-compose.test.yml logs mock-server
+              exit 1
+            fi
+            
+            echo "Waiting... (attempt $i/60)"
+            sleep 1
+          done
+          
+          # Show final status
+          echo "Mock server status:"
+          $DOCKER_COMPOSE -f docker-compose.test.yml ps mock-server
+      
+      - name: Run tests
+        run: |
+          # Run integration tests with the mock server
+          $DOCKER_COMPOSE -f docker-compose.test.yml run --rm test-integration
+      
+      - name: Clean up
+        if: always()
+        run: |
+          $DOCKER_COMPOSE -f docker-compose.test.yml down -v || true
+          
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Mock Server Logs ==="
+          $DOCKER_COMPOSE -f docker-compose.test.yml logs mock-server || true

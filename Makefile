@@ -22,6 +22,29 @@ install:
 test:
 	pytest
 
+# Docker-based tests
+test-docker:
+	python scripts/run_tests.py
+
+test-docker-unit:
+	python scripts/run_tests.py unit
+
+test-docker-integration:
+	python scripts/run_tests.py integration
+
+test-docker-contracts:
+	python scripts/run_tests.py contracts
+
+# Local tests (no Docker)
+test-local:
+	python scripts/run_tests.py --local
+
+test-local-unit:
+	python scripts/run_tests.py unit --local
+
+test-local-integration:
+	python scripts/run_tests.py integration --local
+
 # Linting commands
 lint:
 	@echo "Running Ruff with auto-fix for safe issues..."
