@@ -21,7 +21,7 @@ def find_free_port():
 class MockServerManager:
     """Manages mock server lifecycle for tests."""
 
-    def __init__(self, port: int | None = None):
+    def __init__(self, port: int | None = None) -> None:
         """Initialize mock server manager.
 
         Args:
@@ -31,7 +31,7 @@ class MockServerManager:
         self.process = None
         self.url = f"http://localhost:{self.port}"
 
-    def start(self):
+    def start(self) -> None:
         """Start the mock server."""
         env = os.environ.copy()
         env["MOCK_SERVER_PORT"] = str(self.port)
@@ -47,7 +47,7 @@ class MockServerManager:
         # Wait for server to be ready
         self._wait_for_server()
 
-    def _wait_for_server(self, timeout: int = 30):
+    def _wait_for_server(self, timeout: int = 30) -> None:
         """Wait for server to become ready.
 
         Args:
@@ -65,9 +65,10 @@ class MockServerManager:
             except requests.exceptions.RequestException:
                 time.sleep(0.5)
 
-        raise RuntimeError(f"Mock server failed to start on port {self.port}")
+        msg = f"Mock server failed to start on port {self.port}"
+        raise RuntimeError(msg)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the mock server."""
         if self.process:
             self.process.terminate()
@@ -84,7 +85,7 @@ class MockServerManager:
         self.stop()
 
 
-def get_mock_server_url():
+def get_mock_server_url() -> str:
     """Get mock server URL from environment or default."""
     port = os.environ.get("MOCK_SERVER_PORT", "5000")
     return f"http://localhost:{port}"

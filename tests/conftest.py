@@ -14,7 +14,7 @@ import os
 import sys
 
 
-def _disable_gevent_in_parallel_mode():
+def _disable_gevent_in_parallel_mode() -> None:
     """Disable gevent monkey patching when running tests in parallel."""
     # Check if pytest-xdist is being used
     if any(arg.startswith("-n") for arg in sys.argv) or "xdist" in sys.modules:
@@ -34,14 +34,18 @@ def _disable_gevent_in_parallel_mode():
 _disable_gevent_in_parallel_mode()
 
 import logging
-from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from _pytest.config import Config
-from _pytest.config.argparsing import Parser
-from _pytest.fixtures import SubRequest
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from _pytest.config import Config
+    from _pytest.config.argparsing import Parser
+    from _pytest.fixtures import SubRequest
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -429,15 +433,15 @@ def performance_monitor():
     import time
 
     class PerformanceMonitor:
-        def __init__(self):
+        def __init__(self) -> None:
             self.start_time = None
             self.measurements = {}
 
-        def start(self, name: str):
+        def start(self, name: str) -> None:
             self.start_time = time.time()
             self.current_name = name
 
-        def stop(self):
+        def stop(self) -> None:
             if self.start_time:
                 elapsed = time.time() - self.start_time
                 self.measurements[self.current_name] = elapsed
@@ -463,7 +467,7 @@ def assert_api_response():
         Assertion function
     """
 
-    def _assert_response(response: dict, expected_status: str = "SUCCESS"):
+    def _assert_response(response: dict, expected_status: str = "SUCCESS") -> None:
         assert "header" in response, "Response missing header"
         assert response["header"].get(
             "isSuccessful", False

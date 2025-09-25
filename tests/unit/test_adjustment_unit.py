@@ -10,19 +10,19 @@ from libs.exceptions import ValidationException
 
 
 class TestAdjustmentManagerUnit:
-    """Unit tests for AdjustmentManager class"""
+    """Unit tests for AdjustmentManager class."""
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        """Set up test fixtures"""
+        """Set up test fixtures."""
         with patch("libs.Adjustment.BillingAPIClient") as mock_client_class:
             self.mock_client = Mock()
             mock_client_class.return_value = self.mock_client
             self.adjustment_manager = AdjustmentManager(month="2024-01")
             yield
 
-    def test_apply_adjustment_billing_group_success(self):
-        """Test successful adjustment application to billing group"""
+    def test_apply_adjustment_billing_group_success(self) -> None:
+        """Test successful adjustment application to billing group."""
         mock_response = {"adjustmentId": "adj-001", "status": "SUCCESS"}
         self.mock_client.post.return_value = mock_response
 
@@ -51,8 +51,8 @@ class TestAdjustmentManagerUnit:
             "billing/admin/billing-groups/adjustments", json_data=expected_data
         )
 
-    def test_apply_adjustment_project_success(self):
-        """Test successful adjustment application to project"""
+    def test_apply_adjustment_project_success(self) -> None:
+        """Test successful adjustment application to project."""
         mock_response = {"adjustmentId": "adj-002", "status": "SUCCESS"}
         self.mock_client.post.return_value = mock_response
 
@@ -81,8 +81,8 @@ class TestAdjustmentManagerUnit:
             "billing/admin/projects/adjustments", json_data=expected_data
         )
 
-    def test_apply_adjustment_invalid_target(self):
-        """Test adjustment with invalid target type"""
+    def test_apply_adjustment_invalid_target(self) -> None:
+        """Test adjustment with invalid target type."""
         with pytest.raises(ValidationException) as exc_info:
             self.adjustment_manager.apply_adjustment(
                 adjustment_amount=1000,
@@ -93,8 +93,8 @@ class TestAdjustmentManagerUnit:
 
         assert "Invalid adjustment target" in str(exc_info.value)
 
-    def test_get_adjustments_billing_group(self):
-        """Test retrieving adjustments for billing group"""
+    def test_get_adjustments_billing_group(self) -> None:
+        """Test retrieving adjustments for billing group."""
         mock_response = {
             "adjustments": [
                 {"adjustmentId": "adj-001"},
@@ -114,8 +114,8 @@ class TestAdjustmentManagerUnit:
             params={"page": 1, "itemsPerPage": 50, "billingGroupId": "bg-123"},
         )
 
-    def test_get_adjustments_project(self):
-        """Test retrieving adjustments for project"""
+    def test_get_adjustments_project(self) -> None:
+        """Test retrieving adjustments for project."""
         mock_response = {
             "adjustments": [{"adjustmentId": "adj-004"}, {"adjustmentId": "adj-005"}]
         }
@@ -131,8 +131,8 @@ class TestAdjustmentManagerUnit:
             params={"page": 1, "itemsPerPage": 50, "projectId": "proj-456"},
         )
 
-    def test_get_adjustments_empty(self):
-        """Test retrieving adjustments when none exist"""
+    def test_get_adjustments_empty(self) -> None:
+        """Test retrieving adjustments when none exist."""
         self.mock_client.get.return_value = {"adjustments": []}
 
         result = self.adjustment_manager.get_adjustments(
@@ -141,8 +141,8 @@ class TestAdjustmentManagerUnit:
 
         assert result == []
 
-    def test_get_adjustments_with_pagination(self):
-        """Test retrieving adjustments with pagination"""
+    def test_get_adjustments_with_pagination(self) -> None:
+        """Test retrieving adjustments with pagination."""
         mock_response = {
             "adjustments": [{"adjustmentId": f"adj-{i:03d}"} for i in range(10)]
         }
@@ -161,8 +161,8 @@ class TestAdjustmentManagerUnit:
             params={"page": 2, "itemsPerPage": 10, "projectId": "proj-123"},
         )
 
-    def test_delete_adjustment_single_billing_group(self):
-        """Test deleting single adjustment for billing group"""
+    def test_delete_adjustment_single_billing_group(self) -> None:
+        """Test deleting single adjustment for billing group."""
         self.adjustment_manager.delete_adjustment(
             adjustment_ids="adj-001", adjustment_target=AdjustmentTarget.BILLING_GROUP
         )
@@ -172,8 +172,8 @@ class TestAdjustmentManagerUnit:
             params={"adjustmentIds": "adj-001"},
         )
 
-    def test_delete_adjustment_multiple_project(self):
-        """Test deleting multiple adjustments for project"""
+    def test_delete_adjustment_multiple_project(self) -> None:
+        """Test deleting multiple adjustments for project."""
         adjustment_ids = ["adj-001", "adj-002", "adj-003"]
 
         self.adjustment_manager.delete_adjustment(
@@ -187,8 +187,8 @@ class TestAdjustmentManagerUnit:
                 {"params": {"adjustmentIds": adj_id}},
             )
 
-    def test_delete_all_adjustments_success(self):
-        """Test deleting all adjustments for a target"""
+    def test_delete_all_adjustments_success(self) -> None:
+        """Test deleting all adjustments for a target."""
         # Mock get_adjustments to return some adjustment IDs
         mock_adjustments = {
             "adjustments": [{"adjustmentId": "adj-001"}, {"adjustmentId": "adj-002"}]
@@ -203,8 +203,8 @@ class TestAdjustmentManagerUnit:
         assert count == 2
         assert self.mock_client.delete.call_count == 2
 
-    def test_delete_all_adjustments_none_exist(self):
-        """Test deleting all adjustments when none exist"""
+    def test_delete_all_adjustments_none_exist(self) -> None:
+        """Test deleting all adjustments when none exist."""
         self.mock_client.get.return_value = {"adjustments": []}
 
         count = self.adjustment_manager.delete_all_adjustments(

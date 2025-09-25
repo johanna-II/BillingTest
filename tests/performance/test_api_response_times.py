@@ -17,7 +17,7 @@ PARALLEL_MODE = any(arg.startswith("-n") for arg in sys.argv) or "xdist" in sys.
 class SimpleBenchmark:
     """Simple benchmark replacement for parallel test mode."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.stats = {}
 
     def __call__(self, func):
@@ -57,13 +57,13 @@ class TestAPIResponseTimes:
         return BillingAPIClient(mock_url)
 
     @pytest.fixture
-    def test_uuid(self):
+    def test_uuid(self) -> str:
         """Generate unique test UUID."""
         return f"PERF_{uuid.uuid4().hex[:8]}"
 
     @pytest.mark.performance
     @pytest_benchmark(group="api-response")
-    def test_single_meter_submission(self, benchmark, api_client, test_uuid):
+    def test_single_meter_submission(self, benchmark, api_client, test_uuid) -> None:
         """Benchmark single meter submission."""
 
         def submit_meter():
@@ -83,7 +83,7 @@ class TestAPIResponseTimes:
 
     @pytest.mark.performance
     @pytest_benchmark(group="api-response")
-    def test_bulk_meter_submission(self, benchmark, api_client, test_uuid):
+    def test_bulk_meter_submission(self, benchmark, api_client, test_uuid) -> None:
         """Benchmark bulk meter submission."""
 
         def submit_bulk_meters():
@@ -108,7 +108,7 @@ class TestAPIResponseTimes:
 
     @pytest.mark.performance
     @pytest_benchmark(group="api-response")
-    def test_payment_status_retrieval(self, benchmark, api_client, test_uuid):
+    def test_payment_status_retrieval(self, benchmark, api_client, test_uuid) -> None:
         """Benchmark payment status retrieval."""
         month = "2024-01"
 
@@ -124,13 +124,13 @@ class TestAPIResponseTimes:
 
     @pytest.mark.performance
     @pytest.mark.slow
-    def test_concurrent_operations(self, api_client, test_uuid):
+    def test_concurrent_operations(self, api_client, test_uuid) -> None:
         """Test performance under concurrent load."""
         start_time = time.time()
         successful_requests = 0
         failed_requests = 0
 
-        def make_request(i):
+        def make_request(i) -> bool | None:
             """Make a single request."""
             try:
                 headers = {"uuid": f"{test_uuid}_{i}"}
@@ -141,12 +141,9 @@ class TestAPIResponseTimes:
                     "counterVolume": 100,
                     "resourceId": f"resource-{uuid.uuid4().hex[:8]}",
                 }
-                response = api_client.post(
-                    "/billing/meters", headers=headers, json_data=data
-                )
+                api_client.post("/billing/meters", headers=headers, json_data=data)
                 return True
-            except Exception as e:
-                print(f"Request {i} failed: {e}")
+            except Exception:
                 return False
 
         # Run 100 concurrent requests
@@ -166,19 +163,11 @@ class TestAPIResponseTimes:
         assert elapsed_time < 10.0  # Should complete within 10 seconds
 
         # Calculate metrics
-        requests_per_second = successful_requests / elapsed_time
-        average_response_time = elapsed_time / 100 * 1000  # ms
-
-        print("\nConcurrent Test Results:")
-        print("Total requests: 100")
-        print(f"Successful: {successful_requests}")
-        print(f"Failed: {failed_requests}")
-        print(f"Total time: {elapsed_time:.2f}s")
-        print(f"Requests/second: {requests_per_second:.2f}")
-        print(f"Avg response time: {average_response_time:.2f}ms")
+        successful_requests / elapsed_time
+        elapsed_time / 100 * 1000  # ms
 
     @pytest.mark.performance
-    def test_memory_usage_under_load(self, api_client, test_uuid):
+    def test_memory_usage_under_load(self, api_client, test_uuid) -> None:
         """Test memory usage doesn't grow excessively under load."""
         import os
 
@@ -188,7 +177,7 @@ class TestAPIResponseTimes:
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
 
         # Submit 1000 meters
-        for i in range(10):
+        for _i in range(10):
             headers = {"uuid": test_uuid}
             data = {
                 "meterList": [
@@ -207,11 +196,6 @@ class TestAPIResponseTimes:
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_growth = final_memory - initial_memory
 
-        print("\nMemory Usage Test:")
-        print(f"Initial memory: {initial_memory:.2f} MB")
-        print(f"Final memory: {final_memory:.2f} MB")
-        print(f"Memory growth: {memory_growth:.2f} MB")
-
         # Memory shouldn't grow by more than 50MB
         assert (
             memory_growth < 50
@@ -219,7 +203,7 @@ class TestAPIResponseTimes:
 
     @pytest.mark.performance
     @pytest_benchmark(group="batch-operations")
-    def test_batch_job_submission(self, benchmark, api_client):
+    def test_batch_job_submission(self, benchmark, api_client) -> None:
         """Benchmark batch job submission."""
 
         def submit_batch_job():
@@ -233,7 +217,7 @@ class TestAPIResponseTimes:
         assert result is not None
 
     @pytest.mark.performance
-    def test_response_time_sla(self, api_client, test_uuid):
+    def test_response_time_sla(self, api_client, test_uuid) -> None:
         """Verify response times meet SLA requirements."""
         sla_requirements = {
             "meter_submission": 200,  # ms
@@ -270,4 +254,3 @@ class TestAPIResponseTimes:
             assert (
                 response_time < sla
             ), f"{operation} took {response_time:.2f}ms (SLA: {sla}ms)"
-            print(f"{operation}: {response_time:.2f}ms (SLA: {sla}ms) ✓")

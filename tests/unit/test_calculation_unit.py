@@ -1,4 +1,4 @@
-"""Unit tests for CalculationManager"""
+"""Unit tests for CalculationManager."""
 
 from unittest.mock import MagicMock, Mock, patch
 
@@ -10,11 +10,11 @@ from libs.exceptions import APIRequestException
 
 @pytest.mark.unit
 class TestCalculationManagerUnit:
-    """Unit tests for CalculationManager"""
+    """Unit tests for CalculationManager."""
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        """Set up test fixtures - autouse ensures isolation per test"""
+        """Set up test fixtures - autouse ensures isolation per test."""
         # Create fresh mocks for each test to ensure isolation in parallel execution
         self.patcher = patch("libs.Calculation.BillingAPIClient")
         mock_client_class = self.patcher.start()
@@ -30,14 +30,14 @@ class TestCalculationManagerUnit:
         # Clean up
         self.patcher.stop()
 
-    def test_init(self):
-        """Test CalculationManager initialization"""
+    def test_init(self) -> None:
+        """Test CalculationManager initialization."""
         assert self.calculator.month == "2024-01"
         assert self.calculator.uuid == "test-uuid-123"
         assert self.calculator._client == self.mock_client
 
-    def test_recalculate_all_success(self):
-        """Test successful recalculation"""
+    def test_recalculate_all_success(self) -> None:
+        """Test successful recalculation."""
         # Mock successful response
         mock_response = {
             "status": "COMPLETED",
@@ -56,20 +56,20 @@ class TestCalculationManagerUnit:
         # Verify result
         assert result == mock_response
 
-    def test_recalculate_all_without_usage(self):
-        """Test recalculate_all with include_usage=False"""
+    def test_recalculate_all_without_usage(self) -> None:
+        """Test recalculate_all with include_usage=False."""
         self.mock_client.post.return_value = {"status": "STARTED", "jobId": "job-123"}
         self.mock_client.wait_for_completion.return_value = True
 
-        result = self.calculator.recalculate_all(include_usage=False, timeout=60)
+        self.calculator.recalculate_all(include_usage=False, timeout=60)
 
         # Verify includeUsage is False in the request
         call_args = self.mock_client.post.call_args
         assert call_args[1]["json_data"]["includeUsage"] is False
 
     @pytest.mark.serial  # Mark as serial to avoid timing issues in parallel
-    def test_recalculate_all_timeout(self):
-        """Test recalculation with timeout"""
+    def test_recalculate_all_timeout(self) -> None:
+        """Test recalculation with timeout."""
         self.mock_client.post.return_value = {"status": "STARTED"}
         # Mock timeout scenario
         self.mock_client.wait_for_completion.return_value = False
@@ -82,8 +82,8 @@ class TestCalculationManagerUnit:
         assert wait_call[1]["timeout"] == 10
 
     @pytest.mark.serial  # Mark as serial to avoid timing issues in parallel
-    def test_wait_for_calculation_completion(self):
-        """Test waiting for calculation completion"""
+    def test_wait_for_calculation_completion(self) -> None:
+        """Test waiting for calculation completion."""
         self.mock_client.wait_for_completion.return_value = True
 
         result = self.calculator._wait_for_calculation_completion(
@@ -97,8 +97,8 @@ class TestCalculationManagerUnit:
         assert call_args[1]["timeout"] == 60
         assert call_args[1]["check_interval"] == 2
 
-    def test_get_calculation_status(self):
-        """Test getting calculation status"""
+    def test_get_calculation_status(self) -> None:
+        """Test getting calculation status."""
         mock_status = {"status": "IN_PROGRESS", "progress": 50, "estimatedTime": 120}
         self.mock_client.get.return_value = mock_status
 
@@ -111,8 +111,8 @@ class TestCalculationManagerUnit:
         # Verify result
         assert result == mock_status
 
-    def test_recalculate_all_api_error(self):
-        """Test recalculation with API error"""
+    def test_recalculate_all_api_error(self) -> None:
+        """Test recalculation with API error."""
         self.mock_client.post.side_effect = APIRequestException(
             "API Error", status_code=500
         )
@@ -123,8 +123,8 @@ class TestCalculationManagerUnit:
         assert exc_info.value.status_code == 500
         assert "API Error" in str(exc_info.value)
 
-    def test_delete_resources(self):
-        """Test deleting calculation resources"""
+    def test_delete_resources(self) -> None:
+        """Test deleting calculation resources."""
         mock_response = {"status": "SUCCESS", "message": "Resources deleted"}
         self.mock_client.delete.return_value = mock_response
 
@@ -142,11 +142,11 @@ class TestCalculationManagerUnit:
 
 # Additional test class for edge cases
 class TestCalculationEdgeCases:
-    """Test edge cases and boundary conditions"""
+    """Test edge cases and boundary conditions."""
 
     @patch("libs.Calculation.BillingAPIClient")
-    def test_month_format_variations(self, mock_client_class):
-        """Test various month format inputs"""
+    def test_month_format_variations(self, mock_client_class) -> None:
+        """Test various month format inputs."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
@@ -157,8 +157,8 @@ class TestCalculationEdgeCases:
             assert calc.month == month
 
     @patch("libs.Calculation.BillingAPIClient")
-    def test_uuid_variations(self, mock_client_class):
-        """Test various UUID formats"""
+    def test_uuid_variations(self, mock_client_class) -> None:
+        """Test various UUID formats."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
@@ -175,8 +175,8 @@ class TestCalculationEdgeCases:
             assert calc.uuid == uuid_val
 
     @patch("libs.Calculation.BillingAPIClient")
-    def test_concurrent_calculations(self, mock_client_class):
-        """Test handling of concurrent calculation requests"""
+    def test_concurrent_calculations(self, mock_client_class) -> None:
+        """Test handling of concurrent calculation requests."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 

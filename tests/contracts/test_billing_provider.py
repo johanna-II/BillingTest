@@ -55,7 +55,7 @@ class TestProviderVerification:
     """Verify that our mock server satisfies the consumer contracts."""
 
     @pytest.fixture(autouse=True)
-    def setup_provider_states(self):
+    def setup_provider_states(self) -> None:
         """Set up provider states for contract verification."""
         # This would normally set up data in the provider
         # For our mock server, we'll add endpoints to support states
@@ -67,28 +67,28 @@ class TestProviderVerification:
             "Contract does not exist": self._setup_contract_not_exist,
         }
 
-    def _setup_contract_exists(self):
+    def _setup_contract_exists(self) -> None:
         """Set up state where a contract exists."""
         # Mock server already has default contract data
 
-    def _setup_customer_exists(self):
+    def _setup_customer_exists(self) -> None:
         """Set up state where a customer exists."""
         # Mock server already has default customer data
 
-    def _setup_metering_data(self):
+    def _setup_metering_data(self) -> None:
         """Set up state where metering data exists."""
         # Mock server already has default metering data
 
-    def _setup_payment_exists(self):
+    def _setup_payment_exists(self) -> None:
         """Set up state where a payment exists."""
         # Mock server already has default payment data
 
-    def _setup_contract_not_exist(self):
+    def _setup_contract_not_exist(self) -> None:
         """Set up state where contract doesn't exist."""
         # Mock server returns 404 for non-existent IDs
 
     @pytest.mark.provider
-    def test_verify_billing_api_contract(self):
+    def test_verify_billing_api_contract(self) -> None:
         """Verify the mock server satisfies all consumer contracts."""
         # Find all pact files
         pact_files = []
@@ -113,8 +113,6 @@ class TestProviderVerification:
 
             # Verify each pact file
             for pact_file in pact_files:
-                print(f"Verifying pact: {pact_file}")
-
                 try:
                     # Run verification with simplified approach
                     verifier.verify_pacts(
@@ -125,11 +123,10 @@ class TestProviderVerification:
                     assert True
                 except Exception as e:
                     # For now, skip verification errors due to version compatibility
-                    print(f"Pact verification skipped due to: {e}")
                     pytest.skip(f"Pact verification not fully compatible: {e}")
 
     @pytest.mark.provider
-    def test_mock_server_contract_compliance(self):
+    def test_mock_server_contract_compliance(self) -> None:
         """Test that mock server responses match contract expectations."""
         with mock_server_running():
             # First set up the provider state
@@ -192,17 +189,17 @@ class TestProviderVerification:
             assert "error" in data
 
 
-def add_provider_state_endpoint():
+def add_provider_state_endpoint() -> str:
     """Add provider state endpoint to mock server.
-    This should be added to mock_server/app.py
+    This should be added to mock_server/app.py.
     """
-    code = '''
+    return '''
 @app.route('/pact-states', methods=['POST'])
 def provider_states():
     """Handle provider state setup for Pact verification."""
     data = request.json
     state = data.get('state')
-    
+
     # Handle different states
     if state == "A contract exists":
         # Ensure contract 12345 exists
@@ -241,7 +238,6 @@ def provider_states():
     elif state == "Contract does not exist":
         # Remove contract 99999 if it exists
         contracts.pop("99999", None)
-    
+
     return jsonify({"result": "success"}), 200
 '''
-    return code

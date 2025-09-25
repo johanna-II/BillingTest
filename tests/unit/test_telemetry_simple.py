@@ -13,17 +13,17 @@ from libs.observability.telemetry import (
 class TestTelemetrySimple:
     """Simple tests for telemetry functionality."""
 
-    def test_telemetry_import(self):
+    def test_telemetry_import(self) -> None:
         """Test that telemetry module can be imported."""
         assert TelemetryManager is not None
         assert get_telemetry is not None
         assert configure_telemetry is not None
 
-    def test_telemetry_availability(self):
+    def test_telemetry_availability(self) -> None:
         """Test telemetry availability flag."""
         assert isinstance(TELEMETRY_AVAILABLE, bool)
 
-    def test_telemetry_disabled_environment(self):
+    def test_telemetry_disabled_environment(self) -> None:
         """Test telemetry with disabled environment."""
         original = os.environ.get("ENABLE_TELEMETRY")
         try:
@@ -40,7 +40,7 @@ class TestTelemetrySimple:
             else:
                 os.environ.pop("ENABLE_TELEMETRY", None)
 
-    def test_telemetry_basic_operations(self):
+    def test_telemetry_basic_operations(self) -> None:
         """Test basic telemetry operations without mocking internals."""
         telemetry = TelemetryManager()
 
@@ -58,7 +58,7 @@ class TestTelemetrySimple:
             if not TELEMETRY_AVAILABLE:
                 assert span is None
 
-    def test_get_telemetry_singleton(self):
+    def test_get_telemetry_singleton(self) -> None:
         """Test singleton behavior."""
         # Reset singleton
         import libs.observability.telemetry

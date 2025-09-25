@@ -10,7 +10,7 @@ from pathlib import Path
 class TestRunner:
     """Base class for running tests with common functionality."""
 
-    def __init__(self, category: str, base_path: Path):
+    def __init__(self, category: str, base_path: Path) -> None:
         self.category = category
         self.base_path = base_path
         self.project_root = base_path.parent.parent
@@ -18,11 +18,6 @@ class TestRunner:
 
     def run_command(self, cmd: list[str], env: dict[str, str] | None = None) -> int:
         """Run a command and return exit code."""
-        print(f"\n{'='*60}")
-        print(f"Running {self.category} tests")
-        print(f"Command: {' '.join(cmd)}")
-        print("=" * 60)
-
         # Merge environment variables
         run_env = os.environ.copy()
         if env:
@@ -33,9 +28,9 @@ class TestRunner:
 
         # Print result
         if result.returncode == 0:
-            print(f"\n✅ {self.category} tests PASSED")
+            pass
         else:
-            print(f"\n❌ {self.category} tests FAILED (exit code: {result.returncode})")
+            pass
 
         return result.returncode
 

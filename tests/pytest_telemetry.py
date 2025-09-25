@@ -1,21 +1,23 @@
 """Pytest plugin for automatic test telemetry collection."""
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from _pytest.config import Config
 from _pytest.nodes import Item
-from _pytest.reports import TestReport
 from _pytest.runner import CallInfo
 
 from libs.observability import TestTelemetry, setup_telemetry
+
+if TYPE_CHECKING:
+    from _pytest.reports import TestReport
 
 
 class TelemetryPlugin:
     """Pytest plugin for collecting test execution telemetry."""
 
-    def __init__(self, telemetry: TestTelemetry):
+    def __init__(self, telemetry: TestTelemetry) -> None:
         self.telemetry = telemetry
         self.test_spans: dict[str, Any] = {}
         self.test_start_times: dict[str, float] = {}

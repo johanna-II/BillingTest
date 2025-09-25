@@ -483,4 +483,3 @@ components:
 
 security:
   - bearerAuth: []
-

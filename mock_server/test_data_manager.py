@@ -9,7 +9,7 @@ from collections import defaultdict
 class TestDataManager:
     """Manages test data with UUID-based isolation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.Lock()
         # UUID-based data stores
         self.metering_data = defaultdict(dict)
@@ -28,7 +28,8 @@ class TestDataManager:
         with self._lock:
             store = getattr(self, store_name, None)
             if store is None:
-                raise ValueError(f"Unknown store: {store_name}")
+                msg = f"Unknown store: {store_name}"
+                raise ValueError(msg)
             return store[uuid]
 
     def clear_uuid_data(self, uuid: str) -> None:

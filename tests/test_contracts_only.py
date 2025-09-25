@@ -25,11 +25,11 @@ def future_deprecated(func):
 @pytest.mark.mock_required
 class TestContractOnly:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.before_test()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
@@ -49,7 +49,7 @@ class TestContractOnly:
         )
         self.calcObj = calc.Calculation(self.config.month, self.config.uuid)
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
@@ -57,7 +57,7 @@ class TestContractOnly:
 
     # 기간 약정 대비 미달 미터링 전송
     @future_deprecated
-    def test_contractTC1(self):
+    def test_contractTC1(self) -> None:
         self.meteringObj.send_iaas_metering(
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",
@@ -83,7 +83,7 @@ class TestContractOnly:
 
     # 기간 약정 기준 초과 미터링 전송
     @future_deprecated
-    def test_contractTC2(self):
+    def test_contractTC2(self) -> None:
         self.meteringObj.send_iaas_metering(
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",
@@ -108,7 +108,7 @@ class TestContractOnly:
         )
 
     # 볼륨 약정 대비 미달 미터링 전송
-    def test_contractTC3(self):
+    def test_contractTC3(self) -> None:
         self.meteringObj.send_iaas_metering(
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",
@@ -133,7 +133,7 @@ class TestContractOnly:
         )
 
     # 볼륨 약정 기준 초과 미터링 전송
-    def test_contractTC4(self):
+    def test_contractTC4(self) -> None:
         self.meteringObj.send_iaas_metering(
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",
@@ -158,7 +158,7 @@ class TestContractOnly:
         )
 
     # 파트너 약정 대비 미달 미터링 전송
-    def test_contractTC5(self):
+    def test_contractTC5(self) -> None:
         self.meteringObj.send_iaas_metering(
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",
@@ -183,7 +183,7 @@ class TestContractOnly:
         )
 
     # 파트너 약정 기준 초과 미터링 전송
-    def test_contractTC6(self):
+    def test_contractTC6(self) -> None:
         self.meteringObj.send_iaas_metering(
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",

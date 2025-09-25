@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Self, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 from urllib.parse import urlencode, urljoin, urlparse
 
 import requests
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 Headers = dict[str, str]
 Params = dict[str, Any]
 JsonData = dict[str, Any]
-RequestData = Union[str, dict[str, Any]]
+RequestData = str | dict[str, Any]
 
 # Generic type for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])

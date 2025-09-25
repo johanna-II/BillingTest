@@ -147,7 +147,7 @@ class MeteringManager:
         self,
         counter_name: str,
         counter_unit: str,
-        counter_volume: int | float | str,
+        counter_volume: float | str,
         counter_type: CounterType | str | None = None,
         app_key: str | None = None,
         target_time: str | None = None,

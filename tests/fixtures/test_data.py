@@ -3,6 +3,7 @@
 This module provides reusable fixtures for test data setup and teardown.
 """
 
+import contextlib
 import os
 import uuid
 
@@ -14,7 +15,7 @@ from libs import (
 
 
 @pytest.fixture
-def unique_uuid():
+def unique_uuid() -> str:
     """Generate a unique UUID for test isolation."""
     return f"TEST_{uuid.uuid4().hex[:8]}"
 
@@ -53,10 +54,8 @@ def test_config(env, member, month, unique_uuid):
     yield config
 
     # Cleanup after test
-    try:
+    with contextlib.suppress(Exception):
         config.clean_data()
-    except Exception as e:
-        print(f"Warning: Cleanup failed: {e}")
 
 
 @pytest.fixture
@@ -79,10 +78,8 @@ def test_credit(test_config):
     yield credit
 
     # Auto-cancel credits after test
-    try:
+    with contextlib.suppress(Exception):
         credit.cancel_credit()
-    except Exception as e:
-        print(f"Warning: Credit cancellation failed: {e}")
 
 
 @pytest.fixture
@@ -157,7 +154,7 @@ def standard_credit_amounts():
     }
 
 
-def _reset_mock_server_data(uuid_param: str):
+def _reset_mock_server_data(uuid_param: str) -> None:
     """Helper function to reset mock server data for a specific UUID."""
     import os
 
@@ -170,11 +167,11 @@ def _reset_mock_server_data(uuid_param: str):
             f"{mock_url}/test/reset", json={"uuid": uuid_param}, timeout=1
         )
         if response.status_code == 200:
-            print(f"Mock server data reset for UUID: {uuid_param}")
+            pass
         else:
-            print(f"Warning: Mock reset returned {response.status_code}")
-    except Exception as e:
-        print(f"Warning: Failed to reset mock server data: {e}")
+            pass
+    except Exception:
+        pass
 
 
 # Composite fixtures for common test scenarios

@@ -8,7 +8,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Self, Union
+from typing import Any, Self
 
 from config import url
 
@@ -19,7 +19,7 @@ from .http_client import BillingAPIClient
 logger = logging.getLogger(__name__)
 
 # Type aliases
-CreditAmount = Union[int, float]
+CreditAmount = int | float
 CreditData = dict[str, Any]
 CreditList = list[dict[str, Any]]
 
@@ -427,7 +427,7 @@ class CreditManager:
             total_credit = CreditCalculator.calculate_total_from_history(histories)
 
             logger.info(
-                f"Found {len(histories)} credit entries, " f"total: {total_credit:,.2f}"
+                f"Found {len(histories)} credit entries, total: {total_credit:,.2f}"
             )
 
             return total_credit, histories

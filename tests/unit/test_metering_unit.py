@@ -10,19 +10,19 @@ from libs.Metering import MeteringManager
 
 
 class TestMeteringManagerUnit:
-    """Unit tests for MeteringManager class"""
+    """Unit tests for MeteringManager class."""
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        """Set up test fixtures"""
+        """Set up test fixtures."""
         with patch("libs.Metering.BillingAPIClient") as mock_client_class:
             self.mock_client = Mock()
             mock_client_class.return_value = self.mock_client
             self.metering = MeteringManager(month="2024-01")
             yield
 
-    def test_send_metering_success(self):
-        """Test successful metering data submission"""
+    def test_send_metering_success(self) -> None:
+        """Test successful metering data submission."""
         mock_response = {"status": "SUCCESS", "processedCount": 1}
         self.mock_client.post.return_value = mock_response
 
@@ -60,8 +60,8 @@ class TestMeteringManagerUnit:
             "billing/meters", json_data=expected_data
         )
 
-    def test_send_metering_with_string_counter_type(self):
-        """Test sending metering with string counter type"""
+    def test_send_metering_with_string_counter_type(self) -> None:
+        """Test sending metering with string counter type."""
         self.mock_client.post.return_value = {"status": "SUCCESS"}
 
         result = self.metering.send_metering(
@@ -79,8 +79,8 @@ class TestMeteringManagerUnit:
         meter_data = call_args[1]["json_data"]["meterList"][0]
         assert meter_data["counterType"] == "GAUGE"
 
-    def test_send_metering_invalid_counter_type(self):
-        """Test sending metering with invalid counter type"""
+    def test_send_metering_invalid_counter_type(self) -> None:
+        """Test sending metering with invalid counter type."""
         with pytest.raises(ValidationException) as exc_info:
             self.metering.send_metering(
                 app_key="test-app",
@@ -92,8 +92,8 @@ class TestMeteringManagerUnit:
 
         assert "Invalid counter type" in str(exc_info.value)
 
-    def test_delete_metering_single_app_key(self):
-        """Test deleting metering data for single app key"""
+    def test_delete_metering_single_app_key(self) -> None:
+        """Test deleting metering data for single app key."""
         self.metering.delete_metering("test-app-key")
 
         expected_params = {
@@ -106,8 +106,8 @@ class TestMeteringManagerUnit:
             "billing/admin/meters", params=expected_params
         )
 
-    def test_delete_metering_multiple_app_keys(self):
-        """Test deleting metering data for multiple app keys"""
+    def test_delete_metering_multiple_app_keys(self) -> None:
+        """Test deleting metering data for multiple app keys."""
         app_keys = ["app-1", "app-2", "app-3"]
 
         result = self.metering.delete_metering(app_keys)
@@ -127,8 +127,8 @@ class TestMeteringManagerUnit:
             assert actual_call[1]["params"] == expected_params
 
     @patch("libs.Metering.calendar.monthrange")
-    def test_delete_metering_different_months(self, mock_monthrange):
-        """Test delete metering for different months"""
+    def test_delete_metering_different_months(self, mock_monthrange) -> None:
+        """Test delete metering for different months."""
         # Test February (non-leap year)
         mock_monthrange.return_value = (0, 28)
         metering_feb = MeteringManager(month="2023-02")
@@ -145,8 +145,8 @@ class TestMeteringManagerUnit:
             "billing/admin/meters", params=expected_params
         )
 
-    def test_send_batch_metering_success(self):
-        """Test sending batch metering data"""
+    def test_send_batch_metering_success(self) -> None:
+        """Test sending batch metering data."""
         metering_items = [
             {
                 "counter_name": "compute.c2.c8m8",
@@ -170,8 +170,8 @@ class TestMeteringManagerUnit:
         assert all(r["success"] for r in result["results"])
         assert self.mock_client.post.call_count == 2
 
-    def test_send_batch_metering_partial_failure(self):
-        """Test batch metering with partial failures"""
+    def test_send_batch_metering_partial_failure(self) -> None:
+        """Test batch metering with partial failures."""
         metering_items = [
             {
                 "counter_name": "compute.c2.c8m8",
@@ -200,8 +200,8 @@ class TestMeteringManagerUnit:
         assert result["results"][1]["success"] is False
         assert "Failed" in result["results"][1]["error"]
 
-    def test_create_default_template(self):
-        """Test creation of default metering template"""
+    def test_create_default_template(self) -> None:
+        """Test creation of default metering template."""
         template = MeteringManager._create_default_template()
 
         assert "meterList" in template

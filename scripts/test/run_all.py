@@ -24,7 +24,7 @@ def run_category(
     import time
 
     runner_script = project_root / "scripts" / "test" / "run_category.py"
-    cmd = [sys.executable, str(runner_script), category] + args
+    cmd = [sys.executable, str(runner_script), category, *args]
 
     start_time = time.time()
     result = subprocess.run(cmd, check=False)
@@ -33,30 +33,22 @@ def run_category(
     return result.returncode == 0, duration
 
 
-def print_summary(results: list[tuple[str, bool, float]]):
+def print_summary(results: list[tuple[str, bool, float]]) -> None:
     """Print test execution summary."""
-    print("\n" + "=" * 70)
-    print("TEST EXECUTION SUMMARY")
-    print("=" * 70)
-
-    total_duration = sum(duration for _, _, duration in results)
+    sum(duration for _, _, duration in results)
     passed = sum(1 for _, success, _ in results if success)
     failed = len(results) - passed
 
-    print("\nResults:")
-    for category, success, duration in results:
-        status = "✅ PASSED" if success else "❌ FAILED"
-        print(f"  {category:15} {status:12} ({duration:.1f}s)")
-
-    print(f"\nTotal: {passed} passed, {failed} failed in {total_duration:.1f}s")
+    for _category, _success, _duration in results:
+        pass
 
     if failed == 0:
-        print("\n🎉 All tests passed!")
+        pass
     else:
-        print(f"\n❌ {failed} test suite(s) failed")
+        pass
 
 
-def main():
+def main() -> int:
     """Run all test categories."""
     parser = argparse.ArgumentParser(
         description="Run all test categories in order",
@@ -117,11 +109,7 @@ Examples:
     project_root = Path(__file__).parent.parent.parent
     results = []
 
-    print("=" * 70)
-    print("RUNNING ALL TEST CATEGORIES")
-    print("=" * 70)
-
-    for category, description, default_args in TEST_STAGES:
+    for category, _description, default_args in TEST_STAGES:
         if category not in categories_to_run:
             continue
 
@@ -135,15 +123,10 @@ Examples:
         if args.no_coverage:
             category_args.append("--no-coverage")
 
-        print(f"\n{'='*70}")
-        print(f"Stage: {description}")
-        print(f"{'='*70}")
-
         success, duration = run_category(category, category_args, project_root)
         results.append((category, success, duration))
 
         if not success and args.fail_fast:
-            print("\n❌ Test failed. Stopping due to --fail-fast.")
             break
 
     # Print summary

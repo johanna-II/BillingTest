@@ -145,8 +145,8 @@ class EnhancedBaseBillingTest:
 
             # Clean data
             self.context.config.clean_data()
-        except Exception as e:
-            print(f"Cleanup error: {e}")
+        except Exception:
+            pass
 
     # Common test helpers
     def send_metering_data(
@@ -201,7 +201,7 @@ class EnhancedBaseBillingTest:
 
     def verify_payment_status(self, expected_status: str = "REGISTERED") -> None:
         """Verify payment status matches expected."""
-        payment_id, status = self.context.payment_manager.get_payment_status()
+        _payment_id, status = self.context.payment_manager.get_payment_status()
         assert status == expected_status, f"Expected {expected_status}, got {status}"
 
     def verify_billing_amount(

@@ -1,0 +1,25 @@
+# Minimal pre-commit configuration for quick checks
+# Use with: pre-commit run --config .pre-commit-parallel.yaml
+
+default_language_version:
+  python: python3.12
+
+repos:
+  # Fast checks only
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+
+  # Ruff check only (faster, no formatting)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: ['--fix', '--exit-non-zero-on-fix', '--show-fixes']
+        name: ruff (quick auto-fix)
+
+exclude: '^(\.git|\.mypy_cache|\.pytest_cache|\.ruff_cache|__pycache__|build|dist|\.venv|venv)'

@@ -49,7 +49,8 @@ def openapi_mock_server():
             time.sleep(0.5)
     else:
         server_process.terminate()
-        raise RuntimeError("Mock server failed to start")
+        msg = "Mock server failed to start"
+        raise RuntimeError(msg)
 
     try:
         yield server_url
@@ -79,7 +80,7 @@ class TestWithOpenAPIMockServer:
         """Create API client pointing to mock server."""
         return BillingAPIClient(base_url=f"{mock_server_url}/api/v1")
 
-    def test_complete_billing_workflow(self, api_client):
+    def test_complete_billing_workflow(self, api_client) -> None:
         """Test complete billing workflow with OpenAPI mock."""
         # 1. Apply contract
         contract_manager = ContractManager(
@@ -123,7 +124,7 @@ class TestWithOpenAPIMockServer:
         assert payment_id  # Should have a payment group ID
         assert status in [PaymentStatus.PENDING, PaymentStatus.REGISTERED]
 
-    def test_batch_job_execution(self, api_client):
+    def test_batch_job_execution(self, api_client) -> None:
         """Test batch job execution flow."""
         batch_manager = BatchManager(month="2024-01", client=api_client)
 
@@ -138,11 +139,11 @@ class TestWithOpenAPIMockServer:
 
         # Verify all jobs were submitted
         assert len(results) == 3
-        for job_code, result in results.items():
+        for result in results.values():
             assert result["success"] is True
             assert "batchId" in result["result"]
 
-    def test_error_handling_with_mock(self, api_client):
+    def test_error_handling_with_mock(self, api_client) -> None:
         """Test error scenarios using OpenAPI mock."""
         adjustment_manager = AdjustmentManager(month="2024-01", client=api_client)
 
@@ -156,7 +157,7 @@ class TestWithOpenAPIMockServer:
                 target_id="error-trigger-id",  # Special ID to trigger error in mock
             )
 
-    def test_pagination_with_mock(self, api_client):
+    def test_pagination_with_mock(self, api_client) -> None:
         """Test pagination handling with mock server."""
         adjustment_manager = AdjustmentManager(month="2024-01", client=api_client)
 
@@ -187,7 +188,7 @@ class TestOpenAPIValidation:
         with open("docs/openapi/billing-api.yaml") as f:
             return yaml.safe_load(f)
 
-    def test_request_validation(self, api_client, openapi_spec):
+    def test_request_validation(self, api_client, openapi_spec) -> None:
         """Test that requests match OpenAPI schema."""
         # This would use OpenAPI validation libraries
         # to ensure our requests match the specification
@@ -204,7 +205,7 @@ class TestOpenAPIValidation:
                 counter_volume="not-a-number",  # Should be numeric
             )
 
-    def test_response_validation(self, api_client, openapi_spec):
+    def test_response_validation(self, api_client, openapi_spec) -> None:
         """Test that responses match OpenAPI schema."""
         payment_manager = PaymentManager(
             month="2024-01", uuid="test-uuid", client=api_client

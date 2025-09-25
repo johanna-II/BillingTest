@@ -30,7 +30,7 @@ def pact():
 class TestContractBilling:
     """Contract tests for billing operations."""
 
-    def test_get_contract_detail(self, pact):
+    def test_get_contract_detail(self, pact) -> None:
         """Test contract detail retrieval matches expected format."""
         # Expected response format
         expected = {
@@ -82,7 +82,7 @@ class TestContractBilling:
             assert "customer" in data
             assert "items" in data
 
-    def test_create_credit_transaction(self, pact):
+    def test_create_credit_transaction(self, pact) -> None:
         """Test credit creation matches expected format."""
         # Request body
         credit_request = {
@@ -134,7 +134,7 @@ class TestContractBilling:
             assert data["amount"] == credit_request["amount"]
             assert data["status"] in ["PENDING", "APPROVED", "REJECTED"]
 
-    def test_get_metering_data(self, pact):
+    def test_get_metering_data(self, pact) -> None:
         """Test metering data retrieval matches expected format."""
         # Expected response
         expected = {
@@ -190,7 +190,7 @@ class TestContractBilling:
             assert isinstance(data["usage"], list)
             assert "total_cost" in data
 
-    def test_payment_status_update(self, pact):
+    def test_payment_status_update(self, pact) -> None:
         """Test payment status update matches expected format."""
         # Request body
         status_update = {
@@ -245,7 +245,7 @@ class TestContractBilling:
 class TestContractErrorHandling:
     """Contract tests for error scenarios."""
 
-    def test_contract_not_found(self, pact):
+    def test_contract_not_found(self, pact) -> None:
         """Test 404 response for non-existent contract."""
         expected_error = {
             "error": Like("NOT_FOUND"),
@@ -274,7 +274,7 @@ class TestContractErrorHandling:
             assert data["error"] == "NOT_FOUND"
             assert "message" in data
 
-    def test_invalid_credit_amount(self, pact):
+    def test_invalid_credit_amount(self, pact) -> None:
         """Test validation error for invalid credit amount."""
         # Invalid request
         invalid_request = {

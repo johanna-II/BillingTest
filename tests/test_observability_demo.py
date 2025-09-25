@@ -17,21 +17,21 @@ class TestObservabilityDemo:
         """Get telemetry instance."""
         return get_telemetry()
 
-    def test_fast_operation(self, telemetry):
+    def test_fast_operation(self, telemetry) -> None:
         """Test that completes quickly."""
         if telemetry:
             with telemetry.trace_test("fast_operation", "demo"):
                 time.sleep(0.01)
                 assert True
 
-    def test_slow_operation(self, telemetry):
+    def test_slow_operation(self, telemetry) -> None:
         """Test that takes some time."""
         if telemetry:
             with telemetry.trace_test("slow_operation", "demo"):
                 time.sleep(0.5)
                 assert True
 
-    def test_with_multiple_spans(self, telemetry):
+    def test_with_multiple_spans(self, telemetry) -> None:
         """Test with nested operations."""
         if telemetry:
             with telemetry.trace_test("parent_operation", "demo"):
@@ -57,7 +57,7 @@ class TestObservabilityDemo:
 
                 assert True
 
-    def test_with_api_calls(self, telemetry):
+    def test_with_api_calls(self, telemetry) -> None:
         """Test that simulates API calls."""
         if telemetry:
             with telemetry.trace_test("api_test", "demo"):
@@ -65,7 +65,7 @@ class TestObservabilityDemo:
                 endpoints = ["/users", "/products", "/orders"]
                 methods = ["GET", "POST", "PUT"]
 
-                for i in range(5):
+                for _i in range(5):
                     endpoint = random.choice(endpoints)
                     method = random.choice(methods)
                     status = random.choice([200, 201, 400, 404, 500])
@@ -83,9 +83,10 @@ class TestObservabilityDemo:
                 assert True
 
     @pytest.mark.xfail(reason="Intentional failure for demo")
-    def test_failing_operation(self, telemetry):
+    def test_failing_operation(self, telemetry) -> None:
         """Test that fails to demonstrate error tracking."""
         if telemetry:
             with telemetry.trace_test("failing_operation", "demo"):
                 time.sleep(0.1)
-                raise ValueError("This is an intentional error for demo purposes")
+                msg = "This is an intentional error for demo purposes"
+                raise ValueError(msg)

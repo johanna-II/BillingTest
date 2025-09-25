@@ -53,7 +53,6 @@ Examples:
     runner_path = project_root / runner_script
 
     if not runner_path.exists():
-        print(f"Error: Runner script not found: {runner_path}")
         return 1
 
     # Build command
@@ -66,9 +65,6 @@ Examples:
         cmd.extend(extra_args)
 
     # Execute
-    print(f"Running {args.category} tests...")
-    print(f"Command: {' '.join(cmd)}")
-    print()
 
     return subprocess.run(cmd, check=False).returncode
 

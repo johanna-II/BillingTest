@@ -14,14 +14,14 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
     """Refactored credit tests with reduced duplication."""
 
     @pytest.fixture(autouse=True)
-    def skip_non_credit_members(self):
+    def skip_non_credit_members(self) -> None:
         """Skip tests for members that don't support credit."""
         if self.context.member == "etc":
             pytest.skip(
                 "Credit test should be skipped if member country is not KR or JP"
             )
 
-    def test_free_credit_with_metering(self):
+    def test_free_credit_with_metering(self) -> None:
         """Test free credit application with metering."""
         # Send metering data
         self.send_bulk_metering(count=5, base_volume=100)
@@ -43,7 +43,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
         expected_reduction = min(credit_amount, original_amount)
         assert abs((original_amount - final_amount) - expected_reduction) < 0.01
 
-    def test_paid_credit_with_vat(self):
+    def test_paid_credit_with_vat(self) -> None:
         """Test paid credit with VAT calculation."""
         # Send metering
         self.send_metering_data(counter_volume=1000)
@@ -67,7 +67,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
 
         assert abs(final_amount - expected_final) < 0.01
 
-    def test_multiple_credits_application_order(self):
+    def test_multiple_credits_application_order(self) -> None:
         """Test multiple credits are applied in correct order."""
         # Send substantial metering
         self.send_bulk_metering(count=10, base_volume=500)
@@ -98,13 +98,13 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
 
         assert abs(final_amount - expected_final) < 0.01
 
-    def test_credit_expiry_handling(self):
+    def test_credit_expiry_handling(self) -> None:
         """Test expired credit is not applied."""
         # This would require setting up expired credit through API
         # For now, verify credit can be cancelled
 
         # Setup credit
-        credit_id = self.setup_credit(amount=5000)
+        self.setup_credit(amount=5000)
 
         # Cancel it
         self.context.credit_manager.cancel_credit()
@@ -118,7 +118,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
         assert result.get("creditAmount", 0) == 0
 
     @pytest.mark.parametrize(
-        "credit_amount,metering_volume,expected_behavior",
+        ("credit_amount", "metering_volume", "expected_behavior"),
         [
             (5000, 100, "full_credit"),  # Credit exceeds usage
             (1000, 1000, "partial_credit"),  # Credit less than usage
@@ -126,7 +126,9 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
             (10000, 0, "no_usage"),  # No usage
         ],
     )
-    def test_credit_scenarios(self, credit_amount, metering_volume, expected_behavior):
+    def test_credit_scenarios(
+        self, credit_amount, metering_volume, expected_behavior
+    ) -> None:
         """Test various credit application scenarios."""
         # Setup credit if amount > 0
         if credit_amount > 0:
@@ -153,7 +155,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
         elif expected_behavior == "no_usage":
             assert total_amount == 0
 
-    def test_credit_with_contract_discount(self):
+    def test_credit_with_contract_discount(self) -> None:
         """Test credit application with contract discounts."""
         # Create contract for discount
         if self.context.contract_manager:
@@ -179,7 +181,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
         expected_final = max(0, discounted_amount - credit_amount)
         assert abs(final_amount - expected_final) < 0.01
 
-    def test_credit_balance_tracking(self):
+    def test_credit_balance_tracking(self) -> None:
         """Test credit balance is correctly tracked."""
         # Setup initial credit
         initial_credit = 10000
@@ -199,7 +201,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
         assert remaining < initial_credit
         assert remaining >= 0
 
-    def test_concurrent_credit_operations(self):
+    def test_concurrent_credit_operations(self) -> None:
         """Test credit operations under concurrent access."""
         import threading
         import time
@@ -207,7 +209,7 @@ class TestCreditAllRefactored(EnhancedBaseBillingTest, MockDataMixin):
         results = []
         errors = []
 
-        def apply_credit_and_calculate(thread_id):
+        def apply_credit_and_calculate(thread_id) -> None:
             """Apply credit and calculate in thread."""
             try:
                 # Each thread applies its own credit

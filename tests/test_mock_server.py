@@ -18,11 +18,11 @@ pytestmark = pytest.mark.skipif(
 class TestMockServer:
     """Test mock server endpoints."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test method with dynamic mock URL."""
         self.mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
 
-    def test_health_check(self):
+    def test_health_check(self) -> None:
         """Test mock server health check endpoint."""
         response = requests.get(f"{self.mock_url}/health")
         assert response.status_code == 200
@@ -30,7 +30,7 @@ class TestMockServer:
         assert "status" in data
         assert data["status"] == "healthy"
 
-    def test_metering_creation(self):
+    def test_metering_creation(self) -> None:
         """Test metering data creation."""
         payload = {
             "counterName": "compute.g2.t4.c8m64",
@@ -45,7 +45,7 @@ class TestMockServer:
         assert data["header"]["isSuccessful"] is True
         assert "meterId" in data
 
-    def test_credit_history(self):
+    def test_credit_history(self) -> None:
         """Test credit history retrieval."""
         response = requests.get(
             f"{self.mock_url}/billing/credits/history?uuid=test-user"
@@ -55,7 +55,7 @@ class TestMockServer:
         assert data["header"]["isSuccessful"] is True
         assert "totalCreditAmt" in data
 
-    def test_billing_detail(self):
+    def test_billing_detail(self) -> None:
         """Test billing detail retrieval."""
         response = requests.get(
             f"{self.mock_url}/billing/v5.0/bills/detail?uuid=test-user&month=2024-01"

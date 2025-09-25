@@ -98,7 +98,7 @@ def create_http_client(
     return BillingAPIClient(base_url, timeout=timeout, retry_count=retry_count)
 
 
-def create_payment_manager(month: str, uuid: str) -> "PaymentManager":
+def create_payment_manager(month: str, uuid: str) -> PaymentManager:
     """Factory for creating PaymentManager with injected dependencies."""
     from .Payments import PaymentManager as PM
 
@@ -113,7 +113,7 @@ def create_payment_manager(month: str, uuid: str) -> "PaymentManager":
     return DIPaymentManager(month, uuid)
 
 
-def create_metering_manager(month: str) -> "MeteringManager":
+def create_metering_manager(month: str) -> MeteringManager:
     """Factory for creating MeteringManager with injected dependencies."""
     from .Metering import MeteringManager as MM
 
@@ -128,7 +128,7 @@ def create_metering_manager(month: str) -> "MeteringManager":
     return DIMeteringManager(month)
 
 
-def create_batch_manager(month: str) -> "BatchManager":
+def create_batch_manager(month: str) -> BatchManager:
     """Factory for creating BatchManager with injected dependencies."""
     from .Batch import BatchManager as BM
 
@@ -143,7 +143,7 @@ def create_batch_manager(month: str) -> "BatchManager":
     return DIBatchManager(month)
 
 
-def create_credit_manager(uuid: str) -> "CreditManager":
+def create_credit_manager(uuid: str) -> CreditManager:
     """Factory for creating CreditManager with injected dependencies."""
     from .Credit import CreditManager as CM
 
@@ -158,7 +158,7 @@ def create_credit_manager(uuid: str) -> "CreditManager":
     return DICreditManager(uuid)
 
 
-def create_contract_manager(month: str, billing_group_id: str) -> "ContractManager":
+def create_contract_manager(month: str, billing_group_id: str) -> ContractManager:
     """Factory for creating ContractManager with injected dependencies."""
     from .Contract import ContractManager as CM
 

@@ -20,7 +20,7 @@ class TestCreditWorkflows:
         """Setup credit test context."""
         mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
         base_url = f"{mock_url}/api/v1" if use_mock else None
-        client = BillingAPIClient(base_url=base_url)
+        BillingAPIClient(base_url=base_url)
         uuid = f"uuid-{member}-credit"
 
         return {
@@ -32,7 +32,7 @@ class TestCreditWorkflows:
             "month": month,
         }
 
-    def test_credit_lifecycle(self, credit_context):
+    def test_credit_lifecycle(self, credit_context) -> None:
         """Test complete credit lifecycle."""
         ctx = credit_context
 
@@ -66,7 +66,7 @@ class TestCreditWorkflows:
         ctx["calculation"].recalculate_all()
 
         # 6. Check payment - should be covered by credit
-        pg_id, status = ctx["payment"].get_payment_status()
+        pg_id, _status = ctx["payment"].get_payment_status()
         if pg_id:
             unpaid = ctx["payment"].check_unpaid_amount(pg_id)
             # With sufficient credit, unpaid should be 0 or very low
@@ -76,18 +76,18 @@ class TestCreditWorkflows:
         final_balance = ctx["credit"].get_total_credit_balance()
         assert final_balance < new_balance  # Credit was consumed
 
-    def test_multiple_credit_types(self, credit_context):
+    def test_multiple_credit_types(self, credit_context) -> None:
         """Test interaction between different credit types."""
         ctx = credit_context
 
         # 1. Grant multiple types of credits
-        credits = [
+        credit_list = [
             (50000.0, CreditType.CAMPAIGN, "Campaign credit"),
             (30000.0, CreditType.REFUND, "Refund credit"),
             (20000.0, CreditType.BONUS, "Bonus credit"),
         ]
 
-        for amount, credit_type, description in credits:
+        for amount, credit_type, description in credit_list:
             result = ctx["credit"].grant_credit_to_users(
                 credit_amount=amount,
                 credit_type=credit_type,
@@ -101,7 +101,7 @@ class TestCreditWorkflows:
         assert total_balance >= 100000  # Sum of all credits
 
         # 3. Get credit history
-        total_amount, history = ctx["credit"].get_credit_history(items_per_page=10)
+        _total_amount, history = ctx["credit"].get_credit_history(items_per_page=10)
         assert len(history) >= 3
 
         # 4. Verify different credit types in history
@@ -113,7 +113,7 @@ class TestCreditWorkflows:
         # Should have multiple credit types
         assert len(credit_types_found) >= 2
 
-    def test_credit_expiry(self, credit_context):
+    def test_credit_expiry(self, credit_context) -> None:
         """Test credit expiry handling."""
         ctx = credit_context
 
@@ -146,7 +146,7 @@ class TestCreditWorkflows:
         # - Checking balance after expiry date
         # But in integration test, we verify the credits were created correctly
 
-    def test_credit_with_coupon(self, credit_context):
+    def test_credit_with_coupon(self, credit_context) -> None:
         """Test coupon-based credit."""
         ctx = credit_context
 
@@ -174,12 +174,12 @@ class TestCreditWorkflows:
             # This is expected and okay
             pass
 
-    def test_credit_cancellation(self, credit_context):
+    def test_credit_cancellation(self, credit_context) -> None:
         """Test credit cancellation workflow."""
         ctx = credit_context
 
         # 1. Grant credit
-        grant_result = ctx["credit"].grant_credit_to_users(
+        ctx["credit"].grant_credit_to_users(
             credit_amount=50000.0,
             credit_type=CreditType.CAMPAIGN,
             user_list=[ctx["uuid"]],
@@ -192,16 +192,16 @@ class TestCreditWorkflows:
             latest_credit = history[0]
             if hasattr(latest_credit, "credit_id"):
                 # 3. Cancel the credit
-                cancel_result = ctx["credit"].cancel_credit(
+                ctx["credit"].cancel_credit(
                     credit_id=latest_credit.credit_id,
                     reason="Integration test cancellation",
                 )
 
                 # 4. Verify balance was reduced
-                new_balance = ctx["credit"].get_total_credit_balance()
+                ctx["credit"].get_total_credit_balance()
                 # Balance should be less after cancellation
 
-    def test_credit_priority_usage(self, credit_context):
+    def test_credit_priority_usage(self, credit_context) -> None:
         """Test credit usage priority (e.g., expiring credits used first)."""
         ctx = credit_context
 
@@ -235,10 +235,10 @@ class TestCreditWorkflows:
 
         # 4. Check which credits were used
         # In a well-designed system, expiring credits should be used first
-        total_amount, history = ctx["credit"].get_credit_history(items_per_page=10)
+        _total_amount, _history = ctx["credit"].get_credit_history(items_per_page=10)
         # Verify credit consumption order
 
-    def test_credit_refund_scenario(self, credit_context):
+    def test_credit_refund_scenario(self, credit_context) -> None:
         """Test refund credit scenario."""
         ctx = credit_context
 

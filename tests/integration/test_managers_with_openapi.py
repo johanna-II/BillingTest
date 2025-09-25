@@ -19,7 +19,7 @@ class TestManagersWithOpenAPIMock:
     """Test all managers with OpenAPI mock server."""
 
     @pytest.fixture(scope="class")
-    def mock_base_url(self):
+    def mock_base_url(self) -> str:
         """Use mock server URL."""
         # Get dynamic mock server URL from environment
         mock_port = os.environ.get("MOCK_SERVER_PORT", "5000")
@@ -32,7 +32,7 @@ class TestManagersWithOpenAPIMock:
         # This will use the real BillingAPIClient with mock server
         return BillingAPIClient(base_url=mock_base_url)
 
-    def test_adjustment_manager_with_real_client(self, real_client):
+    def test_adjustment_manager_with_real_client(self, real_client) -> None:
         """Test AdjustmentManager with real HTTP calls to mock server."""
         # No mocking - using real HTTP client
         manager = AdjustmentManager(month="2024-01")
@@ -49,7 +49,7 @@ class TestManagersWithOpenAPIMock:
         assert "adjustmentId" in result
         assert result.get("status") == "SUCCESS"
 
-    def test_batch_manager_with_real_client(self, real_client):
+    def test_batch_manager_with_real_client(self, real_client) -> None:
         """Test BatchManager with real HTTP calls."""
         manager = BatchManager(month="2024-01")
 
@@ -59,7 +59,7 @@ class TestManagersWithOpenAPIMock:
         assert "batchId" in result
         assert "status" in result
 
-    def test_contract_manager_with_real_client(self, real_client):
+    def test_contract_manager_with_real_client(self, real_client) -> None:
         """Test ContractManager with real HTTP calls."""
         manager = ContractManager(month="2024-01", billing_group_id="bg-123")
 
@@ -70,7 +70,7 @@ class TestManagersWithOpenAPIMock:
         assert "status" in result
         assert "contractId" in result
 
-    def test_metering_manager_with_real_client(self, real_client):
+    def test_metering_manager_with_real_client(self, real_client) -> None:
         """Test MeteringManager with real HTTP calls."""
         manager = MeteringManager(month="2024-01")
 
@@ -85,7 +85,7 @@ class TestManagersWithOpenAPIMock:
         assert "status" in result
         assert result["status"] == "SUCCESS"
 
-    def test_payment_manager_with_real_client(self, real_client):
+    def test_payment_manager_with_real_client(self, real_client) -> None:
         """Test PaymentManager with real HTTP calls."""
         manager = PaymentManager(month="2024-01", uuid="test-uuid")
 
@@ -110,7 +110,7 @@ class TestManagersMinimalMocking:
             mock_response.headers = {"Content-Type": "application/json"}
             yield mock_response
 
-    def test_adjustment_flow_minimal_mock(self, http_mock):
+    def test_adjustment_flow_minimal_mock(self, http_mock) -> None:
         """Test adjustment flow with minimal HTTP mocking."""
         # Mock only HTTP response, not the entire client
         http_mock.json.return_value = {"adjustmentId": "adj-001", "status": "SUCCESS"}
@@ -118,7 +118,7 @@ class TestManagersMinimalMocking:
         # Use real client and manager classes
         from config import url
 
-        client = BillingAPIClient(base_url=url.BASE_BILLING_URL)
+        BillingAPIClient(base_url=url.BASE_BILLING_URL)
         manager = AdjustmentManager(month="2024-01")
 
         result = manager.apply_adjustment(
@@ -130,7 +130,7 @@ class TestManagersMinimalMocking:
 
         assert result["adjustmentId"] == "adj-001"
 
-    def test_calculation_flow_minimal_mock(self, http_mock):
+    def test_calculation_flow_minimal_mock(self, http_mock) -> None:
         """Test calculation flow with minimal mocking."""
         # First call returns calculation started
         # Second call returns completion status
@@ -141,7 +141,7 @@ class TestManagersMinimalMocking:
 
         from config import url
 
-        client = BillingAPIClient(base_url=url.BASE_BILLING_URL)
+        BillingAPIClient(base_url=url.BASE_BILLING_URL)
         manager = CalculationManager(month="2024-01", uuid="test-uuid")
 
         result = manager.recalculate_all()
@@ -163,9 +163,9 @@ class TestContractBasedTesting:
 
         return create_spec(spec_dict)
 
-    def test_response_matches_contract(self, mock_base_url, openapi_validator):
+    def test_response_matches_contract(self, mock_base_url, openapi_validator) -> None:
         """Test that responses match OpenAPI contract."""
-        real_client = BillingAPIClient(base_url=mock_base_url)
+        BillingAPIClient(base_url=mock_base_url)
         manager = MeteringManager(month="2024-01")
 
         # Make real call
@@ -184,7 +184,9 @@ class TestContractBasedTesting:
             result, "/billing/meters", "post", "200", openapi_validator
         )
 
-    def _validate_against_schema(self, response, path, method, status, validator):
+    def _validate_against_schema(
+        self, response, path, method, status, validator
+    ) -> bool:
         """Validate response against OpenAPI schema."""
         # Simplified validation logic
         # In real implementation, use openapi-core validation

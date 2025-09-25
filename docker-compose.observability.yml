@@ -55,7 +55,7 @@ services:
             static_configs:
               - targets: ['host.docker.internal:9090']
             metrics_path: '/metrics'
-            
+
           # Scrape mock server metrics if available
           - job_name: 'mock-server'
             static_configs:
@@ -95,7 +95,7 @@ services:
     command: |
       sh -c "
         mkdir -p /provisioning/datasources /provisioning/dashboards
-        
+
         # Create datasource configuration
         cat > /provisioning/datasources/prometheus.yml << EOF
         apiVersion: 1
@@ -107,7 +107,7 @@ services:
             isDefault: true
             editable: true
         EOF
-        
+
         # Create dashboard provider configuration
         cat > /provisioning/dashboards/default.yml << EOF
         apiVersion: 1
@@ -133,4 +133,3 @@ volumes:
 networks:
   observability:
     driver: bridge
-

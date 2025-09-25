@@ -13,7 +13,7 @@ from jsonschema import ValidationError, validate
 class OpenAPIHandler:
     """Handler for OpenAPI specification-based mock responses."""
 
-    def __init__(self, spec_path: str):
+    def __init__(self, spec_path: str) -> None:
         """Initialize with OpenAPI specification file."""
         self.spec_path = spec_path
         self.spec_dict = self._load_spec()
@@ -146,7 +146,7 @@ class OpenAPIHandler:
             return self._generate_array(schema)
         if schema_type == "string":
             return self._generate_string(schema)
-        if schema_type == "number" or schema_type == "integer":
+        if schema_type in {"number", "integer"}:
             return self._generate_number(schema)
         if schema_type == "boolean":
             return random.choice([True, False])

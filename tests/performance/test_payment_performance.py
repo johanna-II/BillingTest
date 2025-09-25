@@ -37,7 +37,7 @@ class BillingAPIUser(HttpUser):
 
     wait_time = between(1, 3)  # Wait 1-3 seconds between tasks
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Initialize user session."""
         self.test_uuid = f"PERF_TEST_{uuid_module.uuid4().hex[:8]}"
         self.headers = {
@@ -48,7 +48,7 @@ class BillingAPIUser(HttpUser):
         self.month = datetime.now().strftime("%Y-%m")
         self.payment_group_id = None
 
-    def on_stop(self):
+    def on_stop(self) -> None:
         """Clean up user session."""
         # Reset test data
         self.client.post(
@@ -56,7 +56,7 @@ class BillingAPIUser(HttpUser):
         )
 
     @task(3)
-    def send_metering_data(self):
+    def send_metering_data(self) -> None:
         """Send metering data - most frequent operation."""
         metering_data = {
             "meterList": [
@@ -85,7 +85,7 @@ class BillingAPIUser(HttpUser):
                 response.success()
 
     @task(2)
-    def get_payment_status(self):
+    def get_payment_status(self) -> None:
         """Check payment status."""
         with self.client.get(
             f"/billing/payments/{self.month}/statements",
@@ -102,7 +102,7 @@ class BillingAPIUser(HttpUser):
                 response.failure(f"Got status code {response.status_code}")
 
     @task(1)
-    def make_payment(self):
+    def make_payment(self) -> None:
         """Make a payment if payment group exists."""
         if not self.payment_group_id:
             return
@@ -121,7 +121,7 @@ class BillingAPIUser(HttpUser):
                 response.failure(f"Got status code {response.status_code}")
 
     @task(1)
-    def run_batch_job(self):
+    def run_batch_job(self) -> None:
         """Request a batch job."""
         batch_data = {"month": self.month, "jobCode": "API_CALCULATE_USAGE_AND_PRICE"}
 
@@ -142,7 +142,7 @@ class HighVolumeUser(HttpUser):
 
     wait_time = between(0.5, 1)  # More aggressive timing
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Initialize user session."""
         self.test_uuid = f"VOLUME_TEST_{uuid_module.uuid4().hex[:8]}"
         self.headers = {
@@ -152,7 +152,7 @@ class HighVolumeUser(HttpUser):
         }
 
     @task
-    def bulk_metering_submission(self):
+    def bulk_metering_submission(self) -> None:
         """Submit large batches of metering data."""
         # Create 50 meters in one request
         metering_data = {

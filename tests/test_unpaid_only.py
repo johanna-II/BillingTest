@@ -13,7 +13,7 @@ from libs.Payments import PaymentManager as Payments
 
 class TestUnpaidOnly:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         # 초기화
         self.config = InitializeConfig(env, member, month)
         self.clean_all_month_resources()
@@ -28,17 +28,17 @@ class TestUnpaidOnly:
         # 전월/당월 미터링 전송
         self.send_prev_month_metering(month=1)
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.before_test()
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self):
         yield
         self.send_payments_change(month=0)
 
-    def test_unpaid_TC1(self):
+    def test_unpaid_TC1(self) -> None:
         self.send_prev_month_metering(month=0)
         prev_unpaid, cur_unpaid = self.compare_unpaid()
         # 결제 요청된 값, 실제 결제값(매출전표) 체크 및 전월 미납과 당일 미납 같은 지 체크
@@ -67,10 +67,9 @@ class TestUnpaidOnly:
             if prev_month.month < 10
             else prev_month.month
         )
-        month_return = year.__str__() + "-" + month.__str__()
-        return month_return
+        return year.__str__() + "-" + month.__str__()
 
-    def send_prev_month_metering(self, month):
+    def send_prev_month_metering(self, month) -> None:
         month = self.calc_prev_month(month=month)
         meteringObj = Metering(month)
         meteringObj.month = self.config.month = month
@@ -102,7 +101,7 @@ class TestUnpaidOnly:
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
         calcObj.recalculation_all()
 
-    def send_payments_change(self, month):
+    def send_payments_change(self, month) -> None:
         month = self.calc_prev_month(month=month)
         paymentsObj = Payments(month)
         paymentsObj.month = self.config.month = month
@@ -113,16 +112,16 @@ class TestUnpaidOnly:
         elif pgStatusCode == "REGISTERED":
             paymentsObj.change_payment(pgId)
         else:
-            print("++ 결제 상태 : READY, skipped change status")
+            pass
 
-    def send_batch_request(self, month):
+    def send_batch_request(self, month) -> None:
         month = self.calc_prev_month(month=month)
         batchObj = Batches(month)
         batchObj.month = self.config.month = month
         batchObj.batch_job_code = "CALC_LATE_FEE"
         batchObj.send_batch_request()
 
-    def clean_all_month_resources(self):
+    def clean_all_month_resources(self) -> None:
         # 모든 월 초기화 처리
         for idx in range(3):
             month = self.calc_prev_month(month=idx)
@@ -137,7 +136,4 @@ class TestUnpaidOnly:
         paymentsObj = Payments(cur_month)
         paymentsObj.uuid = self.config.uuid
         cur_unpaid = paymentsObj.unpaid()
-        print(
-            f"{prev_month}월 미납 금액: {prev_unpaid}, {cur_month}월 미납 금액: {cur_unpaid}"
-        )
         return prev_unpaid, cur_unpaid

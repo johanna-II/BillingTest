@@ -2,6 +2,7 @@
 
 import os
 import time
+from typing import Never
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -17,8 +18,12 @@ try:
 except ImportError:
     TELEMETRY_AVAILABLE = False
     TelemetryManager = None
-    get_telemetry = lambda: None
-    configure_telemetry = lambda: None
+
+    def get_telemetry() -> None:
+        return None
+
+    def configure_telemetry() -> None:
+        return None
 
 
 @pytest.mark.skipif(not TELEMETRY_AVAILABLE, reason="Telemetry module not available")
@@ -38,16 +43,19 @@ class TestTelemetryUnit:
     @pytest.fixture
     def telemetry(self, mock_tracer, mock_meter):
         """Create TelemetryManager with mocked dependencies."""
-        with patch(
-            "libs.observability.telemetry.trace.get_tracer", return_value=mock_tracer
-        ):
-            with patch(
+        with (
+            patch(
+                "libs.observability.telemetry.trace.get_tracer",
+                return_value=mock_tracer,
+            ),
+            patch(
                 "libs.observability.telemetry.metrics.get_meter",
                 return_value=mock_meter,
-            ):
-                return TelemetryManager()
+            ),
+        ):
+            return TelemetryManager()
 
-    def test_init(self, telemetry):
+    def test_init(self, telemetry) -> None:
         """Test TelemetryManager initialization."""
         assert telemetry.tracer is not None
         assert telemetry.meter is not None
@@ -56,7 +64,7 @@ class TestTelemetryUnit:
         assert hasattr(telemetry, "api_counter")
         assert hasattr(telemetry, "api_histogram")
 
-    def test_record_test_execution(self, telemetry):
+    def test_record_test_execution(self, telemetry) -> None:
         """Test recording test execution metrics."""
         mock_counter = Mock()
         mock_histogram = Mock()
@@ -72,7 +80,7 @@ class TestTelemetryUnit:
             1.5, {"test_name": "test_example", "status": "passed"}
         )
 
-    def test_record_api_call(self, telemetry):
+    def test_record_api_call(self, telemetry) -> None:
         """Test recording API call metrics."""
         mock_counter = Mock()
         mock_histogram = Mock()
@@ -85,10 +93,11 @@ class TestTelemetryUnit:
             1, {"method": "GET", "endpoint": "/api/v1/test", "status_code": 200}
         )
         mock_histogram.record.assert_called_once_with(
-            123, {"method": "GET", "endpoint": "/api/v1/test"}  # milliseconds
+            123,
+            {"method": "GET", "endpoint": "/api/v1/test"},  # milliseconds
         )
 
-    def test_create_span(self, telemetry, mock_tracer):
+    def test_create_span(self, telemetry, mock_tracer) -> None:
         """Test span creation."""
         mock_span = Mock()
         mock_tracer.start_span.return_value = mock_span
@@ -104,7 +113,7 @@ class TestTelemetryUnit:
         mock_span.set_attribute.assert_any_call("operation.type", "database")
         mock_span.set_attribute.assert_any_call("db.name", "billing")
 
-    def test_trace_test_context_manager(self, telemetry, mock_tracer):
+    def test_trace_test_context_manager(self, telemetry, mock_tracer) -> None:
         """Test trace_test context manager."""
         mock_span = MagicMock()
         mock_context = MagicMock()
@@ -121,7 +130,7 @@ class TestTelemetryUnit:
         mock_span.set_attribute.assert_any_call("test.type", "unit")
         mock_span.set_attribute.assert_any_call("test.framework", "pytest")
 
-    def test_trace_test_with_exception(self, telemetry, mock_tracer):
+    def test_trace_test_with_exception(self, telemetry, mock_tracer) -> Never:
         """Test trace_test with exception handling."""
         mock_span = MagicMock()
         mock_context = MagicMock()
@@ -131,12 +140,13 @@ class TestTelemetryUnit:
 
         with pytest.raises(ValueError):
             with telemetry.trace_test("test_function", "unit"):
-                raise ValueError("Test error")
+                msg = "Test error"
+                raise ValueError(msg)
 
         mock_span.record_exception.assert_called_once()
         mock_span.set_status.assert_called_once()
 
-    def test_get_telemetry_singleton(self):
+    def test_get_telemetry_singleton(self) -> None:
         """Test get_telemetry returns singleton instance."""
         telemetry1 = get_telemetry()
         telemetry2 = get_telemetry()
@@ -144,7 +154,7 @@ class TestTelemetryUnit:
         # Should return the same instance
         assert telemetry1 is telemetry2
 
-    def test_get_telemetry_disabled(self):
+    def test_get_telemetry_disabled(self) -> None:
         """Test get_telemetry when disabled."""
         original_value = os.environ.get("ENABLE_TELEMETRY")
 
@@ -168,7 +178,7 @@ class TestTelemetryUnit:
     @patch("libs.observability.telemetry.MeterProvider")
     def test_configure_telemetry_with_jaeger(
         self, mock_meter_provider, mock_tracer_provider, mock_resource
-    ):
+    ) -> None:
         """Test telemetry configuration with Jaeger enabled."""
         os.environ["JAEGER_ENABLED"] = "true"
         os.environ["JAEGER_HOST"] = "localhost"
@@ -186,7 +196,7 @@ class TestTelemetryUnit:
             os.environ.pop("JAEGER_HOST", None)
             os.environ.pop("JAEGER_PORT", None)
 
-    def test_span_attributes_handling(self, telemetry, mock_tracer):
+    def test_span_attributes_handling(self, telemetry, mock_tracer) -> None:
         """Test span attribute handling with various types."""
         mock_span = Mock()
         mock_tracer.start_span.return_value = mock_span
@@ -199,14 +209,14 @@ class TestTelemetryUnit:
             "none_attr": None,  # Should be filtered out
         }
 
-        span = telemetry.create_span("test_op", attributes=attributes)
+        telemetry.create_span("test_op", attributes=attributes)
 
         # None values should not be set
         for key, value in attributes.items():
             if value is not None:
                 mock_span.set_attribute.assert_any_call(key, value)
 
-    def test_histogram_value_conversion(self, telemetry):
+    def test_histogram_value_conversion(self, telemetry) -> None:
         """Test histogram value conversion to milliseconds."""
         mock_histogram = Mock()
         telemetry.api_histogram = mock_histogram
@@ -226,7 +236,7 @@ class TestTelemetryUnit:
             )
             mock_histogram.reset_mock()
 
-    def test_error_handling_in_telemetry(self, telemetry):
+    def test_error_handling_in_telemetry(self, telemetry) -> None:
         """Test error handling in telemetry operations."""
         # Test that operations don't raise when telemetry fails
         # The actual implementation handles failures gracefully
@@ -236,7 +246,7 @@ class TestTelemetryUnit:
         # These should complete without error
         assert True
 
-    def test_telemetry_disabled_operations(self):
+    def test_telemetry_disabled_operations(self) -> None:
         """Test operations when telemetry is disabled."""
         telemetry = None  # Simulating disabled telemetry
 

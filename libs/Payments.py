@@ -12,7 +12,6 @@ from config import url
 
 from .constants import PaymentStatus
 from .exceptions import APIRequestException, ValidationException
-from .payment_api_client import PaymentAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -435,8 +434,7 @@ class PaymentManager:
             raise ValidationException(msg)
 
         logger.info(
-            f"Current payment status: {current_status.name} "
-            f"(ID: {payment_group_id})"
+            f"Current payment status: {current_status.name} (ID: {payment_group_id})"
         )
 
         # Handle different statuses

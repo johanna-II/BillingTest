@@ -13,7 +13,7 @@ class TestPaymentManagerComprehensiveUnit:
     """Comprehensive unit tests for PaymentManager class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self) -> None:
         """Set up test fixtures."""
         self.mock_client = Mock()
         self.payment_manager = PaymentManager(
@@ -23,7 +23,7 @@ class TestPaymentManagerComprehensiveUnit:
         self.mock_api = Mock()
         self.payment_manager._client = self.mock_api
 
-    def test_get_payment_group_id_from_admin_api(self):
+    def test_get_payment_group_id_from_admin_api(self) -> None:
         """Test getting payment group ID from admin API."""
         mock_response = {
             "statements": [
@@ -45,7 +45,7 @@ class TestPaymentManagerComprehensiveUnit:
             "2024-01", "test-uuid-123"
         )
 
-    def test_get_payment_group_id_from_console_api(self):
+    def test_get_payment_group_id_from_console_api(self) -> None:
         """Test getting payment group ID from console API when admin API returns empty."""
         # Admin API returns empty
         self.mock_api.get_statements_admin.return_value = {"statements": []}
@@ -70,7 +70,7 @@ class TestPaymentManagerComprehensiveUnit:
         # Console API should be called
         assert self.mock_api.get_statements_console.called
 
-    def test_get_payment_group_id_no_statements(self):
+    def test_get_payment_group_id_no_statements(self) -> None:
         """Test getting payment group ID when no statements exist."""
         self.mock_api.get_statements_admin.return_value = {"statements": []}
         self.mock_api.get_statements_console.return_value = {"statements": []}
@@ -80,7 +80,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert pg_id == ""
         assert status == PaymentStatus.UNKNOWN
 
-    def test_get_payment_status_unpaid(self):
+    def test_get_payment_status_unpaid(self) -> None:
         """Test getting payment status for unpaid invoice."""
         mock_response = {
             "statements": [
@@ -100,7 +100,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert pg_id == "pg-123"
         assert status == PaymentStatus.PENDING
 
-    def test_get_payment_status_paid(self):
+    def test_get_payment_status_paid(self) -> None:
         """Test getting payment status for paid invoice."""
         mock_response = {
             "statements": [
@@ -120,7 +120,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert pg_id == "pg-123"
         assert status == PaymentStatus.PAID
 
-    def test_get_payment_status_unknown(self):
+    def test_get_payment_status_unknown(self) -> None:
         """Test getting payment status when no statements exist."""
         self.mock_api.get_statements_admin.return_value = {"statements": []}
         self.mock_api.get_statements_console.return_value = {"statements": []}
@@ -130,7 +130,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert pg_id == ""
         assert status == PaymentStatus.UNKNOWN
 
-    def test_create_payment_record_success(self):
+    def test_create_payment_record_success(self) -> None:
         """Test creating payment record successfully."""
         mock_response = {"paymentId": "payment-123", "status": "CREATED"}
         self.mock_api.create_payment.return_value = mock_response
@@ -144,7 +144,7 @@ class TestPaymentManagerComprehensiveUnit:
             payment_group_id="pg-123", amount=1000.0, payment_method="CREDIT_CARD"
         )
 
-    def test_create_payment_record_invalid_amount(self):
+    def test_create_payment_record_invalid_amount(self) -> None:
         """Test creating payment record with invalid amount."""
         with pytest.raises(ValidationException) as exc_info:
             self.payment_manager.create_payment_record(
@@ -155,7 +155,7 @@ class TestPaymentManagerComprehensiveUnit:
 
         assert "Amount must be positive" in str(exc_info.value)
 
-    def test_update_payment_status_success(self):
+    def test_update_payment_status_success(self) -> None:
         """Test updating payment status successfully."""
         mock_response = {"status": "UPDATED", "newStatus": "PAID"}
         self.mock_api.change_status.return_value = mock_response
@@ -169,7 +169,7 @@ class TestPaymentManagerComprehensiveUnit:
             "2024-01", "pg-123", PaymentStatus.PAID
         )
 
-    def test_get_payment_details_success(self):
+    def test_get_payment_details_success(self) -> None:
         """Test getting payment details successfully."""
         mock_details = {
             "paymentId": "payment-123",
@@ -184,7 +184,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert result == mock_details
         self.mock_api.get_payment_details.assert_called_once_with("payment-123")
 
-    def test_process_refund_success(self):
+    def test_process_refund_success(self) -> None:
         """Test processing refund successfully."""
         mock_response = {
             "refundId": "refund-123",
@@ -202,7 +202,7 @@ class TestPaymentManagerComprehensiveUnit:
             payment_id="payment-123", amount=500.0, reason="Customer request"
         )
 
-    def test_get_payment_history_success(self):
+    def test_get_payment_history_success(self) -> None:
         """Test getting payment history successfully."""
         mock_history = [
             {
@@ -229,7 +229,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert result == mock_history
         assert len(result) == 2
 
-    def test_validate_payment_amount(self):
+    def test_validate_payment_amount(self) -> None:
         """Test payment amount validation."""
         # Valid amounts
         assert self.payment_manager.validate_payment_amount(100.0) is True
@@ -241,7 +241,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert self.payment_manager.validate_payment_amount(-100) is False
         assert self.payment_manager.validate_payment_amount(None) is False
 
-    def test_calculate_late_fee(self):
+    def test_calculate_late_fee(self) -> None:
         """Test late fee calculation."""
         # Basic late fee calculation
         fee = self.payment_manager.calculate_late_fee(amount=1000.0, days_late=10)
@@ -254,7 +254,7 @@ class TestPaymentManagerComprehensiveUnit:
         fee = self.payment_manager.calculate_late_fee(amount=1000.0, days_late=0)
         assert fee == 0.0
 
-    def test_retry_failed_payment(self):
+    def test_retry_failed_payment(self) -> None:
         """Test retrying failed payment."""
         # First attempt fails, second succeeds
         self.mock_api.retry_payment.side_effect = [
@@ -270,7 +270,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert result["status"] == "SUCCESS"
         assert self.mock_api.retry_payment.call_count == 2
 
-    def test_batch_payment_processing(self):
+    def test_batch_payment_processing(self) -> None:
         """Test batch payment processing."""
         payment_requests = [
             {"payment_group_id": "pg-1", "amount": 1000.0},
@@ -295,7 +295,7 @@ class TestPaymentManagerComprehensiveUnit:
         assert result["failed"] == 0
         assert all(r["success"] for r in result["results"])
 
-    def test_payment_method_validation(self):
+    def test_payment_method_validation(self) -> None:
         """Test payment method validation."""
         valid_methods = ["CREDIT_CARD", "BANK_TRANSFER", "PAYPAL", "CASH"]
         invalid_methods = ["BITCOIN", "CHECK", "", None]
@@ -310,7 +310,7 @@ class TestPaymentManagerComprehensiveUnit:
 class TestPaymentStatementDataclass:
     """Unit tests for PaymentStatement dataclass."""
 
-    def test_from_api_response_complete_data(self):
+    def test_from_api_response_complete_data(self) -> None:
         """Test creating PaymentStatement from complete API response."""
         api_data = {
             "paymentGroupId": "pg-123",
@@ -328,7 +328,7 @@ class TestPaymentStatementDataclass:
         assert statement.month == "2024-01"
         assert statement.uuid == "test-uuid-123"
 
-    def test_from_api_response_missing_fields(self):
+    def test_from_api_response_missing_fields(self) -> None:
         """Test creating PaymentStatement with missing optional fields."""
         api_data = {
             "paymentGroupId": "pg-456",
@@ -344,7 +344,7 @@ class TestPaymentStatementDataclass:
         assert statement.month == ""  # Default value
         assert statement.uuid == ""  # Default value
 
-    def test_from_api_response_unknown_status(self):
+    def test_from_api_response_unknown_status(self) -> None:
         """Test creating PaymentStatement with unknown status code."""
         api_data = {"paymentGroupId": "pg-789", "paymentStatusCode": "INVALID_STATUS"}
 
@@ -352,7 +352,7 @@ class TestPaymentStatementDataclass:
 
         assert statement.payment_status == PaymentStatus.UNKNOWN
 
-    def test_payment_statement_equality(self):
+    def test_payment_statement_equality(self) -> None:
         """Test PaymentStatement equality comparison."""
         statement1 = PaymentStatement(
             payment_group_id="pg-123",

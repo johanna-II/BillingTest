@@ -30,7 +30,7 @@ class TestPaymentWorkflows:
             "client": client,
         }
 
-    def test_payment_lifecycle(self, payment_context):
+    def test_payment_lifecycle(self, payment_context) -> None:
         """Test complete payment lifecycle from usage to payment."""
         managers = payment_context
 
@@ -57,14 +57,14 @@ class TestPaymentWorkflows:
 
         # 5. Make payment
         if initial_status == PaymentStatus.PENDING:
-            payment_result = managers["payment"].make_payment(pg_id)
+            managers["payment"].make_payment(pg_id)
             # Verify payment was processed
 
         # 6. Check final status
         _, final_status = managers["payment"].get_payment_status()
         assert final_status != PaymentStatus.UNKNOWN
 
-    def test_payment_with_retry(self, payment_context):
+    def test_payment_with_retry(self, payment_context) -> None:
         """Test payment retry mechanism."""
         managers = payment_context
 
@@ -75,12 +75,10 @@ class TestPaymentWorkflows:
         pg_id, status = managers["payment"].get_payment_status()
         if status == PaymentStatus.PENDING:
             # Test retry logic
-            result = managers["payment"].make_payment(
-                payment_group_id=pg_id, retry_count=3
-            )
+            managers["payment"].make_payment(payment_group_id=pg_id, retry_count=3)
             # Verify retry behavior
 
-    def test_payment_cancellation(self, payment_context):
+    def test_payment_cancellation(self, payment_context) -> None:
         """Test payment cancellation workflow."""
         managers = payment_context
 
@@ -91,13 +89,13 @@ class TestPaymentWorkflows:
         pg_id, status = managers["payment"].get_payment_status()
         if pg_id and status == PaymentStatus.REGISTERED:
             # Cancel payment
-            cancel_result = managers["payment"].cancel_payment(pg_id)
+            managers["payment"].cancel_payment(pg_id)
 
             # Verify cancellation
             _, new_status = managers["payment"].get_payment_status()
             assert new_status == PaymentStatus.CANCELLED
 
-    def test_payment_with_credits(self, payment_context):
+    def test_payment_with_credits(self, payment_context) -> None:
         """Test payment with credit application."""
         managers = payment_context
 
@@ -120,12 +118,12 @@ class TestPaymentWorkflows:
         unpaid = managers["payment"].check_unpaid_amount(pg_id)
 
         # 5. Verify credit was applied
-        credit_balance = managers["credit"].get_credit_balance()
+        managers["credit"].get_credit_balance()
         # If original charge was less than credit, unpaid should be 0
         # Otherwise, it should be reduced
         assert unpaid >= 0
 
-    def test_payment_status_transitions(self, payment_context):
+    def test_payment_status_transitions(self, payment_context) -> None:
         """Test various payment status transitions."""
         managers = payment_context
 
@@ -161,7 +159,7 @@ class TestPaymentWorkflows:
             _, new_status = managers["payment"].get_payment_status()
             assert new_status == PaymentStatus.REGISTERED
 
-    def test_payment_error_scenarios(self, payment_context):
+    def test_payment_error_scenarios(self, payment_context) -> None:
         """Test payment error handling."""
         managers = payment_context
 
@@ -170,13 +168,13 @@ class TestPaymentWorkflows:
             managers["payment"].make_payment("invalid-pg-id")
 
         # Test payment without usage
-        pg_id, status = managers["payment"].get_payment_status()
+        pg_id, _status = managers["payment"].get_payment_status()
         if not pg_id:
             # No payment group exists without usage
             unpaid = managers["payment"].check_unpaid_amount("")
             assert unpaid == 0
 
-    def _create_test_usage(self, metering_manager, volume="100"):
+    def _create_test_usage(self, metering_manager, volume="100") -> None:
         """Helper to create test usage."""
         metering_manager.send_metering(
             app_key="test-payment-app",

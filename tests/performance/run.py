@@ -43,9 +43,7 @@ def main():
 
     # Performance tests MUST run serially
     if args.parallel > 0:
-        print(
-            "⚠️  Warning: Performance tests should run serially. Ignoring parallel option."
-        )
+        pass
 
     cmd = runner.build_pytest_command(
         test_path=test_path,
@@ -57,8 +55,7 @@ def main():
     )
 
     # Run tests with mock server
-    with mock_server_context(verbose=args.mock_verbose) as mock_url:
-        print(f"Mock server available at: {mock_url}")
+    with mock_server_context(verbose=args.mock_verbose):
         return runner.run_command(cmd)
 
 

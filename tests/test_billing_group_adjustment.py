@@ -17,7 +17,7 @@ class TestAdjustmentOnly:
     def _get_payment_and_verify(
         self, expected_charge_modifier=0, expected_rate_modifier=1.0
     ):
-        """Helper method to get payment statement and verify amounts"""
+        """Helper method to get payment statement and verify amounts."""
         payment_manager = self.config.payment_manager
         statement_result = payment_manager.get_payment_statement()
         statements = (
@@ -46,7 +46,7 @@ class TestAdjustmentOnly:
         return statements, expected_total
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         meteringObj = Metering(month=self.config.month)
         # Use the first appkey from config
@@ -85,12 +85,12 @@ class TestAdjustmentOnly:
             counter_volume="720",
         )
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         adjObj = Adjustments(self.config.month)
@@ -101,7 +101,7 @@ class TestAdjustmentOnly:
         adjObj.delete_adjustment(adjlist, adjustment_target="BillingGroup")
 
     # 빌링그룹 고정 할인
-    def test_bgAdjTC1(self):
+    def test_bgAdjTC1(self) -> None:
         adjObj = Adjustments(self.config.month)
         adjObj.apply_adjustment(
             adjustment_target="BillingGroup",
@@ -115,7 +115,7 @@ class TestAdjustmentOnly:
         self._get_payment_and_verify(expected_charge_modifier=-1000)
 
     # 빌링그룹 퍼센트 할인
-    def test_bgAdjTC2(self):
+    def test_bgAdjTC2(self) -> None:
         adjObj = Adjustments(self.config.month)
         adjObj.apply_adjustment(
             adjustment_target="BillingGroup",
@@ -129,7 +129,7 @@ class TestAdjustmentOnly:
         self._get_payment_and_verify(expected_rate_modifier=0.95)
 
     # 빌링그룹 고정 할증
-    def test_bgAdjTC3(self):
+    def test_bgAdjTC3(self) -> None:
         adjObj = Adjustments(self.config.month)
         adjObj.apply_adjustment(
             adjustment_target="BillingGroup",
@@ -143,7 +143,7 @@ class TestAdjustmentOnly:
         self._get_payment_and_verify(expected_charge_modifier=5000)
 
     # 빌링그룹 고정 할인 + 고정 할증
-    def test_bgAdjTC4(self):
+    def test_bgAdjTC4(self) -> None:
         adjObj = Adjustments(self.config.month)
         adjObj.apply_adjustment(
             adjustment_target="BillingGroup",
@@ -163,7 +163,7 @@ class TestAdjustmentOnly:
         self._get_payment_and_verify(expected_charge_modifier=900)
 
     # 빌링그룹 퍼센트 할인 + 고정 할증
-    def test_bgAdjTC5(self):
+    def test_bgAdjTC5(self) -> None:
         adjObj = Adjustments(self.config.month)
         adjObj.apply_adjustment(
             adjustment_target="BillingGroup",

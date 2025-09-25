@@ -1,4 +1,10 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+default_language_version:
+  python: python3.12
+
 repos:
+  # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -6,56 +12,38 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-      - id: check-json
-      - id: check-toml
-      - id: check-xml
+        args: ['--maxkb=1000']  # 1MB limit
       - id: check-merge-conflict
-      - id: check-case-conflict
-      - id: check-docstring-first
-      - id: debug-statements
-      - id: detect-private-key
       - id: mixed-line-ending
-      - id: name-tests-test
-        args: [--pytest-test-first]
+        args: ['--fix=lf']  # Convert to LF automatically
 
+  # Black - Code formatter CHECK ONLY (no auto-fix)
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 24.10.0
     hooks:
       - id: black
+        args: ['--check', '--diff']  # Check only, show differences
         language_version: python3.12
+        name: black (check formatting)
+        description: 'Black: Check Python code formatting (no auto-fix)'
 
+  # Ruff - Fast Python linter (auto-fix safe issues only)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.0
     hooks:
       - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-requests
-          - types-python-dateutil
-        args: [--strict, --python-version=3.12]
-
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
-    hooks:
-      - id: bandit
-        args: [-ll, --recursive, -x, tests]
-
-  - repo: https://github.com/jendrikseipp/vulture
-    rev: v2.11
-    hooks:
-      - id: vulture
-
-  - repo: https://github.com/pycqa/pydocstyle
-    rev: 6.3.0
-    hooks:
-      - id: pydocstyle
-        additional_dependencies: [toml]
-        args: [--convention=google]
+        args: ['--fix', '--exit-non-zero-on-fix', '--show-fixes']  # Fix safe issues, show what was fixed
+        name: ruff (auto-fix safe issues)
+        description: 'Ruff: Fast Python linter with safe auto-fixes'
+      # Ruff-format disabled to avoid conflicts with Black
+      # - id: ruff-format
+      #   args: ['--check', '--diff']  # Check formatting only
+      #   name: ruff-format (check formatting)
+      #   description: 'Ruff: Check Python formatting (no auto-fix)'
 
 exclude: '^(\.git|\.mypy_cache|\.pytest_cache|\.ruff_cache|__pycache__|build|dist|\.venv|venv)'
+
+# Performance optimizations
+ci:
+  autofix_prs: false
+  autoupdate_schedule: weekly

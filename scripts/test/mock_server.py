@@ -20,14 +20,12 @@ def find_free_port() -> int:
 
 def wait_for_server(url: str, timeout: int = 30) -> bool:
     """Wait for mock server to be ready."""
-    print(f"Waiting for mock server at {url}...")
     start_time = time.time()
 
     while time.time() - start_time < timeout:
         try:
             response = requests.get(f"{url}/health", timeout=1)
             if response.status_code == 200:
-                print(f"✓ Mock server is ready at {url}")
                 return True
         except:
             pass
@@ -58,7 +56,6 @@ def mock_server_context(port: int | None = None, verbose: bool = False):
     )
 
     # Start mock server
-    print(f"\nStarting mock server on port {port}...")
     server_process = subprocess.Popen(
         [sys.executable, "-m", "mock_server.run_server"],
         env=env,
@@ -70,26 +67,25 @@ def mock_server_context(port: int | None = None, verbose: bool = False):
         # Wait for server to be ready
         server_url = f"http://localhost:{port}"
         if not wait_for_server(server_url, timeout=30):
-            raise RuntimeError("Mock server failed to start within 30 seconds")
+            msg = "Mock server failed to start within 30 seconds"
+            raise RuntimeError(msg)
 
         yield server_url
 
     finally:
         # Stop mock server
-        print("\nStopping mock server...")
         server_process.terminate()
         try:
             server_process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             server_process.kill()
             server_process.wait()
-        print("✓ Mock server stopped")
 
 
 class MockServerManager:
     """Manager for mock server lifecycle during tests."""
 
-    def __init__(self, port: int | None = None):
+    def __init__(self, port: int | None = None) -> None:
         self.port = port or find_free_port()
         self.process = None
         self.url = f"http://localhost:{self.port}"
@@ -97,7 +93,8 @@ class MockServerManager:
     def start(self, verbose: bool = False) -> str:
         """Start the mock server."""
         if self.process:
-            raise RuntimeError("Mock server already running")
+            msg = "Mock server already running"
+            raise RuntimeError(msg)
 
         # Set environment variables
         env = os.environ.copy()
@@ -115,7 +112,6 @@ class MockServerManager:
         )
 
         # Start server
-        print(f"\nStarting mock server on port {self.port}...")
         self.process = subprocess.Popen(
             [sys.executable, "-m", "mock_server.run_server"],
             env=env,
@@ -126,23 +122,22 @@ class MockServerManager:
         # Wait for server
         if not wait_for_server(self.url, timeout=30):
             self.stop()
-            raise RuntimeError("Mock server failed to start")
+            msg = "Mock server failed to start"
+            raise RuntimeError(msg)
 
         return self.url
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the mock server."""
         if not self.process:
             return
 
-        print("\nStopping mock server...")
         self.process.terminate()
         try:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
-        print("✓ Mock server stopped")
         self.process = None
 
     def __enter__(self):

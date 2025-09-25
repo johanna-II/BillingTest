@@ -23,11 +23,11 @@ def future_deprecated(func):
 
 class TestNoContracts:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
@@ -58,7 +58,7 @@ class TestNoContracts:
             counter_volume="720",
         )
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
@@ -79,7 +79,7 @@ class TestNoContracts:
 
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 고정할인+고정할증
     @future_deprecated
-    def test_contadjTC1(self):
+    def test_contadjTC1(self) -> None:
         adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
@@ -121,7 +121,7 @@ class TestNoContracts:
 
     # 약정 없음, 프로젝트 퍼센트할인+고정할증, 빌링그룹 고정할인+고정할증
     @future_deprecated
-    def test_contadjTC2(self):
+    def test_contadjTC2(self) -> None:
         adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
@@ -168,7 +168,7 @@ class TestNoContracts:
 
     # 약정 없음, 프로젝트 고정할인+고정할증, 빌링그룹 퍼센트할인+고정할증
     @future_deprecated
-    def test_contadjTC3(self):
+    def test_contadjTC3(self) -> None:
         adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
@@ -213,7 +213,7 @@ class TestNoContracts:
 
     # 약정 없음, 프로젝트 퍼센트할인+고정할증, 빌링그룹 퍼센트할인+고정할증
     @future_deprecated
-    def test_contadjTC4(self):
+    def test_contadjTC4(self) -> None:
         adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
@@ -260,16 +260,16 @@ class TestNoContracts:
 
 class TestPeriodContract:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
@@ -290,7 +290,7 @@ class TestPeriodContract:
             )
 
     @future_deprecated
-    def test_contadjTC5(self):
+    def test_contadjTC5(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -356,7 +356,7 @@ class TestPeriodContract:
         )
 
     @future_deprecated
-    def test_contadjTC6(self):
+    def test_contadjTC6(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -404,7 +404,7 @@ class TestPeriodContract:
         )
 
     @future_deprecated
-    def test_contadjTC7(self):
+    def test_contadjTC7(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -470,7 +470,7 @@ class TestPeriodContract:
         )
 
     @future_deprecated
-    def test_contadjTC8(self):
+    def test_contadjTC8(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -520,16 +520,16 @@ class TestPeriodContract:
 
 class TestVolumeContract:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
@@ -550,7 +550,7 @@ class TestVolumeContract:
             )
 
     @future_deprecated
-    def test_contadjTC9(self):
+    def test_contadjTC9(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -597,7 +597,7 @@ class TestVolumeContract:
         )
 
     @future_deprecated
-    def test_contadjTC10(self):
+    def test_contadjTC10(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -662,7 +662,7 @@ class TestVolumeContract:
         )
 
     @future_deprecated
-    def test_contadjTC11(self):
+    def test_contadjTC11(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -709,7 +709,7 @@ class TestVolumeContract:
         )
 
     @future_deprecated
-    def test_contadjTC12(self):
+    def test_contadjTC12(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -776,17 +776,17 @@ class TestVolumeContract:
 
 class TestPartnerContract:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month):
+    def setup_class(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         # self.config.clean_data() - 더 이상 필요하지 않습니다
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         self.config = InitializeConfig(env, member, month)
         self.config.prepare()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
@@ -807,7 +807,7 @@ class TestPartnerContract:
             )
 
     @future_deprecated
-    def test_contadjTC13(self):
+    def test_contadjTC13(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -872,7 +872,7 @@ class TestPartnerContract:
         )
 
     @future_deprecated
-    def test_contadjTC14(self):
+    def test_contadjTC14(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -919,7 +919,7 @@ class TestPartnerContract:
         )
 
     @future_deprecated
-    def test_contadjTC15(self):
+    def test_contadjTC15(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)
@@ -966,7 +966,7 @@ class TestPartnerContract:
         )
 
     @future_deprecated
-    def test_contadjTC16(self):
+    def test_contadjTC16(self) -> None:
         self.contractObj.contractId = "<contractID>"
         self.contractObj.apply_contract()
         self.meteringObj = Metering(self.config.month)

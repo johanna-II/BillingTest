@@ -1,10 +1,11 @@
 """Unit tests for HTTP client module following pytest best practices."""
 
+from typing import Never
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from libs.exceptions import APIRequestException
 from libs.http_client import (
@@ -45,7 +46,7 @@ class TestBillingAPIClientUnit:
         )
 
     # Initialization tests
-    def test_init(self):
+    def test_init(self) -> None:
         """Test BillingAPIClient initialization."""
         client = BillingAPIClient("https://api.example.com", timeout=30)
 
@@ -54,14 +55,14 @@ class TestBillingAPIClientUnit:
         assert isinstance(client.retry_config, RetryConfig)
         assert not client.use_mock
 
-    def test_init_with_mock(self):
+    def test_init_with_mock(self) -> None:
         """Test initialization with mock mode."""
         client = BillingAPIClient("https://api.example.com", use_mock=True)
 
         assert client.base_url == "http://localhost:5000"
         assert client.use_mock
 
-    def test_init_with_custom_retry_config(self, retry_config):
+    def test_init_with_custom_retry_config(self, retry_config) -> None:
         """Test initialization with custom retry configuration."""
         client = BillingAPIClient("https://api.example.com", retry_config=retry_config)
 
@@ -69,7 +70,7 @@ class TestBillingAPIClientUnit:
         assert client.retry_config.total == 5
 
     # Context manager tests
-    def test_context_manager(self, mock_session):
+    def test_context_manager(self, mock_session) -> None:
         """Test context manager functionality."""
         with BillingAPIClient("https://api.example.com") as client:
             client._session = mock_session
@@ -79,7 +80,7 @@ class TestBillingAPIClientUnit:
         mock_session.close.assert_called_once()
 
     # URL building tests
-    def test_build_url(self, api_client):
+    def test_build_url(self, api_client) -> None:
         """Test URL building."""
         # Simple endpoint
         url = api_client._build_url("/api/v1/billing")
@@ -95,7 +96,7 @@ class TestBillingAPIClientUnit:
         assert "size=10" in url
 
     # Response validation tests
-    def test_validate_response_success(self, api_client):
+    def test_validate_response_success(self, api_client) -> None:
         """Test successful response validation."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -107,7 +108,7 @@ class TestBillingAPIClientUnit:
         result = api_client._validate_response(mock_response)
         assert result == mock_response.json.return_value
 
-    def test_validate_response_invalid_json(self, api_client):
+    def test_validate_response_invalid_json(self, api_client) -> None:
         """Test response validation with invalid JSON."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -120,7 +121,7 @@ class TestBillingAPIClientUnit:
         assert "Invalid JSON" in str(exc_info.value)
         assert exc_info.value.status_code == 200
 
-    def test_validate_response_http_error(self, api_client):
+    def test_validate_response_http_error(self, api_client) -> None:
         """Test response validation with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -132,7 +133,7 @@ class TestBillingAPIClientUnit:
         assert exc_info.value.status_code == 404
         assert "HTTP 404" in str(exc_info.value)
 
-    def test_validate_response_api_error(self, api_client):
+    def test_validate_response_api_error(self, api_client) -> None:
         """Test response validation with API-specific error."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -147,7 +148,9 @@ class TestBillingAPIClientUnit:
 
     # Request method tests
     @patch("libs.http_client.TelemetryManager")
-    def test_request_success(self, mock_telemetry_cls, api_client, mock_session):
+    def test_request_success(
+        self, mock_telemetry_cls, api_client, mock_session
+    ) -> None:
         """Test successful request."""
         # Setup mocks
         mock_response = Mock()
@@ -170,7 +173,7 @@ class TestBillingAPIClientUnit:
             timeout=30,
         )
 
-    def test_request_with_params(self, api_client, mock_session):
+    def test_request_with_params(self, api_client, mock_session) -> None:
         """Test request with query parameters."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -184,7 +187,7 @@ class TestBillingAPIClientUnit:
         call_args = mock_session.request.call_args
         assert call_args.kwargs["params"] == params
 
-    def test_request_with_json_data(self, api_client, mock_session):
+    def test_request_with_json_data(self, api_client, mock_session) -> None:
         """Test request with JSON data."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -198,9 +201,9 @@ class TestBillingAPIClientUnit:
         call_args = mock_session.request.call_args
         assert call_args.kwargs["json"] == json_data
 
-    def test_request_exception_handling(self, api_client, mock_session):
+    def test_request_exception_handling(self, api_client, mock_session) -> None:
         """Test request exception handling."""
-        mock_session.request.side_effect = ConnectionError("Connection failed")
+        mock_session.request.side_effect = RequestsConnectionError("Connection failed")
 
         with pytest.raises(APIRequestException) as exc_info:
             api_client.request(HTTPMethod.GET, "/test")
@@ -208,7 +211,7 @@ class TestBillingAPIClientUnit:
         assert "Request failed: Connection failed" in str(exc_info.value)
 
     # Convenience method tests
-    def test_get_method(self, api_client):
+    def test_get_method(self, api_client) -> None:
         """Test GET convenience method."""
         with patch.object(api_client, "request") as mock_request:
             mock_request.return_value = {"result": "success"}
@@ -220,7 +223,7 @@ class TestBillingAPIClientUnit:
                 HTTPMethod.GET, "/test", params={"key": "value"}
             )
 
-    def test_post_method(self, api_client):
+    def test_post_method(self, api_client) -> None:
         """Test POST convenience method."""
         with patch.object(api_client, "request") as mock_request:
             mock_request.return_value = {"result": "success"}
@@ -233,7 +236,7 @@ class TestBillingAPIClientUnit:
             )
 
     # Wait for completion tests
-    def test_wait_for_completion_success(self, api_client):
+    def test_wait_for_completion_success(self, api_client) -> None:
         """Test successful wait for completion."""
         with patch.object(api_client, "get") as mock_get:
             # First call: not complete
@@ -254,7 +257,7 @@ class TestBillingAPIClientUnit:
             assert result == {"status": "COMPLETED", "result": "success"}
             assert mock_get.call_count == 2
 
-    def test_wait_for_completion_timeout(self, api_client):
+    def test_wait_for_completion_timeout(self, api_client) -> None:
         """Test wait for completion timeout."""
         with patch.object(api_client, "get") as mock_get:
             mock_get.return_value = {"status": "PENDING"}
@@ -266,11 +269,11 @@ class TestBillingAPIClientUnit:
 
             assert "Operation timed out" in str(exc_info.value)
 
-    def test_wait_for_completion_with_callback(self, api_client):
+    def test_wait_for_completion_with_callback(self, api_client) -> None:
         """Test wait for completion with progress callback."""
         callback_calls = []
 
-        def progress_callback(response):
+        def progress_callback(response) -> None:
             callback_calls.append(response)
 
         with patch.object(api_client, "get") as mock_get:
@@ -298,16 +301,17 @@ class TestBillingAPIClientUnit:
 class TestRetryDecorator:
     """Unit tests for retry decorator."""
 
-    def test_retry_on_exception_success(self):
+    def test_retry_on_exception_success(self) -> None:
         """Test retry decorator with eventual success."""
         call_count = 0
 
         @retry_on_exception(max_retries=3, backoff_factor=0.1)
-        def flaky_function():
+        def flaky_function() -> str:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise ConnectionError("Temporary failure")
+                msg = "Temporary failure"
+                raise RequestsConnectionError(msg)
             return "success"
 
         result = flaky_function()
@@ -315,17 +319,18 @@ class TestRetryDecorator:
         assert result == "success"
         assert call_count == 2
 
-    def test_retry_on_exception_all_failures(self):
+    def test_retry_on_exception_all_failures(self) -> None:
         """Test retry decorator with all attempts failing."""
         call_count = 0
 
         @retry_on_exception(max_retries=3, backoff_factor=0.1)
-        def always_fails():
+        def always_fails() -> Never:
             nonlocal call_count
             call_count += 1
-            raise ConnectionError("Permanent failure")
+            msg = "Permanent failure"
+            raise RequestsConnectionError(msg)
 
-        with pytest.raises(ConnectionError) as exc_info:
+        with pytest.raises(RequestsConnectionError) as exc_info:
             always_fails()
 
         assert "Permanent failure" in str(exc_info.value)
@@ -336,7 +341,7 @@ class TestTelemetryManager:
     """Unit tests for TelemetryManager class."""
 
     @patch("libs.observability.get_telemetry", return_value=None)
-    def test_telemetry_disabled(self, mock_get_telemetry):
+    def test_telemetry_disabled(self, mock_get_telemetry) -> None:
         """Test telemetry when not available."""
         manager = TelemetryManager()
 
@@ -350,7 +355,7 @@ class TestTelemetryManager:
         )
 
     @patch("libs.observability.get_telemetry")
-    def test_telemetry_enabled(self, mock_get_telemetry):
+    def test_telemetry_enabled(self, mock_get_telemetry) -> None:
         """Test telemetry when available."""
         mock_telemetry = Mock()
         mock_span = Mock()

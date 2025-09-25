@@ -19,8 +19,8 @@ from libs.Payments import PaymentManager as Payments
 @pytest.mark.integration
 @pytest.mark.mock_required
 class TestUnpaidWithCredit:
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, env, member, month):
+    @pytest.fixture(autouse=True)
+    def setup(self, env, member, month) -> None:
         if member == "etc":
             pytest.skip(
                 "Credit test should be skipped if member country is not KR or JP"
@@ -46,7 +46,7 @@ class TestUnpaidWithCredit:
         self.credit.give_campaign_id = self.config.give_campaign_id
         self.credit.paid_campaign_id = self.config.paid_campaign_id
 
-    @pytest.fixture(scope="function", autouse=True)
+    @pytest.fixture(autouse=True)
     def teardown(self):
         yield
         self.send_payments_change(month=2)
@@ -65,7 +65,7 @@ class TestUnpaidWithCredit:
         contractObj = Contract(self.config.month, self.config.billing_group_id[0])
         contractObj.delete_contract()
 
-    def test_unpaid_and_credit_TC1(self):
+    def test_unpaid_and_credit_TC1(self) -> None:
         self.config.month = self.calc_prev_month(month=0)
         self.send_prev_month_metering(month=0)
         contractObj = Contract(self.config.month, self.config.billing_group_id[0])
@@ -137,7 +137,7 @@ class TestUnpaidWithCredit:
             expected_credit=1649776,
         )
 
-    def test_unpaid_and_credit_TC2(self):
+    def test_unpaid_and_credit_TC2(self) -> None:
         self.send_prev_month_metering(month=0)
         self.config.month = self.calc_prev_month(month=0)
         adjObj = AdjustmentManager(self.config.month)
@@ -218,11 +218,9 @@ class TestUnpaidWithCredit:
             if prev_month.month < 10
             else prev_month.month
         )
-        month_return = year.__str__() + "-" + month.__str__()
-        print(f"+ 전전월/전월 계산 {month_return}")
-        return month_return
+        return year.__str__() + "-" + month.__str__()
 
-    def send_prev_month_metering(self, month):
+    def send_prev_month_metering(self, month) -> None:
         month = self.calc_prev_month(month=month)
         meteringObj = Metering(month)
         meteringObj.month = self.config.month = month
@@ -254,7 +252,7 @@ class TestUnpaidWithCredit:
         calcObj = calc.Calculation(self.config.month, self.config.uuid)
         calcObj.recalculation_all()
 
-    def send_payments_change(self, month):
+    def send_payments_change(self, month) -> None:
         month = self.calc_prev_month(month=month)
         paymentsObj = Payments(month)
         paymentsObj.month = self.config.month = month
@@ -265,16 +263,16 @@ class TestUnpaidWithCredit:
         elif pgStatusCode == "REGISTERED":
             paymentsObj.change_payment(pgId)
         else:
-            print("++ 결제 상태 : READY, skipped change status")
+            pass
 
-    def send_batch_request(self, month):
+    def send_batch_request(self, month) -> None:
         month = self.calc_prev_month(month=month)
         batchObj = Batches(month)
         batchObj.month = self.config.month = month
         batchObj.batch_job_code = "CALC_LATE_FEE"
         batchObj.send_batch_request()
 
-    def clean_all_month_resources(self):
+    def clean_all_month_resources(self) -> None:
         # 모든 월 초기화 처리
         for idx in range(3):
             month = self.calc_prev_month(month=idx)
@@ -290,12 +288,9 @@ class TestUnpaidWithCredit:
         paymentsObj = Payments(cur_month)
         paymentsObj.uuid = self.config.uuid
         cur_unpaid = paymentsObj.unpaid()
-        print(
-            f"{prev_month}월 미납 금액: {prev_unpaid}, {cur_month}월 미납 금액: {cur_unpaid}"
-        )
         return prev_unpaid, cur_unpaid
 
-    def payment_prev_month(self, month):
+    def payment_prev_month(self, month) -> None:
         month = self.calc_prev_month(month=month)
         paymentsObj = Payments(month)
         paymentsObj.month = self.config.month = month
@@ -306,5 +301,5 @@ class TestUnpaidWithCredit:
         elif pgStatusCode == "REGISTERED":
             paymentsObj.change_payment(pgId)
         else:
-            print("++ 결제 상태 : READY, skipped change status")
+            pass
         paymentsObj.payment(pgId)

@@ -25,7 +25,7 @@ class TestBatchManagerUnit:
             manager._client = mock_client
             return manager
 
-    def test_request_batch_job_success(self, batch_manager, mock_client):
+    def test_request_batch_job_success(self, batch_manager, mock_client) -> None:
         """Test successful batch job request."""
         mock_response = {"batchId": "batch-123", "status": "RUNNING"}
         mock_client.post.return_value = mock_response
@@ -47,7 +47,9 @@ class TestBatchManagerUnit:
             json_data=expected_data,
         )
 
-    def test_request_batch_job_with_custom_params(self, batch_manager, mock_client):
+    def test_request_batch_job_with_custom_params(
+        self, batch_manager, mock_client
+    ) -> None:
         """Test batch job request with custom parameters."""
         mock_response = {"batchId": "batch-456"}
         mock_client.post.return_value = mock_response
@@ -68,7 +70,7 @@ class TestBatchManagerUnit:
         assert json_data["date"] == "2024-01-20T00:00:00+09:00"
         assert call_args[1]["headers"]["lang"] == "en"
 
-    def test_request_batch_job_string_code(self, batch_manager, mock_client):
+    def test_request_batch_job_string_code(self, batch_manager, mock_client) -> None:
         """Test batch job request with string job code."""
         mock_response = {"batchId": "batch-789"}
         mock_client.post.return_value = mock_response
@@ -78,23 +80,26 @@ class TestBatchManagerUnit:
 
         assert result == mock_response
 
-    def test_request_batch_job_invalid_code(self, batch_manager, mock_client):
+    def test_request_batch_job_invalid_code(self, batch_manager, mock_client) -> None:
         """Test batch job request with invalid job code."""
         with pytest.raises(ValidationException) as exc_info:
             batch_manager.request_batch_job("INVALID_JOB_CODE")
 
         assert "Invalid batch job code" in str(exc_info.value)
 
-    def test_request_batch_job_invalid_execution_day(self, batch_manager, mock_client):
+    def test_request_batch_job_invalid_execution_day(
+        self, batch_manager, mock_client
+    ) -> None:
         """Test batch job request with invalid execution day."""
         with pytest.raises(ValidationException) as exc_info:
             batch_manager.request_batch_job(
-                BatchJobCode.BATCH_CREDIT_EXPIRY, execution_day=32  # Invalid day
+                BatchJobCode.BATCH_CREDIT_EXPIRY,
+                execution_day=32,  # Invalid day
             )
 
         assert "Execution day must be between 1 and 31" in str(exc_info.value)
 
-    def test_get_batch_status(self, batch_manager):
+    def test_get_batch_status(self, batch_manager) -> None:
         """Test get_batch_status method."""
         # Check current status - returns a dictionary with status info
         status = batch_manager.get_batch_status(BatchJobCode.BATCH_CREDIT_EXPIRY)
@@ -105,7 +110,7 @@ class TestBatchManagerUnit:
         assert status["job_code"] == BatchJobCode.BATCH_CREDIT_EXPIRY
         assert status["status"] == "UNKNOWN"  # Default status
 
-    def test_request_common_batch_jobs(self, batch_manager, mock_client):
+    def test_request_common_batch_jobs(self, batch_manager, mock_client) -> None:
         """Test requesting common batch jobs."""
         # Mock successful responses for each common job
         mock_client.post.return_value = {"batchId": "batch-common", "status": "STARTED"}
@@ -125,7 +130,7 @@ class TestBatchManagerUnit:
 
     def test_request_common_batch_jobs_partial_failure(
         self, batch_manager, mock_client
-    ):
+    ) -> None:
         """Test requesting common batch jobs with partial failure."""
         # First two succeed, third fails
         mock_client.post.side_effect = [

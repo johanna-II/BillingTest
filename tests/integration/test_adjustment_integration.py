@@ -26,7 +26,9 @@ class TestAdjustmentIntegration:
         }
 
     @pytest.mark.integration
-    def test_adjustment_impact_on_billing(self, adjustment_context, test_app_keys):
+    def test_adjustment_impact_on_billing(
+        self, adjustment_context, test_app_keys
+    ) -> None:
         """Test how adjustments affect actual billing amount."""
         ctx = adjustment_context
 
@@ -72,7 +74,9 @@ class TestAdjustmentIntegration:
             assert adjusted_amount == 0
 
     @pytest.mark.integration
-    def test_percentage_adjustment_calculation(self, adjustment_context, test_app_keys):
+    def test_percentage_adjustment_calculation(
+        self, adjustment_context, test_app_keys
+    ) -> None:
         """Test percentage-based adjustments."""
         ctx = adjustment_context
 
@@ -92,7 +96,7 @@ class TestAdjustmentIntegration:
 
         # 3. Apply 15% discount
         discount_rate = 15.0
-        adj_result = ctx["adjustment"].apply_adjustment(
+        ctx["adjustment"].apply_adjustment(
             adjustment_amount=discount_rate,
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_target=AdjustmentTarget.BILLING_GROUP,
@@ -112,7 +116,9 @@ class TestAdjustmentIntegration:
         assert abs(discounted_amount - expected_amount) < 1
 
     @pytest.mark.integration
-    def test_multiple_adjustments_stacking(self, adjustment_context, test_app_keys):
+    def test_multiple_adjustments_stacking(
+        self, adjustment_context, test_app_keys
+    ) -> None:
         """Test multiple adjustments applied together."""
         ctx = adjustment_context
 
@@ -161,7 +167,9 @@ class TestAdjustmentIntegration:
         assert final_amount >= 0
 
     @pytest.mark.integration
-    def test_adjustment_deletion_effect(self, adjustment_context, test_app_keys):
+    def test_adjustment_deletion_effect(
+        self, adjustment_context, test_app_keys
+    ) -> None:
         """Test effect of deleting adjustments."""
         ctx = adjustment_context
 
@@ -207,7 +215,7 @@ class TestAdjustmentIntegration:
 
     @pytest.mark.integration
     @pytest.mark.slow
-    def test_adjustment_pagination(self, adjustment_context):
+    def test_adjustment_pagination(self, adjustment_context) -> None:
         """Test adjustment pagination with many adjustments."""
         ctx = adjustment_context
 
@@ -219,7 +227,7 @@ class TestAdjustmentIntegration:
                 adjustment_type=AdjustmentType.FIXED_DISCOUNT,
                 adjustment_target=AdjustmentTarget.BILLING_GROUP,
                 target_id=ctx["billing_group"],
-                description=f"Pagination test adjustment {i+1}",
+                description=f"Pagination test adjustment {i + 1}",
             )
 
         # 2. Retrieve all adjustments (should handle pagination)

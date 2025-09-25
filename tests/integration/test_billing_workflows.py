@@ -53,7 +53,7 @@ class TestBillingWorkflows:
             "credit": CreditManager(uuid=f"uuid-{member}-001"),
         }
 
-    def test_standard_billing_cycle(self, managers):
+    def test_standard_billing_cycle(self, managers) -> None:
         """Test standard monthly billing cycle."""
         # 1. Apply contract at the beginning of month
         contract_result = managers["contract"].apply_contract(
@@ -98,7 +98,7 @@ class TestBillingWorkflows:
         unpaid_amount = managers["payment"].check_unpaid_amount(payment_id)
         assert unpaid_amount > 0
 
-    def test_billing_with_adjustments(self, managers):
+    def test_billing_with_adjustments(self, managers) -> None:
         """Test billing with various adjustments."""
         # 1. Setup base billing (contract + metering)
         self._setup_base_billing(managers)
@@ -139,7 +139,7 @@ class TestBillingWorkflows:
         # Amount should be reduced due to discounts
         assert final_amount >= 0
 
-    def test_billing_with_credits(self, managers):
+    def test_billing_with_credits(self, managers) -> None:
         """Test billing with credit application."""
         # 1. Setup base billing
         self._setup_base_billing(managers)
@@ -154,7 +154,7 @@ class TestBillingWorkflows:
         assert credit_result["success_count"] == 1
 
         # 3. Use coupon
-        coupon_result = managers["credit"].use_coupon(coupon_code="WELCOME2024")
+        managers["credit"].use_coupon(coupon_code="WELCOME2024")
         # Coupon might not exist in test env, so we check if it tried
 
         # 4. Calculate with credits
@@ -166,13 +166,13 @@ class TestBillingWorkflows:
         assert balance >= 0
 
         # 6. Verify credit was applied to payment
-        payment_id, status = managers["payment"].get_payment_status()
+        payment_id, _status = managers["payment"].get_payment_status()
         if balance > 0:
             # If there's credit, payment might be fully covered
             unpaid = managers["payment"].check_unpaid_amount(payment_id)
             assert unpaid >= 0
 
-    def test_batch_operations(self, managers):
+    def test_batch_operations(self, managers) -> None:
         """Test batch job operations."""
         # 1. Request credit expiry batch
         batch_result = managers["batch"].request_batch_job(
@@ -182,7 +182,8 @@ class TestBillingWorkflows:
 
         # 2. Request statement generation
         statement_result = managers["batch"].request_batch_job(
-            BatchJobCode.BATCH_GENERATE_STATEMENT, execution_day=1  # First day of month
+            BatchJobCode.BATCH_GENERATE_STATEMENT,
+            execution_day=1,  # First day of month
         )
         assert "batchId" in statement_result
 
@@ -191,15 +192,10 @@ class TestBillingWorkflows:
         assert status["status"] in ["PENDING", "RUNNING", "COMPLETED", "UNKNOWN"]
 
         # 4. Request common batch jobs
-        common_jobs = [
-            BatchJobCode.BATCH_CREDIT_EXPIRY,
-            BatchJobCode.BATCH_GENERATE_STATEMENT,
-            BatchJobCode.BATCH_PAYMENT_REMINDER,
-        ]
         results = managers["batch"].request_common_batch_jobs()
         assert len(results) == 3
 
-    def test_end_to_end_monthly_billing(self, managers):
+    def test_end_to_end_monthly_billing(self, managers) -> None:
         """Test complete monthly billing process."""
         # 1. Start of month - Apply contracts
         contracts = ["basic-001", "volume-002", "partner-003"]
@@ -211,7 +207,7 @@ class TestBillingWorkflows:
 
         # 2. Throughout month - Collect metering data
         # Simulate daily metering for 30 days
-        for day in range(1, 31):
+        for _day in range(1, 31):
             for app_key in ["app-001", "app-002"]:
                 managers["metering"].send_metering(
                     app_key=app_key,
@@ -232,8 +228,9 @@ class TestBillingWorkflows:
         )
 
         # 4. Calculate final billing
-        calc_result = managers["calculation"].recalculate_all(
-            include_usage=True, timeout=600  # Longer timeout for full calculation
+        managers["calculation"].recalculate_all(
+            include_usage=True,
+            timeout=600,  # Longer timeout for full calculation
         )
 
         # 5. Generate statement (batch job)
@@ -245,9 +242,7 @@ class TestBillingWorkflows:
 
         # 7. Process payment if needed
         if status == PaymentStatus.PENDING:
-            payment_result = managers["payment"].make_payment(
-                payment_group_id=payment_id
-            )
+            managers["payment"].make_payment(payment_group_id=payment_id)
             # In test env, might not actually process
 
         # 8. Verify billing cycle completed
@@ -258,7 +253,7 @@ class TestBillingWorkflows:
             PaymentStatus.REGISTERED,
         ]
 
-    def test_error_recovery_workflow(self, managers):
+    def test_error_recovery_workflow(self, managers) -> None:
         """Test error handling and recovery in billing workflow."""
         try:
             # 1. Try invalid contract
@@ -289,12 +284,12 @@ class TestBillingWorkflows:
             calc_result = managers["calculation"].recalculate_all()
             assert calc_result is not None
 
-        except Exception as e:
+        except Exception:
             # Log error but don't fail test
             # In integration tests, we want to see how system handles errors
-            print(f"Error during recovery test: {e}")
+            pass
 
-    def test_concurrent_operations(self, managers):
+    def test_concurrent_operations(self, managers) -> None:
         """Test concurrent billing operations."""
         import concurrent.futures
 
@@ -312,7 +307,9 @@ class TestBillingWorkflows:
             futures = []
             for i in range(10):
                 future = executor.submit(
-                    send_meter_data, f"app-{i % 3}", i * 10  # 3 different apps
+                    send_meter_data,
+                    f"app-{i % 3}",
+                    i * 10,  # 3 different apps
                 )
                 futures.append(future)
 
@@ -323,7 +320,7 @@ class TestBillingWorkflows:
         success_count = sum(1 for r in results if r.get("status") == "SUCCESS")
         assert success_count >= 8  # Allow some failures in concurrent scenario
 
-    def _setup_base_billing(self, managers):
+    def _setup_base_billing(self, managers) -> None:
         """Helper to setup basic billing scenario."""
         # Apply contract
         managers["contract"].apply_contract(

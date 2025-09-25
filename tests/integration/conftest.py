@@ -96,14 +96,14 @@ def clean_test_data(api_client):
     _cleanup_test_data(api_client)
 
 
-def _cleanup_test_data(client):
+def _cleanup_test_data(client) -> None:
     """Helper to clean test data."""
     # This would call appropriate cleanup endpoints
     # For now, it's a placeholder
 
 
 @pytest.fixture(scope="class")
-def test_billing_group():
+def test_billing_group() -> str:
     """Test billing group ID - unique per test worker in parallel mode."""
     # Include worker ID for parallel test isolation
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
@@ -127,7 +127,7 @@ def test_app_keys():
 def wait_for_calculation():
     """Helper fixture to wait for calculations to complete."""
 
-    def _wait(timeout=60):
+    def _wait(timeout=60) -> None:
         """Wait for calculation to complete."""
         time.sleep(2)  # Simple wait for now
         # In real implementation, would poll calculation status
@@ -136,7 +136,7 @@ def wait_for_calculation():
 
 
 # Markers for integration tests
-def pytest_configure(config):
+def pytest_configure(config) -> None:
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "integration: mark test as integration test")
     config.addinivalue_line("markers", "slow: mark test as slow running")

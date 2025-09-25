@@ -19,12 +19,12 @@ class TestSecurityVulnerabilities:
         return BillingAPIClient(mock_url)
 
     @pytest.fixture
-    def test_uuid(self):
+    def test_uuid(self) -> str:
         """Generate test UUID."""
         return f"SEC_TEST_{uuid.uuid4().hex[:8]}"
 
     @pytest.mark.security
-    def test_sql_injection_prevention(self, api_client, test_uuid):
+    def test_sql_injection_prevention(self, api_client, test_uuid) -> None:
         """Test that SQL injection attempts are properly handled."""
         malicious_inputs = [
             "'; DROP TABLE users; --",
@@ -47,9 +47,7 @@ class TestSecurityVulnerabilities:
             }
 
             try:
-                response = api_client.post(
-                    "/billing/meters", headers=headers, json_data=data
-                )
+                api_client.post("/billing/meters", headers=headers, json_data=data)
                 # Should either succeed normally or return validation error
                 # but should NOT cause system error
             except APIRequestException as e:
@@ -59,7 +57,7 @@ class TestSecurityVulnerabilities:
                 ), f"SQL injection caused server error: {e}"
 
     @pytest.mark.security
-    def test_xss_prevention(self, api_client, test_uuid):
+    def test_xss_prevention(self, api_client, test_uuid) -> None:
         """Test that XSS attempts are properly sanitized."""
         xss_payloads = [
             "<script>alert('XSS')</script>",
@@ -95,7 +93,7 @@ class TestSecurityVulnerabilities:
                 pass
 
     @pytest.mark.security
-    def test_authentication_bypass_attempts(self, api_client):
+    def test_authentication_bypass_attempts(self, api_client) -> None:
         """Test that authentication bypass attempts fail."""
         bypass_attempts = [
             {"uuid": ""},  # Empty UUID
@@ -121,14 +119,14 @@ class TestSecurityVulnerabilities:
                 pass
 
     @pytest.mark.security
-    def test_rate_limiting(self, api_client, test_uuid):
+    def test_rate_limiting(self, api_client, test_uuid) -> None:
         """Test that rate limiting is in place."""
         headers = {"uuid": test_uuid}
         data = {"counterName": "rate.test", "counterVolume": 1}
 
         # Make 100 rapid requests
         error_count = 0
-        for i in range(100):
+        for _i in range(100):
             try:
                 api_client.post("/billing/meters", headers=headers, json_data=data)
             except APIRequestException as e:
@@ -142,7 +140,7 @@ class TestSecurityVulnerabilities:
             pytest.skip("Rate limiting not implemented - security risk")
 
     @pytest.mark.security
-    def test_path_traversal_prevention(self, api_client, test_uuid):
+    def test_path_traversal_prevention(self, api_client, test_uuid) -> None:
         """Test that path traversal attempts are blocked."""
         traversal_attempts = [
             "../../../etc/passwd",
@@ -173,7 +171,7 @@ class TestSecurityVulnerabilities:
                 pass  # Rejection is good
 
     @pytest.mark.security
-    def test_command_injection_prevention(self, api_client, test_uuid):
+    def test_command_injection_prevention(self, api_client, test_uuid) -> None:
         """Test that command injection attempts are blocked."""
         command_payloads = [
             "; cat /etc/passwd",
@@ -199,7 +197,7 @@ class TestSecurityVulnerabilities:
                 assert 400 <= e.status_code < 500
 
     @pytest.mark.security
-    def test_sensitive_data_exposure(self, api_client, test_uuid):
+    def test_sensitive_data_exposure(self, api_client, test_uuid) -> None:
         """Test that sensitive data is not exposed in responses."""
         headers = {"uuid": test_uuid}
 
@@ -238,7 +236,7 @@ class TestSecurityVulnerabilities:
                 pass  # API errors are ok for this test
 
     @pytest.mark.security
-    def test_input_validation_boundaries(self, api_client, test_uuid):
+    def test_input_validation_boundaries(self, api_client, test_uuid) -> None:
         """Test input validation for boundary conditions."""
         headers = {"uuid": test_uuid}
 
@@ -286,7 +284,7 @@ class TestSecurityVulnerabilities:
                 ), f"Invalid input caused server error: {test_data}"
 
     @pytest.mark.security
-    def test_http_header_injection(self, api_client, test_uuid):
+    def test_http_header_injection(self, api_client, test_uuid) -> None:
         """Test that HTTP header injection is prevented."""
         injection_headers = {
             "uuid": f"{test_uuid}\r\nX-Injected: true",
@@ -303,7 +301,7 @@ class TestSecurityVulnerabilities:
             pass
 
     @pytest.mark.security
-    def test_xml_external_entity_prevention(self, api_client, test_uuid):
+    def test_xml_external_entity_prevention(self, api_client, test_uuid) -> None:
         """Test that XXE attacks are prevented."""
         xxe_payload = """<?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE foo [
@@ -331,7 +329,7 @@ class TestSecurityVulnerabilities:
             pass
 
     @pytest.mark.security
-    def test_insecure_deserialization_prevention(self, api_client, test_uuid):
+    def test_insecure_deserialization_prevention(self, api_client, test_uuid) -> None:
         """Test that insecure deserialization is prevented."""
         import base64
         import pickle

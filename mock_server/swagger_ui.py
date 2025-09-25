@@ -31,12 +31,12 @@ SWAGGER_UI_TEMPLATE = """
     <script>
         window.onload = function() {
             const spec = {{ spec|tojson }};
-            
+
             // Update server URL to current host
             if (spec.servers && spec.servers.length > 0) {
                 spec.servers[0].url = window.location.origin + '/api/v1';
             }
-            
+
             window.ui = SwaggerUIBundle({
                 spec: spec,
                 dom_id: '#swagger-ui',
@@ -93,9 +93,7 @@ def openapi_json():
         return {"error": "OpenAPI specification not found"}, 404
 
     with open(spec_path, encoding="utf-8") as f:
-        spec = yaml.safe_load(f)
-
-    return spec
+        return yaml.safe_load(f)
 
 
 @swagger_bp.route("/openapi.yaml")

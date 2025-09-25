@@ -338,7 +338,7 @@ class ConfigurationManager:
             and not config.campaign_id
         ) or (
             isinstance(bg_id, list)
-            and any(id.startswith("test_") for id in bg_id)
+            and any(bg_item.startswith("test_") for bg_item in bg_id)
             and not config.campaign_id
         ):
             logger.warning("Test billing group detected but no campaign IDs configured")
@@ -581,9 +581,9 @@ class InitializeConfig:
             payments: Payment amount
             expected_result: Expected result
         """
-        assert (
-            statements == expected_result
-        ), f"Expected {expected_result}, got {statements}"
+        if statements != expected_result:
+            msg = f"Expected {expected_result}, got {statements}"
+            raise ValueError(msg)
 
     def __repr__(self) -> str:
         return (

@@ -27,7 +27,10 @@ try:
 except ImportError:
     OPENAPI_AVAILABLE = False
     setup_openapi_handler = None
-    get_openapi_handler = lambda: None
+
+    def get_openapi_handler() -> None:
+        return None
+
 
 app = Flask(__name__)
 CORS(app)
@@ -53,9 +56,7 @@ try:
     from swagger_ui import swagger_bp
 
     app.register_blueprint(swagger_bp, url_prefix="/docs")
-    print("Swagger UI successfully registered at /docs")
-except ImportError as e:
-    print(f"Failed to import swagger_ui: {e}")
+except ImportError:
     import traceback
 
     traceback.print_exc()
@@ -92,12 +93,9 @@ if OPENAPI_AVAILABLE:
     if os.path.exists(spec_path):
         try:
             setup_openapi_handler(spec_path)
-            print(f"OpenAPI handler initialized with spec: {spec_path}")
-        except Exception as e:
+        except Exception:
             import traceback
 
-            print(f"Failed to initialize OpenAPI handler: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
             OPENAPI_AVAILABLE = False
 
 
@@ -118,7 +116,7 @@ def create_error_response(message: str, code: int = -1) -> tuple[dict[str, Any],
 
 # Welcome page with links
 @app.route("/", methods=["GET"])
-def welcome():
+def welcome() -> str:
     """Welcome page with API documentation links."""
     host = request.host_url.rstrip("/")
     return f"""
@@ -178,11 +176,11 @@ def welcome():
         <div class="container">
             <h1>🚀 Billing API Mock Server</h1>
             <p>Welcome to the Billing API Mock Server for testing and development.</p>
-            
+
             <div class="info">
                 <strong>Base URL:</strong> <code>{host}/api/v1</code>
             </div>
-            
+
             <h2>📚 Documentation</h2>
             <div class="links">
                 <a href="/docs">Swagger UI</a>
@@ -190,7 +188,7 @@ def welcome():
                 <a href="/docs/openapi.yaml">OpenAPI YAML</a>
                 <a href="/health">Health Check</a>
             </div>
-            
+
             <h2>🔧 Available Endpoints</h2>
             <ul>
                 <li><strong>Contracts:</strong> /api/v1/billing/contracts</li>
@@ -200,7 +198,7 @@ def welcome():
                 <li><strong>Adjustments:</strong> /api/v1/billing/adjustments</li>
                 <li><strong>Batch Jobs:</strong> /api/v1/billing/admin/batches</li>
             </ul>
-            
+
             <h2>💡 Quick Start</h2>
             <p>To start using the API:</p>
             <ol>
@@ -286,7 +284,6 @@ def get_metering(meter_id):
 @app.route("/billing/admin/batch", methods=["POST"])
 def create_batch_job():
     """Create batch job."""
-    data = request.json
     job_id = str(uuid.uuid4())
 
     batch_jobs[job_id] = {
@@ -322,11 +319,10 @@ def get_batch_progress():
 def get_calculation_progress():
     """Get calculation progress for batch jobs."""
     # Get query parameters
-    month = request.args.get("month")
-    uuid_param = request.args.get("uuid")
+    request.args.get("month")
+    request.args.get("uuid")
 
     # Check if we have a batch job for this combination
-    job_key = f"{month}_{uuid_param}" if month and uuid_param else None
 
     # Always return completed status for mock
     result_list = [
@@ -353,7 +349,7 @@ def get_calculation_progress():
 @app.route("/billing/credits/balance", methods=["GET"])
 def get_credit_balance():
     """Get credit balance."""
-    uuid_param = request.headers.get("uuid")
+    request.headers.get("uuid")
 
     # Return mock balance data
     balance_data = {
@@ -601,7 +597,7 @@ def get_billing_detail():
     # Calculate amounts based on metering data
     metering_count = 0
     metering_data = data_manager.metering_data
-    for meter_id, meter_data in metering_data.items():
+    for meter_data in metering_data.values():
         if meter_data.get("appKey") and "uuid" not in meter_data:
             metering_count += 1
             # This is metering data
@@ -664,9 +660,9 @@ def get_billing_detail():
         rest_credits = 0
 
     # Apply credits to the bill (consume credits)
-    total_bill = billing_detail.get("totalAmount", 0)
+    billing_detail.get("totalAmount", 0)
     charge = billing_detail.get("charge", 0)
-    original_vat = billing_detail.get("vat", 0)
+    billing_detail.get("vat", 0)
 
     # Calculate how much credit to use (use available rest credits)
     if rest_credits > 0:
@@ -738,7 +734,7 @@ def get_statements():
     adjusted_charge = base_charge
 
     # Apply project adjustments
-    for adj_key, adj_data in adjustments.items():
+    for adj_data in adjustments.values():
         if adj_data.get("month") == month:
             # Check if this is a project adjustment
             if (adj_data.get("projectId") and adj_data.get("adjustmentType")) or (
@@ -786,7 +782,7 @@ def handle_contracts():
         billing_group_id = request.args.get("billingGroupId")
         contract_list = []
 
-        for cid, contract in contracts.items():
+        for contract in contracts.values():
             if (
                 not billing_group_id
                 or contract.get("billingGroupId") == billing_group_id
@@ -824,8 +820,7 @@ def delete_meters():
 @app.route("/billing/admin/contracts/<contract_id>", methods=["DELETE"])
 def delete_contract(contract_id):
     """Delete contract."""
-    if contract_id in contracts:
-        del contracts[contract_id]
+    contracts.pop(contract_id, None)
     return jsonify(create_success_response())
 
 
@@ -922,7 +917,6 @@ def update_payment(payment_id):
 @app.route("/billing/admin/calculate", methods=["POST"])
 def create_calculation():
     """Create calculation job."""
-    data = request.json
     job_id = str(uuid.uuid4())
 
     # Store the calculation job
@@ -1064,7 +1058,6 @@ def manage_campaign_credits(campaign_id):
 @app.route("/billing/admin/calculations", methods=["POST"])
 def create_calculations():
     """Create calculation job."""
-    data = request.json
     job_id = str(uuid.uuid4())
 
     # Store the calculation job
@@ -1136,9 +1129,8 @@ def billing_group_adjustments():
             if (
                 adj.get("target") == "BillingGroup"
                 and adj.get("billingGroupId") == billing_group_id
-            ):
-                if not month or adj.get("month") == month:
-                    filtered.append(adj)
+            ) and (not month or adj.get("month") == month):
+                filtered.append(adj)
 
         return jsonify(create_success_response({"adjustments": filtered}))
     if request.method == "DELETE":

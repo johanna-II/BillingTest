@@ -24,18 +24,18 @@ def mock_server_context():
 
     # Wait for server to start
     max_retries = 30
-    for i in range(max_retries):
+    for _i in range(max_retries):
         try:
             mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
             response = requests.get(f"{mock_url}/health")
             if response.status_code == 200:
-                print("Mock server is ready!")
                 break
         except requests.ConnectionError:
             time.sleep(1)
     else:
         server_process.terminate()
-        raise RuntimeError("Mock server failed to start")
+        msg = "Mock server failed to start"
+        raise RuntimeError(msg)
 
     try:
         yield

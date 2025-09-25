@@ -23,7 +23,7 @@ class TestPaymentAPIClient:
         """Create PaymentAPIClient instance."""
         return PaymentAPIClient("http://test.com")
 
-    def test_get_statements_admin(self, client, mock_response):
+    def test_get_statements_admin(self, client, mock_response) -> None:
         """Test get_statements_admin method."""
         with patch.object(client, "get", return_value={"statements": []}) as mock_get:
             result = client.get_statements_admin("2024-01", "test-uuid")
@@ -34,7 +34,7 @@ class TestPaymentAPIClient:
                 params={"uuid": "test-uuid", "month": "2024-01"},
             )
 
-    def test_get_statements_console(self, client, mock_response):
+    def test_get_statements_console(self, client, mock_response) -> None:
         """Test get_statements_console method."""
         with patch.object(client, "get", return_value={"statements": []}) as mock_get:
             result = client.get_statements_console("2024-01", "test-uuid")
@@ -45,7 +45,7 @@ class TestPaymentAPIClient:
                 params={"uuid": "test-uuid", "month": "2024-01"},
             )
 
-    def test_change_status(self, client, mock_response):
+    def test_change_status(self, client, mock_response) -> None:
         """Test change_status method."""
         with patch.object(
             client, "put", return_value={"status": "changed"}
@@ -58,7 +58,7 @@ class TestPaymentAPIClient:
                 json={"month": "2024-01", "status": "PAID"},
             )
 
-    def test_cancel_payment(self, client, mock_response):
+    def test_cancel_payment(self, client, mock_response) -> None:
         """Test cancel_payment method."""
         with patch.object(
             client, "delete", return_value={"status": "cancelled"}
@@ -70,7 +70,7 @@ class TestPaymentAPIClient:
                 "billing/payment/pg-123", params={"month": "2024-01"}
             )
 
-    def test_make_payment(self, client, mock_response):
+    def test_make_payment(self, client, mock_response) -> None:
         """Test make_payment method."""
         with patch.object(
             client, "post", return_value={"paymentId": "pay-123"}
@@ -87,7 +87,7 @@ class TestPaymentAPIClient:
                 },
             )
 
-    def test_get_unpaid_statements(self, client, mock_response):
+    def test_get_unpaid_statements(self, client, mock_response) -> None:
         """Test get_unpaid_statements method."""
         with patch.object(client, "get", return_value={"statements": []}) as mock_get:
             result = client.get_unpaid_statements("2024-01", "test-uuid")
@@ -97,7 +97,7 @@ class TestPaymentAPIClient:
                 "billing/unpaid", params={"month": "2024-01", "uuid": "test-uuid"}
             )
 
-    def test_create_payment(self, client, mock_response):
+    def test_create_payment(self, client, mock_response) -> None:
         """Test create_payment method."""
         with patch.object(
             client, "post", return_value={"paymentId": "new-123"}
@@ -114,7 +114,7 @@ class TestPaymentAPIClient:
                 },
             )
 
-    def test_get_payment_details(self, client, mock_response):
+    def test_get_payment_details(self, client, mock_response) -> None:
         """Test get_payment_details method."""
         with patch.object(
             client, "get", return_value={"paymentId": "pay-123"}
@@ -124,7 +124,7 @@ class TestPaymentAPIClient:
             assert result == {"paymentId": "pay-123"}
             mock_get.assert_called_once_with("billing/payment/pay-123")
 
-    def test_process_refund(self, client, mock_response):
+    def test_process_refund(self, client, mock_response) -> None:
         """Test process_refund method."""
         with patch.object(
             client, "post", return_value={"refundId": "ref-123"}
@@ -141,7 +141,7 @@ class TestPaymentAPIClient:
                 },
             )
 
-    def test_get_payment_history(self, client, mock_response):
+    def test_get_payment_history(self, client, mock_response) -> None:
         """Test get_payment_history method."""
         with patch.object(
             client, "get", return_value={"payments": [{"id": "pay-1"}]}
@@ -162,7 +162,7 @@ class TestPaymentAPIClient:
                 },
             )
 
-    def test_retry_payment(self, client, mock_response):
+    def test_retry_payment(self, client, mock_response) -> None:
         """Test retry_payment method."""
         with patch.object(
             client, "post", return_value={"status": "retried"}
@@ -174,7 +174,7 @@ class TestPaymentAPIClient:
                 "billing/payment/pay-123/retry", json={"retryCount": 2}
             )
 
-    def test_batch_process_payments(self, client, mock_response):
+    def test_batch_process_payments(self, client, mock_response) -> None:
         """Test batch_process_payments method."""
         with patch.object(client, "post", return_value={"processed": 3}) as mock_post:
             result = client.batch_process_payments(

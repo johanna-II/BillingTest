@@ -63,8 +63,7 @@ def main():
     )
 
     # Run tests with mock server
-    with mock_server_context() as mock_url:
-        print(f"Mock server available at: {mock_url}")
+    with mock_server_context():
         return runner.run_command(cmd)
 
 

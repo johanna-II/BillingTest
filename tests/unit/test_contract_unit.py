@@ -8,7 +8,7 @@ from libs.Contract import ContractManager
 
 
 class TestContractManagerUnit:
-    """Unit tests for ContractManager class"""
+    """Unit tests for ContractManager class."""
 
     @pytest.fixture
     def mock_client(self):
@@ -25,7 +25,7 @@ class TestContractManagerUnit:
             manager._client = mock_client
             return manager
 
-    def test_apply_contract_success(self, contract_manager, mock_client):
+    def test_apply_contract_success(self, contract_manager, mock_client) -> None:
         """Test successful contract application."""
         mock_response = {
             "status": "SUCCESS",
@@ -54,7 +54,7 @@ class TestContractManagerUnit:
             json_data=expected_data,
         )
 
-    def test_apply_contract_not_default(self, contract_manager, mock_client):
+    def test_apply_contract_not_default(self, contract_manager, mock_client) -> None:
         """Test applying non-default contract."""
         mock_response = {"status": "SUCCESS"}
         mock_client.put.return_value = mock_response
@@ -69,7 +69,7 @@ class TestContractManagerUnit:
         call_args = mock_client.put.call_args
         assert call_args[1]["json_data"]["defaultYn"] == "N"
 
-    def test_apply_contract_default_name(self, contract_manager, mock_client):
+    def test_apply_contract_default_name(self, contract_manager, mock_client) -> None:
         """Test applying contract with default name."""
         mock_response = {"status": "SUCCESS"}
         mock_client.put.return_value = mock_response
@@ -82,7 +82,7 @@ class TestContractManagerUnit:
         call_args = mock_client.put.call_args
         assert call_args[1]["json_data"]["name"] == "billing group default"
 
-    def test_delete_contract_success(self, contract_manager, mock_client):
+    def test_delete_contract_success(self, contract_manager, mock_client) -> None:
         """Test successful contract deletion."""
         mock_response = {"status": "DELETED"}
         mock_client.delete.return_value = mock_response
@@ -103,7 +103,7 @@ class TestContractEdgeCases:
     """Test edge cases and boundary conditions."""
 
     @patch("libs.Contract.BillingAPIClient")
-    def test_empty_billing_group_id(self, mock_client_class):
+    def test_empty_billing_group_id(self, mock_client_class) -> None:
         """Test with empty billing group ID."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
@@ -113,7 +113,7 @@ class TestContractEdgeCases:
         assert manager.billing_group_id == ""
 
     @patch("libs.Contract.BillingAPIClient")
-    def test_long_contract_name(self, mock_client_class):
+    def test_long_contract_name(self, mock_client_class) -> None:
         """Test with very long contract name."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
@@ -132,7 +132,7 @@ class TestContractEdgeCases:
         assert call_args[1]["json_data"]["name"] == long_name
 
     @patch("libs.Contract.BillingAPIClient")
-    def test_special_characters_in_ids(self, mock_client_class):
+    def test_special_characters_in_ids(self, mock_client_class) -> None:
         """Test with special characters in IDs."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client

@@ -15,12 +15,12 @@ class TestOpenAPIIntegration:
     """Test OpenAPI specification integration."""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self) -> None:
         """Set up test environment."""
         self.base_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
         self.api_base = f"{self.base_url}/api/v1"
 
-    def test_openapi_spec_available(self):
+    def test_openapi_spec_available(self) -> None:
         """Test that OpenAPI spec is available."""
         # Test JSON format
         response = requests.get(f"{self.base_url}/openapi.json")
@@ -38,7 +38,7 @@ class TestOpenAPIIntegration:
         spec_yaml = yaml.safe_load(response.text)
         assert "openapi" in spec_yaml
 
-    def test_validate_valid_request(self):
+    def test_validate_valid_request(self) -> None:
         """Test request validation with valid data."""
         validation_request = {
             "method": "POST",
@@ -56,13 +56,13 @@ class TestOpenAPIIntegration:
         )
 
         if response.status_code != 200:
-            print(f"Validation failed: {response.json()}")
+            pass
 
         assert response.status_code == 200
         data = response.json()
         assert data["valid"] is True
 
-    def test_validate_invalid_request(self):
+    def test_validate_invalid_request(self) -> None:
         """Test request validation with invalid data."""
         # Missing required field
         validation_request = {
@@ -94,7 +94,7 @@ class TestOpenAPIIntegration:
         data = response.json()
         assert data["valid"] is False
 
-    def test_generate_response_from_spec(self):
+    def test_generate_response_from_spec(self) -> None:
         """Test response generation from OpenAPI spec."""
         # Test contract endpoint
         response = requests.get(f"{self.api_base}/contracts/999")
@@ -109,7 +109,7 @@ class TestOpenAPIIntegration:
             assert "customer" in data
             assert "items" in data
 
-    def test_undefined_endpoint_with_openapi(self):
+    def test_undefined_endpoint_with_openapi(self) -> None:
         """Test that undefined endpoints use OpenAPI handler."""
         # This endpoint is not explicitly defined in the mock server
         # but should be handled by OpenAPI catch-all
@@ -120,7 +120,7 @@ class TestOpenAPIIntegration:
         assert "error" in data
         assert data["error"] == "NOT_FOUND"
 
-    def test_credit_creation_matches_spec(self):
+    def test_credit_creation_matches_spec(self) -> None:
         """Test that credit creation follows OpenAPI spec."""
         credit_data = {
             "customer_id": "CUST001",
@@ -146,7 +146,7 @@ class TestOpenAPIIntegration:
         assert data["status"] in ["PENDING", "APPROVED", "REJECTED"]
         assert "created_at" in data
 
-    def test_metering_query_parameters(self):
+    def test_metering_query_parameters(self) -> None:
         """Test metering endpoint with query parameters."""
         params = {"project_id": "PROJ001", "month": "2025-01"}
 
@@ -165,7 +165,7 @@ class TestOpenAPIIntegration:
         assert isinstance(data["usage"], list)
         assert "total_cost" in data
 
-    def test_payment_update_patch(self):
+    def test_payment_update_patch(self) -> None:
         """Test payment status update with PATCH."""
         payment_update = {
             "status": "COMPLETED",
@@ -190,7 +190,7 @@ class TestOpenAPIIntegration:
         assert "currency" in data
         assert "updated_at" in data
 
-    def test_batch_job_creation(self):
+    def test_batch_job_creation(self) -> None:
         """Test batch job creation endpoint."""
         batch_request = {
             "job_type": "BILLING_CALCULATION",
@@ -208,7 +208,7 @@ class TestOpenAPIIntegration:
             assert data["status"] in ["QUEUED", "RUNNING", "COMPLETED", "FAILED"]
             assert "created_at" in data
 
-    def test_schema_validation_types(self):
+    def test_schema_validation_types(self) -> None:
         """Test various schema validation scenarios."""
         test_cases = [
             {
@@ -270,7 +270,7 @@ class TestOpenAPICompliance:
     """Test that mock server responses comply with OpenAPI spec."""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self) -> None:
         """Set up test environment."""
         self.base_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
         self.api_base = f"{self.base_url}/api/v1"
@@ -283,7 +283,7 @@ class TestOpenAPICompliance:
         # In production, you'd use openapi-core validators
         return True
 
-    def test_all_defined_endpoints_accessible(self):
+    def test_all_defined_endpoints_accessible(self) -> None:
         """Test that all endpoints defined in OpenAPI are accessible."""
         response = requests.get(f"{self.base_url}/openapi.json")
         spec = response.json()
