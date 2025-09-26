@@ -1,16 +1,15 @@
 # Check if mock mode is enabled
-try:
-    from .mock_config import USE_MOCK_SERVER
+import os
 
-    if USE_MOCK_SERVER:
-        from .mock_config import BASE_BILLING_URL, BASE_CAP_URL, BASE_METERING_URL
-    else:
-        # Default production URLs
-        BASE_BILLING_URL = "https://billingtest.internal.com"
-        BASE_METERING_URL = "https://meteringtest.internal.com"
-        BASE_CAP_URL = "https://cabtest.internal.com"
-except ImportError:
-    # Fallback to production URLs if mock_config is not available
+USE_MOCK_SERVER = os.environ.get("USE_MOCK_SERVER", "false").lower() == "true"
+
+if USE_MOCK_SERVER:
+    # Use mock server URLs
+    BASE_BILLING_URL = "http://localhost:5000"
+    BASE_METERING_URL = "http://localhost:5000"
+    BASE_CAP_URL = "http://localhost:5000"
+else:
+    # Default production URLs
     BASE_BILLING_URL = "https://billingtest.internal.com"
     BASE_METERING_URL = "https://meteringtest.internal.com"
     BASE_CAP_URL = "https://cabtest.internal.com"

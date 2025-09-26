@@ -41,20 +41,25 @@ pip install -r requirements.txt
 
 ### Running Tests
 
+> ⚠️ **Important**: Always use `--use-mock` option when running tests to avoid SSL certificate errors with internal servers.
+
 #### Organized Test Structure
 
 Tests are organized by category, each with its own run script:
 
 **📁 Test Categories:**
 - `tests/unit/` - Unit tests (no external dependencies)
-- `tests/integration/` - Integration tests (with mock server)
+- `tests/integration/` - Integration tests (requires mock server & `--use-mock`)
 - `tests/performance/` - Performance tests (benchmarking)
-- `tests/contracts/` - Contract tests (API contracts)
+- `tests/contracts/` - Contract tests (API contracts, requires `--use-mock`)
 - `tests/security/` - Security tests (vulnerability scanning)
 
 **🚀 Run All Tests:**
 ```bash
-# Run all test categories in order
+# Run all test categories with mock server (RECOMMENDED)
+USE_MOCK_SERVER=true pytest --use-mock
+
+# Using the category runner (automatically handles mock server)
 python scripts/test/run_all.py
 
 # Skip specific categories
@@ -66,14 +71,16 @@ python scripts/test/run_all.py --only unit,integration
 
 **🧪 Run Specific Category:**
 ```bash
-# Run unit tests (parallel by default)
+# Run unit tests (no mock needed)
 python tests/unit/run.py
 
-# Run integration tests (with mock server)
+# Run integration tests (MUST use mock server)
+USE_MOCK_SERVER=true pytest tests/integration --use-mock
+# Or using the runner script (handles mock automatically)
 python tests/integration/run.py
 
-# Run performance tests (serial execution)
-python tests/performance/run.py
+# Run performance tests (with mock for stable results)
+USE_MOCK_SERVER=true pytest tests/performance --use-mock
 
 # Using the category runner
 python scripts/test/run_category.py unit

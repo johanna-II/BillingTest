@@ -241,8 +241,7 @@ class BaseContractTest(BaseBillingTest):
             Contract object
         """
         contract_obj = Contract(test_config.month, test_config.billing_group_id)
-        contract_obj.contractId = contract_id
-        contract_obj.apply_contract()
+        contract_obj.apply_contract(contract_id=contract_id)
         return contract_obj
 
     def _cleanup_test_data(self, test_config: InitializeConfig) -> None:

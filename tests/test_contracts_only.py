@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-import libs.Calculation as calc
+from libs.Calculation import CalculationManager
 from libs.Contract import ContractManager as Contract
 from libs.InitializeConfig import InitializeConfig
 from libs.Metering import MeteringManager as Metering
@@ -25,35 +25,38 @@ def future_deprecated(func):
 @pytest.mark.mock_required
 class TestContractOnly:
     @pytest.fixture(scope="class", autouse=True)
-    def setup_class(self, env, member, month) -> None:
-        self.config = InitializeConfig(env, member, month)
+    def setup_class(self, env, member, month, use_mock) -> None:
+        self.config = InitializeConfig(env, member, month, use_mock=use_mock)
 
     @pytest.fixture(autouse=True)
-    def setup(self, env, member, month) -> None:
-        self.config = InitializeConfig(env, member, month)
+    def setup(self, env, member, month, use_mock) -> None:
+        self.config = InitializeConfig(env, member, month, use_mock=use_mock)
+
+        # Reset test data for this UUID if using mock
+        if use_mock:
+            import requests
+
+            try:
+                response = requests.delete(
+                    f"http://localhost:5000/test/reset/{self.config.uuid}"
+                )
+                if response.status_code == 200:
+                    logging.info(f"Reset test data for UUID: {self.config.uuid}")
+            except Exception as e:
+                logging.warning(f"Failed to reset test data: {e}")
+
         self.config.before_test()  # to change paymentStatus as REGISTERED
         self.contractObj = Contract(self.config.month, self.config.billing_group_id[0])
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
-        self.meteringObj.send_iaas_metering(
-            counter_name="storage.volume.ssd",
-            counter_type="DELTA",
-            counter_unit="KB",
-            counter_volume="524288000",
-        )
-        self.meteringObj.send_iaas_metering(
-            counter_name="network.floating_ip",
-            counter_type="DELTA",
-            counter_unit="HOURS",
-            counter_volume="720",
-        )
-        self.calcObj = calc.Calculation(self.config.month, self.config.uuid)
+        # Note: Metering data should be sent in each test case individually
+        self.calcObj = CalculationManager(self.config.month, self.config.uuid)
 
     @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
         self.contractObj.delete_contract()
-        self.config.clean_metering()
+        self.config.clean_data()
 
     # 기간 약정 대비 미달 미터링 전송
     @future_deprecated
@@ -64,9 +67,8 @@ class TestContractOnly:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
-        self.calcObj.recalculation_all()
+        self.contractObj.apply_contract(contract_id="<contractID>")
+        self.calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         total_statements = (
@@ -88,11 +90,10 @@ class TestContractOnly:
             counter_name="compute.c2.c8m8",
             counter_type="DELTA",
             counter_unit="HOURS",
-            counter_volume="500",
+            counter_volume="420",
         )
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
-        self.calcObj.recalculation_all()
+        self.contractObj.apply_contract(contract_id="<contractID>")
+        self.calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         total_statements = (
@@ -115,9 +116,8 @@ class TestContractOnly:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
-        self.calcObj.recalculation_all()
+        self.contractObj.apply_contract(contract_id="<contractID>")
+        self.calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         total_statements = (
@@ -140,9 +140,8 @@ class TestContractOnly:
             counter_unit="HOURS",
             counter_volume="500",
         )
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
-        self.calcObj.recalculation_all()
+        self.contractObj.apply_contract(contract_id="<contractID>")
+        self.calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         total_statements = (
@@ -165,9 +164,8 @@ class TestContractOnly:
             counter_unit="HOURS",
             counter_volume="360",
         )
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
-        self.calcObj.recalculation_all()
+        self.contractObj.apply_contract(contract_id="<contractID>")
+        self.calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         total_statements = (
@@ -190,9 +188,8 @@ class TestContractOnly:
             counter_unit="HOURS",
             counter_volume="500",
         )
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
-        self.calcObj.recalculation_all()
+        self.contractObj.apply_contract(contract_id="<contractID>")
+        self.calcObj.recalculate_all()
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         total_statements = (

@@ -392,12 +392,11 @@ class InitializeConfig:
         if manager_factory is None:
             from config import url
 
-            from .payment_api_client import PaymentAPIClient
-
             if use_mock:
-                # For mock mode, create PaymentAPIClient with mock server URL
-                payment_client = PaymentAPIClient("http://localhost:5000")
-                self._manager_factory = DefaultManagerFactory(payment_client)
+                # For mock mode, create BillingAPIClient with use_mock=True
+                # This will automatically use http://localhost:5000
+                client = BillingAPIClient(url.BASE_BILLING_URL, use_mock=True)
+                self._manager_factory = DefaultManagerFactory(client)
             else:
                 base_url = url.BASE_BILLING_URL
                 client = BillingAPIClient(base_url, use_mock=use_mock)

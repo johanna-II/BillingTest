@@ -87,7 +87,6 @@ class TestContext:
         """Get or create batch manager."""
         if self._batch_manager is None:
             self._batch_manager = BatchManager(self.month)
-            self._batch_manager.uuid = self.uuid
         return self._batch_manager
 
     @property
@@ -116,7 +115,6 @@ class EnhancedBaseBillingTest:
 
         # Create config
         config = InitializeConfig(env, member, month)
-        config.uuid = test_uuid
 
         # Clean data
         config.clean_data()

@@ -514,3 +514,17 @@ class BillingAPIClient:
     def clear_auth_token(self) -> None:
         """Remove authorization token."""
         self.session.headers.pop("Authorization", None)
+
+    def get_statements_console(self, month: str, uuid: str) -> dict[str, Any]:
+        """Get billing statements using console API.
+
+        Args:
+            month: Billing month
+            uuid: Project UUID
+
+        Returns:
+            Billing statements response
+        """
+        return self.get(
+            "billing/console/statements", params={"uuid": uuid, "month": month}
+        )

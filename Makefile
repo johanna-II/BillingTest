@@ -1,99 +1,44 @@
-.PHONY: help install test lint format clean docker-build test-docker test-local
+.PHONY: test test-mock test-coverage test-contracts test-unit test-integration test-all clean
 
-# Default target
-help:
-	@echo "Available commands:"
-	@echo "  make install       - Install dependencies with Poetry"
-	@echo "  make test          - Run all tests (Docker)"
-	@echo "  make test-unit     - Run unit tests only"
-	@echo "  make test-local    - Run tests locally (no Docker)"
-	@echo "  make lint          - Run linting and auto-fix"
-	@echo "  make format        - Format code with Black"
-	@echo "  make clean         - Clean up temporary files"
-	@echo "  make docker-build  - Build Docker images"
-
-# Installation
-install:
-	poetry install
-	pre-commit install
-
-# Testing - Docker (default)
+# Default test command
 test:
-	python scripts/run_tests.py
+	pytest -v
 
-test-unit:
-	python scripts/run_tests.py unit
+# Test with mock server
+test-mock:
+	@echo "Starting mock server..."
+	python start_mock_server_simple.py &
+	@sleep 5
+	@echo "Running tests with mock..."
+	USE_MOCK_SERVER=true pytest --use-mock -v
+	@echo "Stopping mock server..."
+	@pkill -f "start_mock_server_simple.py" || true
 
-test-integration:
-	python scripts/run_tests.py integration
-
-test-contracts:
-	python scripts/run_tests.py contracts
-
-# Testing - Local (no Docker)
-test-local:
-	python scripts/run_tests.py --local
-
-test-local-unit:
-	python scripts/run_tests.py unit --local
-
-test-local-integration:
-	python scripts/run_tests.py integration --local
-
-# Testing with coverage
+# Test with coverage
 test-coverage:
-	python scripts/run_tests.py unit --coverage
+	pytest --cov=libs --cov-report=term-missing --cov-report=html
 
-# Docker management
-docker-build:
-	docker compose -f docker-compose.test.yml build
+# Contract tests only
+test-contracts:
+	pytest tests/contracts -v
 
-docker-build-no-cache:
-	docker compose -f docker-compose.test.yml build --no-cache
+# Unit tests only
+test-unit:
+	pytest tests/unit -v
 
-docker-clean:
-	docker compose -f docker-compose.test.yml down -v
+# Integration tests only
+test-integration:
+	pytest tests/integration -v --use-mock
 
-# Linting and formatting
-lint:
-	@echo "Running Ruff linter with auto-fix..."
-	ruff check . --fix --show-fixes
+# Run all tests with coverage
+test-all:
+	USE_MOCK_SERVER=true pytest --use-mock --cov=libs --cov-report=term-missing --cov-fail-under=80
 
-lint-check:
-	@echo "Running Ruff check only (no auto-fix)..."
-	ruff check .
-
-format:
-	@echo "Formatting code with Black..."
-	black .
-
-format-check:
-	@echo "Checking code formatting with Black..."
-	black --check --diff .
-
-# Type checking
-mypy type-check:
-	@echo "Running MyPy type checking..."
-	mypy libs/ --strict
-
-# Cleaning
+# Clean up
 clean:
-	@echo "Cleaning up temporary files..."
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name ".coverage" -delete
-	find . -type f -name "coverage.xml" -delete
-
-# CI/CD helpers
-ci-setup:
-	@echo "Setting up CI environment..."
-	pip install requests
-
-ci-test:
-	@echo "Running CI tests..."
-	python scripts/run_tests.py unit
+	rm -rf .pytest_cache
+	rm -rf htmlcov
+	rm -rf .coverage
+	rm -rf report/

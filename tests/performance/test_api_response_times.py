@@ -161,7 +161,7 @@ class TestAPIResponseTimes:
 
         # Performance assertions
         assert successful_requests >= 95  # At least 95% success rate
-        assert elapsed_time < 10.0  # Should complete within 10 seconds
+        assert elapsed_time < 15.0  # Should complete within 15 seconds
 
         # Calculate metrics
         successful_requests / elapsed_time

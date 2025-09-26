@@ -291,8 +291,7 @@ class TestPeriodContract:
 
     @future_deprecated
     def test_contadjTC5(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -357,8 +356,7 @@ class TestPeriodContract:
 
     @future_deprecated
     def test_contadjTC6(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -405,8 +403,7 @@ class TestPeriodContract:
 
     @future_deprecated
     def test_contadjTC7(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -471,8 +468,7 @@ class TestPeriodContract:
 
     @future_deprecated
     def test_contadjTC8(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -551,8 +547,7 @@ class TestVolumeContract:
 
     @future_deprecated
     def test_contadjTC9(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -598,8 +593,7 @@ class TestVolumeContract:
 
     @future_deprecated
     def test_contadjTC10(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -663,8 +657,7 @@ class TestVolumeContract:
 
     @future_deprecated
     def test_contadjTC11(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -710,8 +703,7 @@ class TestVolumeContract:
 
     @future_deprecated
     def test_contadjTC12(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -808,8 +800,7 @@ class TestPartnerContract:
 
     @future_deprecated
     def test_contadjTC13(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -873,8 +864,7 @@ class TestPartnerContract:
 
     @future_deprecated
     def test_contadjTC14(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -920,8 +910,7 @@ class TestPartnerContract:
 
     @future_deprecated
     def test_contadjTC15(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(
@@ -967,8 +956,7 @@ class TestPartnerContract:
 
     @future_deprecated
     def test_contadjTC16(self) -> None:
-        self.contractObj.contractId = "<contractID>"
-        self.contractObj.apply_contract()
+        self.contractObj.apply_contract(contract_id="<contractID>")
         self.meteringObj = Metering(self.config.month)
         self.meteringObj.appkey = self.config.appkey[0]
         self.meteringObj.send_iaas_metering(

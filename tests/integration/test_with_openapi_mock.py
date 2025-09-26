@@ -28,7 +28,7 @@ def openapi_mock_server():
     """Start OpenAPI-based mock server for testing."""
     # Start mock server
     env = os.environ.copy()
-    env["MOCK_SERVER_PORT"] = "5001"  # Different port to avoid conflicts
+    env["MOCK_SERVER_PORT"] = "5000"  # Standard mock server port
 
     server_process = subprocess.Popen(
         ["python", "-m", "mock_server.run_server"],
@@ -38,7 +38,7 @@ def openapi_mock_server():
     )
 
     # Wait for server to be ready
-    server_url = "http://localhost:5001"
+    server_url = "http://localhost:5000"
     max_retries = 30
     for _ in range(max_retries):
         try:

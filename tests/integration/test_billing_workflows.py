@@ -32,7 +32,7 @@ class TestBillingWorkflows:
         """Create API client based on test configuration."""
         if use_mock:
             # Use dynamic port for integration tests
-            mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5001")
+            mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
             return BillingAPIClient(base_url=f"{mock_url}/api/v1")
         # Use real API in test environment with default base_url
         # For real API, need to get base URL from config

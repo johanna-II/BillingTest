@@ -69,8 +69,7 @@ class TestUnpaidWithCredit:
         self.config.month = self.calc_prev_month(month=0)
         self.send_prev_month_metering(month=0)
         contractObj = Contract(self.config.month, self.config.billing_group_id[0])
-        contractObj.contractId = "<contractID>"
-        contractObj.apply_contract()
+        contractObj.apply_contract(contract_id="<contractID>")
         adjObj = AdjustmentManager(self.config.month)
         adjObj.apply_adjustment(
             adjustmentTarget="Project",
