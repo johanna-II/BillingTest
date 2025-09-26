@@ -114,19 +114,99 @@ class CalculationManager:
             logger.exception("Failed to delete resources: %s", e)
             raise
 
-    def get_calculation_status(self) -> dict[str, Any]:
-        """Get current calculation progress status.
+    def calculate_with_filters(
+        self,
+        projects: list[str] | None = None,
+        services: list[str] | None = None,
+        exclude_zero_usage: bool = False,
+    ) -> dict[str, Any]:
+        """Calculate with specific filters.
+
+        Args:
+            projects: List of project IDs to include
+            services: List of services to include
+            exclude_zero_usage: Whether to exclude zero usage items
 
         Returns:
-            Progress status data
-
-        Raises:
-            APIRequestException: If status check fails
+            Filtered calculation result
         """
-        endpoint = "billing/admin/progress"
+        endpoint = "billing/admin/calculations/filtered"
+        data = {
+            "month": self.month,
+            "uuid": self.uuid,
+            "filters": {
+                "projects": projects or [],
+                "services": services or [],
+                "exclude_zero_usage": exclude_zero_usage,
+            },
+        }
 
         try:
-            return self._client.get(endpoint)
+            response = self._client.post(endpoint, json_data=data)
+            logger.info("Filtered calculation completed")
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to calculate with filters: %s", e)
+            raise
+
+    def incremental_calculation(self, since_timestamp: str) -> dict[str, Any]:
+        """Perform incremental calculation since timestamp.
+
+        Args:
+            since_timestamp: ISO format timestamp
+
+        Returns:
+            Incremental calculation result
+        """
+        endpoint = "billing/admin/calculations/incremental"
+        data = {
+            "month": self.month,
+            "uuid": self.uuid,
+            "since_timestamp": since_timestamp,
+        }
+
+        try:
+            response = self._client.post(endpoint, json_data=data)
+            logger.info("Incremental calculation completed")
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed incremental calculation: %s", e)
+            raise
+
+    def calculate_specific_items(self, items: list[str]) -> dict[str, Any]:
+        """Calculate specific items only.
+
+        Args:
+            items: List of item IDs to calculate
+
+        Returns:
+            Calculation result for specific items
+        """
+        endpoint = "billing/admin/calculations/items"
+        data = {"month": self.month, "uuid": self.uuid, "items": items}
+
+        try:
+            response = self._client.post(endpoint, json_data=data)
+            logger.info("Calculated %d specific items", len(items))
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to calculate specific items: %s", e)
+            raise
+
+    def get_calculation_status(self, calculation_id: str) -> dict[str, Any]:
+        """Get status of specific calculation.
+
+        Args:
+            calculation_id: ID of the calculation
+
+        Returns:
+            Calculation status
+        """
+        endpoint = "billing/admin/calculations/status"
+        params = {"calculation_id": calculation_id, "month": self.month}
+
+        try:
+            return self._client.get(endpoint, params=params)
         except APIRequestException as e:
             logger.exception("Failed to get calculation status: %s", e)
             raise

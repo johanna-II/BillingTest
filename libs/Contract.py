@@ -246,3 +246,91 @@ class ContractManager:
                 results[counter_name] = {"error": str(e)}
 
         return results
+
+    def check_applied_contracts(self) -> list[dict[str, Any]]:
+        """Check contracts applied to the billing group.
+
+        Returns:
+            List of applied contracts
+        """
+        endpoint = "billing/admin/contracts/applied"
+        params = {"billing_group_id": self.billing_group_id, "month": self.month}
+
+        try:
+            response = self._client.get(endpoint, params=params)
+            return response.get("contracts", [])
+        except APIRequestException as e:
+            logger.exception("Failed to check applied contracts: %s", e)
+            raise
+
+    def renew_contract(self, contract_id: str, renewal_month: str) -> dict[str, Any]:
+        """Renew an existing contract.
+
+        Args:
+            contract_id: ID of contract to renew
+            renewal_month: Month for renewal (YYYY-MM)
+
+        Returns:
+            Renewal result
+        """
+        endpoint = f"billing/admin/contracts/{contract_id}/renew"
+        data = {
+            "billing_group_id": self.billing_group_id,
+            "renewal_month": renewal_month,
+        }
+
+        try:
+            response = self._client.post(endpoint, json_data=data)
+            logger.info("Successfully renewed contract %s", contract_id)
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to renew contract: %s", e)
+            raise
+
+    def modify_contract(
+        self, contract_id: str, modifications: dict[str, Any], effective_date: str
+    ) -> dict[str, Any]:
+        """Modify an existing contract.
+
+        Args:
+            contract_id: ID of contract to modify
+            modifications: Dictionary of modifications
+            effective_date: Date when modifications take effect
+
+        Returns:
+            Modification result
+        """
+        endpoint = f"billing/admin/contracts/{contract_id}"
+        data = {"modifications": modifications, "effective_date": effective_date}
+
+        try:
+            response = self._client.patch(endpoint, json_data=data)
+            logger.info("Successfully modified contract %s", contract_id)
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to modify contract: %s", e)
+            raise
+
+    def terminate_contract(
+        self, contract_id: str, termination_date: str, reason: str
+    ) -> dict[str, Any]:
+        """Terminate a contract.
+
+        Args:
+            contract_id: ID of contract to terminate
+            termination_date: Date of termination
+            reason: Reason for termination
+
+        Returns:
+            Termination result
+        """
+        endpoint = f"billing/admin/contracts/{contract_id}/terminate"
+        data = {"termination_date": termination_date, "reason": reason}
+
+        try:
+            response = self._client.post(endpoint, json_data=data)
+            logger.info("Successfully terminated contract %s", contract_id)
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to terminate contract: %s", e)
+            raise

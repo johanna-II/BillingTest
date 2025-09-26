@@ -486,3 +486,226 @@ def get_retry_after(error: Exception) -> int | None:
         return error.context.retry_after
 
     return None
+
+
+class ConflictException(BillingTestException):
+    """Exception raised when a resource conflict occurs."""
+
+    def __init__(
+        self,
+        message: str,
+        resource_type: str | None = None,
+        conflict_reason: str | None = None,
+        context: ErrorContext | None = None,
+    ) -> None:
+        """Initialize conflict exception.
+
+        Args:
+            message: Error message
+            resource_type: Type of resource in conflict
+            conflict_reason: Reason for the conflict
+            context: Error context
+        """
+        if context is None:
+            details = {}
+            if resource_type:
+                details["resource_type"] = resource_type
+            if conflict_reason:
+                details["conflict_reason"] = conflict_reason
+
+            context = ErrorContext(
+                error_code=ErrorCode.DUPLICATE_REQUEST,
+                details=details,
+                is_retryable=False,
+                suggested_action="Resolve the conflict or use a different resource",
+            )
+
+        super().__init__(message, context)
+        self.resource_type = resource_type
+        self.conflict_reason = conflict_reason
+
+
+class RateLimitException(BillingTestException):
+    """Exception raised when rate limit is exceeded."""
+
+    def __init__(
+        self,
+        message: str,
+        limit: int | None = None,
+        reset_time: str | None = None,
+        context: ErrorContext | None = None,
+    ) -> None:
+        """Initialize rate limit exception.
+
+        Args:
+            message: Error message
+            limit: The rate limit that was exceeded
+            reset_time: When the rate limit will reset
+            context: Error context
+        """
+        if context is None:
+            details = {}
+            if limit:
+                details["limit"] = limit
+            if reset_time:
+                details["reset_time"] = reset_time
+
+            context = ErrorContext(
+                error_code=ErrorCode.RATE_LIMIT_EXCEEDED,
+                details=details,
+                is_retryable=True,
+                retry_after=60,  # Default to 60 seconds
+                suggested_action="Wait before retrying the request",
+            )
+
+        super().__init__(message, context)
+        self.limit = limit
+        self.reset_time = reset_time
+
+
+class ServerException(BillingTestException):
+    """Exception raised for server-side errors."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        error_code: str | None = None,
+        context: ErrorContext | None = None,
+    ) -> None:
+        """Initialize server exception.
+
+        Args:
+            message: Error message
+            status_code: HTTP status code
+            error_code: Server error code
+            context: Error context
+        """
+        if context is None:
+            details = {}
+            if status_code:
+                details["status_code"] = status_code
+            if error_code:
+                details["error_code"] = error_code
+
+            context = ErrorContext(
+                error_code=ErrorCode.INTERNAL_ERROR,
+                details=details,
+                is_retryable=True,
+                suggested_action="Contact support if the error persists",
+            )
+
+        super().__init__(message, context)
+        self.status_code = status_code
+        self.error_code = error_code
+
+
+class NetworkException(BillingTestException):
+    """Exception raised for network-related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        operation: str | None = None,
+        cause: str | None = None,
+        context: ErrorContext | None = None,
+    ) -> None:
+        """Initialize network exception.
+
+        Args:
+            message: Error message
+            operation: The operation that failed
+            cause: The cause of the network failure
+            context: Error context
+        """
+        if context is None:
+            details = {}
+            if operation:
+                details["operation"] = operation
+            if cause:
+                details["cause"] = cause
+
+            context = ErrorContext(
+                error_code=ErrorCode.NETWORK_ERROR,
+                details=details,
+                is_retryable=True,
+                suggested_action="Check network connectivity and retry",
+            )
+
+        super().__init__(message, context)
+        self.operation = operation
+        self.cause = cause
+
+
+class PaymentRequiredException(BillingTestException):
+    """Exception raised when payment is required."""
+
+    def __init__(
+        self,
+        message: str,
+        required_amount: float | None = None,
+        currency: str | None = None,
+        context: ErrorContext | None = None,
+    ) -> None:
+        """Initialize payment required exception.
+
+        Args:
+            message: Error message
+            required_amount: Amount required for payment
+            currency: Currency of the required payment
+            context: Error context
+        """
+        if context is None:
+            details = {}
+            if required_amount:
+                details["required_amount"] = required_amount
+            if currency:
+                details["currency"] = currency
+
+            context = ErrorContext(
+                error_code=ErrorCode.PAYMENT_REQUIRED,
+                details=details,
+                is_retryable=False,
+                suggested_action="Complete payment to proceed",
+            )
+
+        super().__init__(message, context)
+        self.required_amount = required_amount
+        self.currency = currency
+
+
+class InsufficientCreditException(BillingTestException):
+    """Exception raised when there is insufficient credit."""
+
+    def __init__(
+        self,
+        message: str,
+        required_amount: float | None = None,
+        available_amount: float | None = None,
+        context: ErrorContext | None = None,
+    ) -> None:
+        """Initialize insufficient credit exception.
+
+        Args:
+            message: Error message
+            required_amount: Amount of credit required
+            available_amount: Amount of credit available
+            context: Error context
+        """
+        if context is None:
+            details = {}
+            if required_amount:
+                details["required_amount"] = required_amount
+            if available_amount:
+                details["available_amount"] = available_amount
+
+            context = ErrorContext(
+                error_code=ErrorCode.INSUFFICIENT_CREDIT,
+                details=details,
+                is_retryable=False,
+                suggested_action="Add more credit or reduce usage",
+            )
+
+        super().__init__(message, context)
+        self.required_amount = required_amount
+        self.available_amount = available_amount

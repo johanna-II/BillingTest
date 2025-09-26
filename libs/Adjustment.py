@@ -324,3 +324,68 @@ class AdjustmentManager:
             return {"adjustments": adjustments}
         # Return empty list if no target specified
         return {"adjustments": []}
+
+    def apply_bulk_adjustments(
+        self, adjustments: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Apply multiple adjustments in bulk.
+
+        Args:
+            adjustments: List of adjustment dictionaries
+
+        Returns:
+            Bulk operation result
+        """
+        results = []
+        failed_count = 0
+
+        for adj in adjustments:
+            try:
+                result = self.apply_adjustment(**adj)
+                results.append(
+                    {"adjustmentId": result.get("adjustmentId"), "status": "SUCCESS"}
+                )
+            except Exception as e:
+                failed_count += 1
+                results.append({"status": "FAILED", "error": str(e)})
+
+        return {
+            "bulkId": f"BULK-ADJ-{self.month}",
+            "processed": len(adjustments),
+            "failed": failed_count,
+            "results": results,
+        }
+
+    def validate_adjustment(self, **kwargs: Any) -> dict[str, Any]:
+        """Validate adjustment parameters before applying.
+
+        Args:
+            **kwargs: Same parameters as apply_adjustment
+
+        Returns:
+            Validation result with estimated impact
+        """
+        adjustment_amount = kwargs.get("adjustment_amount", 0)
+        adjustment_type = kwargs.get("adjustment_type")
+
+        warnings = []
+
+        # Check for high discount amounts
+        if adjustment_type in ["FIXED_DISCOUNT", "RATE_DISCOUNT"]:
+            if adjustment_type == "FIXED_DISCOUNT" and adjustment_amount > 100000:
+                warnings.append("High discount amount detected")
+            elif adjustment_type == "RATE_DISCOUNT" and adjustment_amount > 50:
+                warnings.append("High discount rate detected")
+
+        # Estimate impact
+        estimated_impact = (
+            -adjustment_amount
+            if "DISCOUNT" in str(adjustment_type)
+            else adjustment_amount
+        )
+
+        return {
+            "valid": True,
+            "warnings": warnings,
+            "estimatedImpact": estimated_impact,
+        }

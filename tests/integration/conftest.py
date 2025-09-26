@@ -1,5 +1,6 @@
 """Configuration for integration tests."""
 
+import logging
 import os
 import sys
 import time
@@ -12,6 +13,8 @@ from libs.http_client import BillingAPIClient
 sys.path.insert(
     0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session")
@@ -45,32 +48,25 @@ def mock_server(integration_test_config):
         yield None
         return
 
-    from tests.fixtures.mock_server import MockServerManager
+    # Use optimized mock server for better performance
+    from tests.fixtures.optimized_mock_server import OptimizedMockServerManager
 
     # Use the configured port
     port = integration_test_config["mock_server_port"]
-    mock_url = f"http://localhost:{port}"
 
-    # Check if mock server is already running (e.g., manually started)
+    # Get or create optimized server (reuses existing if available)
+    manager = OptimizedMockServerManager.get_or_create(port=port)
+
     try:
-        import requests
-
-        response = requests.get(f"{mock_url}/health", timeout=2)
-        if response.status_code == 200:
-            # Mock server already running
-            yield mock_url
-            return
-    except:
+        manager.start()
+        logger.info(f"Mock server ready at {manager.url}")
+        yield manager.url
+    except Exception:
+        logger.exception("Failed to start mock server")
+        raise
+    finally:
+        # Note: Shared servers are not stopped to improve performance
         pass
-
-    # Start mock server with manager
-    manager = MockServerManager(port=port)
-    manager.start()
-
-    yield mock_url
-
-    # Cleanup
-    manager.stop()
 
 
 @pytest.fixture(scope="class")

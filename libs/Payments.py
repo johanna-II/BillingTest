@@ -716,3 +716,70 @@ class PaymentManager:
             ]
 
         return payment_method in allowed_methods
+
+    def schedule_payment_retry(
+        self, payment_group_id: str, retry_strategy: str, max_retries: int
+    ) -> dict[str, Any]:
+        """Schedule payment retry with strategy.
+
+        Args:
+            payment_group_id: Payment group ID
+            retry_strategy: Retry strategy
+            max_retries: Maximum retries
+
+        Returns:
+            Retry schedule result
+        """
+        endpoint = f"payments/{payment_group_id}/retry"
+        data = {
+            "retry_strategy": retry_strategy,
+            "max_retries": max_retries,
+            "initial_delay": 3600,
+        }
+
+        return self._client.post(endpoint, json_data=data)
+
+    def split_payment(
+        self, payment_group_id: str, installments: int, interval: str
+    ) -> dict[str, Any]:
+        """Split payment into installments.
+
+        Args:
+            payment_group_id: Payment group ID
+            installments: Number of installments
+            interval: Payment interval
+
+        Returns:
+            Split payment result
+        """
+        endpoint = f"payments/{payment_group_id}/split"
+        data = {"installments": installments, "interval": interval}
+
+        return self._client.post(endpoint, json_data=data)
+
+    def dispute_payment(
+        self,
+        payment_group_id: str,
+        reason: str,
+        disputed_amount: float,
+        evidence: list[str],
+    ) -> dict[str, Any]:
+        """Dispute a payment.
+
+        Args:
+            payment_group_id: Payment group ID
+            reason: Dispute reason
+            disputed_amount: Disputed amount
+            evidence: List of evidence files
+
+        Returns:
+            Dispute result
+        """
+        endpoint = f"payments/{payment_group_id}/dispute"
+        data = {
+            "reason": reason,
+            "disputed_amount": disputed_amount,
+            "evidence": evidence,
+        }
+
+        return self._client.post(endpoint, json_data=data)

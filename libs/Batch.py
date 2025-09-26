@@ -172,3 +172,41 @@ class BatchManager:
                 logger.exception("Failed to request {job_code.value}: %s", e)
 
         return results
+
+    def cancel_batch_job(self, batch_id: str) -> dict[str, Any]:
+        """Cancel a running batch job.
+
+        Args:
+            batch_id: ID of the batch job to cancel
+
+        Returns:
+            Cancellation result
+        """
+        endpoint = f"billing/admin/batches/{batch_id}/cancel"
+
+        try:
+            response = self._client.post(endpoint)
+            logger.info("Successfully cancelled batch job %s", batch_id)
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to cancel batch job: %s", e)
+            raise
+
+    def retry_batch_job(self, batch_id: str) -> dict[str, Any]:
+        """Retry a failed batch job.
+
+        Args:
+            batch_id: ID of the batch job to retry
+
+        Returns:
+            New batch job information
+        """
+        endpoint = f"billing/admin/batches/{batch_id}/retry"
+
+        try:
+            response = self._client.post(endpoint)
+            logger.info("Successfully initiated retry for batch job %s", batch_id)
+            return response
+        except APIRequestException as e:
+            logger.exception("Failed to retry batch job: %s", e)
+            raise

@@ -1,12 +1,10 @@
 """Integrated billing workflow tests using OpenAPI mock server."""
 
-import os
+import concurrent.futures
+import logging
 
 import pytest
 
-from libs.Adjustment import AdjustmentManager
-from libs.Batch import BatchManager
-from libs.Calculation import CalculationManager
 from libs.constants import (
     AdjustmentTarget,
     AdjustmentType,
@@ -15,69 +13,37 @@ from libs.constants import (
     CreditType,
     PaymentStatus,
 )
-from libs.Contract import ContractManager
-from libs.Credit import CreditManager
-from libs.http_client import BillingAPIClient
-from libs.Metering import MeteringManager
-from libs.Payments import PaymentManager
+from tests.integration.base_integration import BaseIntegrationTest
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
 @pytest.mark.mock_required
-class TestBillingWorkflows:
+class TestBillingWorkflows(BaseIntegrationTest):
     """Test complete billing workflows end-to-end."""
 
-    @pytest.fixture(scope="class")
-    def api_client(self, use_mock):
-        """Create API client based on test configuration."""
-        if use_mock:
-            # Use dynamic port for integration tests
-            mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
-            return BillingAPIClient(base_url=f"{mock_url}/api/v1")
-        # Use real API in test environment with default base_url
-        # For real API, need to get base URL from config
-        from config import url
-
-        return BillingAPIClient(base_url=url.BASE_BILLING_URL)
-
-    @pytest.fixture
-    def managers(self, api_client, month, member):
-        """Create all managers needed for billing workflows."""
-        return {
-            "adjustment": AdjustmentManager(month=month, client=api_client),
-            "batch": BatchManager(month=month, client=api_client),
-            "contract": ContractManager(
-                month=month, billing_group_id=f"bg-{member}-001", client=api_client
-            ),
-            "calculation": CalculationManager(
-                month=month, uuid=f"uuid-{member}-001", client=api_client
-            ),
-            "metering": MeteringManager(month=month, client=api_client),
-            "payment": PaymentManager(
-                month=month, uuid=f"uuid-{member}-001", client=api_client
-            ),
-            "credit": CreditManager(uuid=f"uuid-{member}-001", client=api_client),
-        }
-
-    def test_standard_billing_cycle(self, managers) -> None:
+    def test_standard_billing_cycle(self, test_context, test_app_keys) -> None:
         """Test standard monthly billing cycle."""
+        managers = test_context["managers"]
+
         # 1. Apply contract at the beginning of month
         contract_result = managers["contract"].apply_contract(
             contract_id="standard-contract-001", name="Standard Monthly Contract"
         )
-        assert contract_result.get("status") == "SUCCESS"
+        self.assert_api_success(contract_result)
 
         # 2. Send metering data throughout the month
         metering_data = [
             {
-                "app_key": "app-001",
+                "app_key": test_app_keys[0],
                 "counter_name": "compute.cpu.hours",
                 "counter_type": CounterType.DELTA,
                 "counter_unit": "HOURS",
                 "counter_volume": "720",  # 30 days * 24 hours
             },
             {
-                "app_key": "app-001",
+                "app_key": test_app_keys[0],
                 "counter_name": "storage.volume.gb",
                 "counter_type": CounterType.GAUGE,
                 "counter_unit": "GB",
@@ -87,7 +53,7 @@ class TestBillingWorkflows:
 
         for meter in metering_data:
             result = managers["metering"].send_metering(**meter)
-            assert result.get("status") == "SUCCESS"
+            self.assert_api_success(result)
 
         # 3. Calculate usage and pricing
         calc_result = managers["calculation"].recalculate_all(
@@ -104,17 +70,19 @@ class TestBillingWorkflows:
         unpaid_amount = managers["payment"].check_unpaid_amount(payment_id)
         assert unpaid_amount > 0
 
-    def test_billing_with_adjustments(self, managers) -> None:
+    def test_billing_with_adjustments(self, test_context, test_app_keys) -> None:
         """Test billing with various adjustments."""
+        managers = test_context["managers"]
+
         # 1. Setup base billing (contract + metering)
-        self._setup_base_billing(managers)
+        self._setup_base_billing(managers, test_app_keys)
 
         # 2. Apply fixed discount adjustment
         adj_result = managers["adjustment"].apply_adjustment(
             adjustment_amount=10000.0,
             adjustment_type=AdjustmentType.FIXED_DISCOUNT,
             adjustment_target=AdjustmentTarget.BILLING_GROUP,
-            target_id="bg-test-001",
+            target_id=test_context["billing_group_id"],
             description="Monthly promotion discount",
         )
         assert "adjustmentId" in adj_result
@@ -124,7 +92,7 @@ class TestBillingWorkflows:
             adjustment_amount=10.0,  # 10% discount
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_target=AdjustmentTarget.PROJECT,
-            target_id="proj-001",
+            target_id=f"proj-{test_context['member']}-001",
             description="Project volume discount",
         )
         assert "adjustmentId" in adj_result2
@@ -135,7 +103,8 @@ class TestBillingWorkflows:
 
         # 5. Verify adjustments were applied
         adjustments = managers["adjustment"].get_adjustments(
-            adjustment_target=AdjustmentTarget.BILLING_GROUP, target_id="bg-test-001"
+            adjustment_target=AdjustmentTarget.BILLING_GROUP,
+            target_id=test_context["billing_group_id"],
         )
         assert len(adjustments) >= 1
 
@@ -145,16 +114,18 @@ class TestBillingWorkflows:
         # Amount should be reduced due to discounts
         assert final_amount >= 0
 
-    def test_billing_with_credits(self, managers) -> None:
+    def test_billing_with_credits(self, test_context, test_app_keys) -> None:
         """Test billing with credit application."""
+        managers = test_context["managers"]
+
         # 1. Setup base billing
-        self._setup_base_billing(managers)
+        self._setup_base_billing(managers, test_app_keys)
 
         # 2. Grant campaign credit
         credit_result = managers["credit"].grant_credit_to_users(
             credit_amount=50000.0,
             credit_type=CreditType.CAMPAIGN,
-            user_list=["uuid-test-001"],
+            user_list=[test_context["uuid"]],
             description="New customer credit",
         )
         assert credit_result["success_count"] == 1
@@ -178,8 +149,9 @@ class TestBillingWorkflows:
             unpaid = managers["payment"].check_unpaid_amount(payment_id)
             assert unpaid >= 0
 
-    def test_batch_operations(self, managers) -> None:
+    def test_batch_operations(self, test_context) -> None:
         """Test batch job operations."""
+        managers = test_context["managers"]
         # 1. Request credit expiry batch
         batch_result = managers["batch"].request_batch_job(
             BatchJobCode.BATCH_CREDIT_EXPIRY
@@ -201,20 +173,21 @@ class TestBillingWorkflows:
         results = managers["batch"].request_common_batch_jobs()
         assert len(results) == 3
 
-    def test_end_to_end_monthly_billing(self, managers) -> None:
+    def test_end_to_end_monthly_billing(self, test_context, test_app_keys) -> None:
         """Test complete monthly billing process."""
+        managers = test_context["managers"]
         # 1. Start of month - Apply contracts
         contracts = ["basic-001", "volume-002", "partner-003"]
         for contract_id in contracts:
             result = managers["contract"].apply_contract(
                 contract_id=contract_id, name=f"Contract {contract_id}"
             )
-            assert result.get("status") == "SUCCESS"
+            self.assert_api_success(result)
 
         # 2. Throughout month - Collect metering data
         # Simulate daily metering for 30 days
         for _day in range(1, 31):
-            for app_key in ["app-001", "app-002"]:
+            for app_key in test_app_keys[:2]:
                 managers["metering"].send_metering(
                     app_key=app_key,
                     counter_name="compute.daily.usage",
@@ -229,7 +202,7 @@ class TestBillingWorkflows:
             adjustment_amount=5.0,  # 5% discount
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_target=AdjustmentTarget.BILLING_GROUP,
-            target_id="bg-test-001",
+            target_id=test_context["billing_group_id"],
             description="Volume discount",
         )
 
@@ -259,45 +232,41 @@ class TestBillingWorkflows:
             PaymentStatus.REGISTERED,
         ]
 
-    def test_error_recovery_workflow(self, managers) -> None:
+    def test_error_recovery_workflow(self, test_context, test_app_keys) -> None:
         """Test error handling and recovery in billing workflow."""
-        try:
-            # 1. Try invalid contract
-            with pytest.raises(Exception):
-                managers["contract"].apply_contract(contract_id="invalid-contract-xxx")
+        managers = test_context["managers"]
 
-            # 2. Send invalid metering data
-            with pytest.raises(Exception):
-                managers["metering"].send_metering(
-                    app_key="",  # Empty app key
-                    counter_name="test",
-                    counter_type="INVALID",
-                    counter_unit="INVALID",
-                    counter_volume="-100",  # Negative volume
-                )
+        # 1. Try invalid contract
+        with pytest.raises(Exception):
+            managers["contract"].apply_contract(contract_id="invalid-contract-xxx")
 
-            # 3. Recovery - Send valid data
-            valid_result = managers["metering"].send_metering(
-                app_key="app-recovery",
-                counter_name="compute.recovery",
-                counter_type=CounterType.DELTA,
-                counter_unit="COUNT",
-                counter_volume="1",
+        # 2. Send invalid metering data
+        with pytest.raises(Exception):
+            managers["metering"].send_metering(
+                app_key="",  # Empty app key
+                counter_name="test",
+                counter_type="INVALID",
+                counter_unit="INVALID",
+                counter_volume="-100",  # Negative volume
             )
-            assert valid_result.get("status") == "SUCCESS"
 
-            # 4. Ensure system can still calculate
-            calc_result = managers["calculation"].recalculate_all()
-            assert calc_result is not None
+        # 3. Recovery - Send valid data
+        valid_result = managers["metering"].send_metering(
+            app_key=test_app_keys[0],
+            counter_name="compute.recovery",
+            counter_type=CounterType.DELTA,
+            counter_unit="COUNT",
+            counter_volume="1",
+        )
+        self.assert_api_success(valid_result)
 
-        except Exception:
-            # Log error but don't fail test
-            # In integration tests, we want to see how system handles errors
-            pass
+        # 4. Ensure system can still calculate
+        calc_result = managers["calculation"].recalculate_all()
+        assert calc_result is not None
 
-    def test_concurrent_operations(self, managers) -> None:
+    def test_concurrent_operations(self, test_context, test_app_keys) -> None:
         """Test concurrent billing operations."""
-        import concurrent.futures
+        managers = test_context["managers"]
 
         def send_meter_data(app_key, volume):
             return managers["metering"].send_metering(
@@ -314,8 +283,8 @@ class TestBillingWorkflows:
             for i in range(10):
                 future = executor.submit(
                     send_meter_data,
-                    f"app-{i % 3}",
-                    i * 10,  # 3 different apps
+                    test_app_keys[i % 3],
+                    i * 10,
                 )
                 futures.append(future)
 
@@ -323,19 +292,28 @@ class TestBillingWorkflows:
             results = [f.result() for f in futures]
 
         # Verify all succeeded
-        success_count = sum(1 for r in results if r.get("status") == "SUCCESS")
+        success_count = sum(
+            1
+            for r in results
+            if r
+            and (
+                r.get("status") == "SUCCESS"
+                or r.get("header", {}).get("isSuccessful", False)
+            )
+        )
         assert success_count >= 8  # Allow some failures in concurrent scenario
 
-    def _setup_base_billing(self, managers) -> None:
+    def _setup_base_billing(self, managers, test_app_keys) -> None:
         """Helper to setup basic billing scenario."""
         # Apply contract
-        managers["contract"].apply_contract(
+        result = managers["contract"].apply_contract(
             contract_id="base-contract", name="Base Contract"
         )
+        self.assert_api_success(result)
 
         # Send some metering data
         managers["metering"].send_metering(
-            app_key="app-base",
+            app_key=test_app_keys[0],
             counter_name="compute.base",
             counter_type=CounterType.DELTA,
             counter_unit="HOURS",

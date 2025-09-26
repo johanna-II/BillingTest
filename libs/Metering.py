@@ -217,43 +217,119 @@ class MeteringManager:
         logger.info("Deleted metering data for %s app keys", deleted_count)
         return {"deleted_count": deleted_count}
 
-    def send_batch_metering(
-        self, app_key: str, metering_items: list[dict[str, str]]
+    def send_batch_metering(self, meters: list[dict[str, Any]]) -> dict[str, Any]:
+        """Send batch metering data.
+
+        Args:
+            meters: List of meter data dictionaries
+
+        Returns:
+            Batch submission result
+        """
+        endpoint = "billing/admin/metering/batch"
+        data = {"month": self.month, "meters": meters}
+
+        try:
+            return self._client.post(endpoint, json_data=data)
+        except APIRequestException as e:
+            logger.exception("Failed to send batch metering: %s", e)
+            raise
+
+    def get_metering_summary(self, app_key: str | None = None) -> dict[str, Any]:
+        """Get metering summary.
+
+        Args:
+            app_key: Optional app key to filter by
+
+        Returns:
+            Metering summary data
+        """
+        endpoint = "billing/admin/metering/summary"
+        params = {"month": self.month}
+        if app_key:
+            params["app_key"] = app_key
+
+        try:
+            return self._client.get(endpoint, params=params)
+        except APIRequestException as e:
+            logger.exception("Failed to get metering summary: %s", e)
+            raise
+
+    def get_metering_aggregation(self, group_by: list[str]) -> dict[str, Any]:
+        """Get metering data aggregation.
+
+        Args:
+            group_by: List of fields to group by
+
+        Returns:
+            Aggregated metering data
+        """
+        endpoint = "billing/admin/metering/aggregate"
+        params = {"month": self.month, "group_by": ",".join(group_by)}
+
+        try:
+            return self._client.get(endpoint, params=params)
+        except APIRequestException as e:
+            logger.exception("Failed to get metering aggregation: %s", e)
+            raise
+
+    def validate_metering(
+        self,
+        app_key: str,
+        counter_name: str,
+        counter_type: CounterType | str,
+        counter_unit: str,
+        counter_volume: str,
     ) -> dict[str, Any]:
-        """Send multiple metering entries for an app.
+        """Validate metering data before sending.
 
         Args:
             app_key: Application key
-            metering_items: List of metering items, each containing:
-                - counter_name: Name of the counter
-                - counter_type: Type of counter (DELTA or GAUGE)
-                - counter_unit: Unit of measurement
-                - counter_volume: Volume to report
+            counter_name: Counter name
+            counter_type: Counter type
+            counter_unit: Counter unit
+            counter_volume: Counter volume
 
         Returns:
-            API response data
-
-        Raises:
-            APIRequestException: If any submission fails
+            Validation result
         """
-        results = []
+        endpoint = "billing/admin/metering/validate"
+        data = {
+            "app_key": app_key,
+            "counter_name": counter_name,
+            "counter_type": str(counter_type),
+            "counter_unit": counter_unit,
+            "counter_volume": counter_volume,
+        }
 
-        for item in metering_items:
-            try:
-                self.send_metering(
-                    app_key=app_key,
-                    counter_name=item["counter_name"],
-                    counter_type=item["counter_type"],
-                    counter_unit=item["counter_unit"],
-                    counter_volume=item["counter_volume"],
-                )
-                results.append({"success": True, "counter": item["counter_name"]})
-            except APIRequestException as e:
-                results.append(
-                    {"success": False, "counter": item["counter_name"], "error": str(e)}
-                )
-                logger.exception(
-                    "Failed to send metering for %s: %s", item["counter_name"], e
-                )
+        try:
+            return self._client.post(endpoint, json_data=data)
+        except APIRequestException as e:
+            logger.exception("Failed to validate metering: %s", e)
+            raise
 
-        return {"results": results}
+    def correct_metering(
+        self, metering_id: str, corrected_volume: str, reason: str
+    ) -> dict[str, Any]:
+        """Correct metering data.
+
+        Args:
+            metering_id: ID of metering to correct
+            corrected_volume: Corrected volume
+            reason: Reason for correction
+
+        Returns:
+            Correction result
+        """
+        endpoint = "billing/admin/metering/correct"
+        data = {
+            "metering_id": metering_id,
+            "corrected_volume": corrected_volume,
+            "reason": reason,
+        }
+
+        try:
+            return self._client.post(endpoint, json_data=data)
+        except APIRequestException as e:
+            logger.exception("Failed to correct metering: %s", e)
+            raise

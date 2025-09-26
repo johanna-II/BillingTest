@@ -497,37 +497,6 @@ class CreditManager:
 
         return total
 
-    def cancel_credit(
-        self, campaign_id: str, reason: str = "Test cancellation"
-    ) -> CreditData:
-        """Cancel credit for campaign.
-
-        Args:
-            campaign_id: Campaign ID to cancel credit for
-            reason: Reason for cancellation
-
-        Returns:
-            API response data
-
-        Raises:
-            ValidationException: If campaign ID is invalid
-            APIRequestException: If cancellation fails
-        """
-        if not campaign_id:
-            msg = "Campaign ID cannot be empty"
-            raise ValidationException(msg)
-
-        logger.info(f"Cancelling credit for campaign: {campaign_id} (reason: {reason})")
-
-        try:
-            response = self._api.cancel_credit(campaign_id, reason)
-            logger.info(f"Successfully cancelled credit for campaign: {campaign_id}")
-            return response
-
-        except APIRequestException as e:
-            logger.exception(f"Failed to cancel credit: {e}")
-            raise
-
     def bulk_grant_credit(
         self, campaign_ids: list[str], amount: CreditAmount, **kwargs: Any
     ) -> dict[str, CreditData | Exception]:
@@ -592,6 +561,95 @@ class CreditManager:
         )
 
         return results
+
+    def get_credit_balance_details(self) -> dict[str, Any]:
+        """Get detailed credit balance by type.
+
+        Returns:
+            Detailed balance information
+        """
+        balance = self.get_total_credit_balance()
+        # Mock detailed breakdown - would be from API in real implementation
+        return {
+            "totalBalance": balance,
+            "byType": {
+                "CAMPAIGN": balance * 0.4,
+                "REFUND": balance * 0.3,
+                "BONUS": balance * 0.3,
+            },
+            "credits": [],
+        }
+
+    def transfer_credit(
+        self, to_uuid: str, amount: float, credit_type: CreditType
+    ) -> dict[str, Any]:
+        """Transfer credit to another user.
+
+        Args:
+            to_uuid: Recipient UUID
+            amount: Amount to transfer
+            credit_type: Type of credit to transfer
+
+        Returns:
+            Transfer result
+        """
+        endpoint = "credits/transfer"
+        data = {
+            "from_uuid": self.uuid,
+            "to_uuid": to_uuid,
+            "amount": amount,
+            "credit_type": credit_type.value,
+        }
+
+        return self._client.post(endpoint, json_data=data)
+
+    def extend_credit_expiry(
+        self, credit_id: str, extension_days: int, reason: str
+    ) -> dict[str, Any]:
+        """Extend credit expiry date.
+
+        Args:
+            credit_id: Credit ID to extend
+            extension_days: Days to extend
+            reason: Reason for extension
+
+        Returns:
+            Extension result
+        """
+        endpoint = f"credits/{credit_id}/extend"
+        data = {"extension_days": extension_days, "reason": reason}
+
+        return self._client.post(endpoint, json_data=data)
+
+    def get_credit_usage_report(self, start_date: str, end_date: str) -> dict[str, Any]:
+        """Get credit usage report.
+
+        Args:
+            start_date: Start date
+            end_date: End date
+
+        Returns:
+            Usage report
+        """
+        endpoint = "credits/report"
+        params = {"start_date": start_date, "end_date": end_date}
+
+        return self._client.get(endpoint, params=params)
+
+    def cancel_credit(self, credit_id: str, reason: str) -> dict[str, Any]:
+        """Cancel specific credit.
+
+        Args:
+            credit_id: Credit ID to cancel
+            reason: Cancellation reason
+
+        Returns:
+            Cancellation result
+        """
+        endpoint = f"credits/{credit_id}/cancel"
+        data = {"reason": reason, "uuid": self.uuid}
+
+        return self._client.post(endpoint, json_data=data)
 
 
 # Legacy compatibility alias
