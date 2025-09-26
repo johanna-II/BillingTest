@@ -18,10 +18,10 @@ try:
     from locust import HttpUser, between, task
 except ImportError:
     # Mock locust for parallel test mode
-    class HttpUser:
+    class HttpUser:  # type: ignore[no-redef]
         pass
 
-    def task(f):
+    def task(f):  # type: ignore[no-redef]
         return f
 
     def between(a, b):
@@ -46,7 +46,7 @@ class BillingAPIUser(HttpUser):
             "uuid": self.test_uuid,
         }
         self.month = datetime.now().strftime("%Y-%m")
-        self.payment_group_id = None
+        self.payment_group_id: str | None = None
 
     def on_stop(self) -> None:
         """Clean up user session."""

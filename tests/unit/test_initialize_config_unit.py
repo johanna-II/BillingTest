@@ -173,7 +173,7 @@ class TestEnvironmentConfigUnit:
         config = EnvironmentConfig(uuid="test-uuid", billing_group_id="bg-123")
 
         with pytest.raises(FrozenInstanceError):
-            config.uuid = "new-uuid"
+            config.uuid = "new-uuid"  # type: ignore[misc]
 
     def test_to_dict_method(self) -> None:
         """Test converting config to dictionary."""

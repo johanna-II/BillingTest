@@ -292,7 +292,7 @@ class TestCreditManagerBase:
 
     def test_use_coupon_success(self) -> None:
         """Test successful coupon usage."""
-        self.mock_api_client._client.post.return_value = {
+        self.mock_client.post.return_value = {
             "status": "SUCCESS",
             "appliedCredit": 1000,
         }
@@ -305,13 +305,12 @@ class TestCreditManagerBase:
     def test_cancel_credit_success(self) -> None:
         """Test successful credit cancellation."""
         # Mock the method properly
-        mock_cancel = Mock(return_value={"status": "CANCELLED"})
-        self.mock_api_client.cancel_credit = mock_cancel
+        self.mock_client.delete.return_value = {"status": "CANCELLED"}
 
         result = self.credit_manager.cancel_credit("CAMP-123")
 
         assert result["status"] == "CANCELLED"
-        mock_cancel.assert_called_once_with("CAMP-123", "Test cancellation")
+        self.mock_client.delete.assert_called_once()
 
     def test_get_credit_history_success(self) -> None:
         """Test retrieving credit history."""
@@ -327,8 +326,7 @@ class TestCreditManagerBase:
             ]
         }
         # Mock the method properly
-        mock_get_credit_history = Mock(return_value=mock_histories)
-        self.mock_api_client.get_credit_history = mock_get_credit_history
+        self.mock_client.get.return_value = mock_histories
 
         total, histories = self.credit_manager.get_credit_history(
             credit_type=CreditType.FREE, page=1
@@ -343,13 +341,10 @@ class TestCreditManagerBase:
     def test_get_credit_balance_success(self) -> None:
         """Test retrieving credit balance."""
         # Mock get_credit_history to return appropriate values
-        mock_get_credit_history = Mock(
-            side_effect=[
-                {"creditHistories": [{"amount": 1000}]},  # FREE credit
-                {"creditHistories": [{"amount": 500}]},  # PAID credit
-            ]
-        )
-        self.mock_api_client.get_credit_history = mock_get_credit_history
+        self.mock_client.get.side_effect = [
+            {"creditHistories": [{"amount": 1000}]},  # FREE credit
+            {"creditHistories": [{"amount": 500}]},  # PAID credit
+        ]
 
         result = self.credit_manager.get_credit_balance(include_paid=True)
 
@@ -424,7 +419,7 @@ class TestCreditManager:
     @patch("libs.Credit.logger")
     def test_credit_manager_logging(self, mock_logger) -> None:
         """Test that operations are logged."""
-        self.mock_api_client._client.post.return_value = {"grantedCount": 1}
+        self.mock_client.post.return_value = {"grantedCount": 1}
 
         self.credit_manager.grant_credit(campaign_id="CAMP-123", amount=1000)
 

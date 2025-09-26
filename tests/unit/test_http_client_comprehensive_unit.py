@@ -292,7 +292,7 @@ class TestBillingAPIClientComprehensiveUnit:
                             status_field="status",
                             success_value="COMPLETED",
                             timeout=1,  # Very short timeout
-                            check_interval=0.1,
+                            check_interval=1,
                         )
 
     def test_mock_mode_behavior(self) -> None:

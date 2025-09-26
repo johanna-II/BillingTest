@@ -1,6 +1,7 @@
 """Pytest plugin for automatic test telemetry collection."""
 
 import time
+from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -8,7 +9,8 @@ from _pytest.config import Config
 from _pytest.nodes import Item
 from _pytest.runner import CallInfo
 
-from libs.observability import TestTelemetry, setup_telemetry
+from libs.observability import setup_telemetry
+from libs.observability.telemetry import TelemetryManager as TestTelemetry
 
 if TYPE_CHECKING:
     from _pytest.reports import TestReport
@@ -29,23 +31,35 @@ class TelemetryPlugin:
         self.test_start_times[test_name] = time.time()
 
         # Start span for test
-        span = self.telemetry.tracer.start_span(
-            name=f"test.{test_name}",
-            attributes={
-                "test.name": item.name,
-                "test.file": str(item.fspath),
-                "test.class": item.cls.__name__ if item.cls else "",
-                "test.module": item.module.__name__,
-                "test.markers": [marker.name for marker in item.iter_markers()],
-            },
-        )
-        self.test_spans[test_name] = span
+        if self.telemetry.tracer:
+            span = self.telemetry.tracer.start_span(
+                name=f"test.{test_name}",
+                attributes={
+                    "test.name": item.name,
+                    "test.file": str(item.fspath),
+                    "test.class": (
+                        item.cls.__name__ if hasattr(item, "cls") and item.cls else ""
+                    ),
+                    "test.module": (
+                        item.module.__name__
+                        if hasattr(item, "module") and item.module
+                        else ""
+                    ),
+                    "test.markers": [marker.name for marker in item.iter_markers()],
+                },
+            )
+            self.test_spans[test_name] = span
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_makereport(self, item: Item, call: CallInfo) -> None:
+    def pytest_runtest_makereport(
+        self, item: Item, call: CallInfo
+    ) -> Generator[None, None, None]:
         """Called after test execution."""
         outcome = yield
-        report: TestReport = outcome.get_result()
+        if hasattr(outcome, "get_result"):
+            report: TestReport = outcome.get_result()
+        else:
+            return
 
         if report.when == "call":  # Only process actual test execution
             test_name = item.nodeid
@@ -60,12 +74,10 @@ class TelemetryPlugin:
 
                 if report.failed:
                     span.set_attribute("test.error", str(report.longrepr))
-                    span.set_status(
-                        self.telemetry.tracer._tracer.Status(
-                            self.telemetry.tracer._tracer.StatusCode.ERROR,
-                            "Test failed",
-                        )
-                    )
+                    # Set error status on span
+                    from opentelemetry.trace import Status, StatusCode
+
+                    span.set_status(Status(StatusCode.ERROR, "Test failed"))
 
                 # Record metrics
                 self.telemetry.test_counter.add(
@@ -98,14 +110,15 @@ class TelemetryPlugin:
     @pytest.hookimpl
     def pytest_sessionstart(self, session) -> None:
         """Called at test session start."""
-        span = self.telemetry.tracer.start_span(
-            name="pytest.session",
-            attributes={
-                "session.name": session.name,
-                "session.config": str(session.config.args),
-            },
-        )
-        self.session_span = span
+        if self.telemetry.tracer:
+            span = self.telemetry.tracer.start_span(
+                name="pytest.session",
+                attributes={
+                    "session.name": session.name,
+                    "session.config": str(session.config.args),
+                },
+            )
+            self.session_span = span
 
     @pytest.hookimpl
     def pytest_sessionfinish(self, session, exitstatus) -> None:
@@ -123,8 +136,9 @@ def pytest_configure(config: Config) -> None:
     """Configure pytest with telemetry plugin."""
     if config.getoption("--enable-telemetry", default=False):
         telemetry = setup_telemetry("billing-test")
-        plugin = TelemetryPlugin(telemetry)
-        config.pluginmanager.register(plugin, "telemetry")
+        if telemetry:
+            plugin = TelemetryPlugin(telemetry)
+            config.pluginmanager.register(plugin, "telemetry")
 
 
 def pytest_addoption(parser) -> None:

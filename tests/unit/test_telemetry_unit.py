@@ -17,12 +17,12 @@ try:
     TELEMETRY_AVAILABLE = True
 except ImportError:
     TELEMETRY_AVAILABLE = False
-    TelemetryManager = None
+    TelemetryManager = None  # type: ignore[assignment,misc]
 
-    def get_telemetry() -> None:
+    def get_telemetry() -> None:  # type: ignore[misc]
         return None
 
-    def configure_telemetry() -> None:
+    def configure_telemetry(service_name: str = "billing-test") -> None:  # type: ignore[misc]
         return None
 
 

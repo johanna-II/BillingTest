@@ -24,8 +24,8 @@ class OpenAPIHandler:
         """Load OpenAPI specification from file."""
         with open(self.spec_path) as f:
             if self.spec_path.endswith(".yaml") or self.spec_path.endswith(".yml"):
-                return cast(dict[str, Any], yaml.safe_load(f))
-            return cast(dict[str, Any], json.load(f))
+                return cast("dict[str, Any]", yaml.safe_load(f))
+            return cast("dict[str, Any]", json.load(f))
 
     def _setup_generators(self) -> dict[str, Callable[[], Any]]:
         """Set up value generators for different formats."""
@@ -56,7 +56,7 @@ class OpenAPIHandler:
         if path in self.spec_dict["paths"]:
             path_item = self.spec_dict["paths"][path]
             if method in path_item:
-                return cast(dict[str, Any], path_item[method])
+                return cast("dict[str, Any]", path_item[method])
 
         # Try pattern matching for path parameters
         for spec_path, path_item in self.spec_dict["paths"].items():
@@ -67,7 +67,7 @@ class OpenAPIHandler:
                 pattern = f"^{pattern}$"
 
                 if re.match(pattern, path):
-                    return cast(dict[str, Any], path_item[method])
+                    return cast("dict[str, Any]", path_item[method])
 
         return None
 
@@ -97,7 +97,7 @@ class OpenAPIHandler:
             schema = self._resolve_ref(schema["$ref"])
 
         # Generate response based on schema
-        return cast(dict[str, Any], self._generate_from_schema(schema))
+        return cast("dict[str, Any]", self._generate_from_schema(schema))
 
     def _resolve_ref(self, ref: str) -> dict[str, Any]:
         """Resolve a JSON reference."""

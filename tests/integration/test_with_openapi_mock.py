@@ -13,7 +13,6 @@ from libs.Batch import BatchManager
 from libs.constants import (
     AdjustmentTarget,
     AdjustmentType,
-    BatchJobCode,
     CounterType,
     PaymentStatus,
 )
@@ -129,13 +128,7 @@ class TestWithOpenAPIMockServer:
         batch_manager = BatchManager(month="2024-01", client=api_client)
 
         # Request multiple batch jobs
-        jobs = [
-            BatchJobCode.BATCH_CREDIT_EXPIRY,
-            BatchJobCode.BATCH_GENERATE_STATEMENT,
-            BatchJobCode.BATCH_PAYMENT_REMINDER,
-        ]
-
-        results = batch_manager.request_common_batch_jobs(jobs)
+        results = batch_manager.request_common_batch_jobs()
 
         # Verify all jobs were submitted
         assert len(results) == 3

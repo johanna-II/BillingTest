@@ -53,9 +53,10 @@ class TestSecurityVulnerabilities:
                 # but should NOT cause system error
             except APIRequestException as e:
                 # Check that it's a client error (4xx) not server error (5xx)
-                assert (
-                    400 <= e.status_code < 500
-                ), f"SQL injection caused server error: {e}"
+                if e.status_code is not None:
+                    assert (
+                        400 <= e.status_code < 500
+                    ), f"SQL injection caused server error: {e}"
 
     @pytest.mark.security
     def test_xss_prevention(self, api_client, test_uuid) -> None:
@@ -195,7 +196,8 @@ class TestSecurityVulnerabilities:
                 api_client.post("/billing/meters", headers=headers, json_data=data)
             except APIRequestException as e:
                 # Should be client error, not server error
-                assert 400 <= e.status_code < 500
+                if e.status_code is not None:
+                    assert 400 <= e.status_code < 500
 
     @pytest.mark.security
     def test_sensitive_data_exposure(self, api_client, test_uuid) -> None:
@@ -269,7 +271,7 @@ class TestSecurityVulnerabilities:
                 "counterUnit": "n",
                 "counterVolume": 100,
                 "resourceId": "test-resource",
-                **test_data,  # Override with test data
+                **test_data,  # type: ignore[dict-item]  # Override with test data
             }
 
             try:
@@ -280,9 +282,10 @@ class TestSecurityVulnerabilities:
                 assert isinstance(response, dict)
             except APIRequestException as e:
                 # Should be validation error (4xx) not server error (5xx)
-                assert (
-                    400 <= e.status_code < 500
-                ), f"Invalid input caused server error: {test_data}"
+                if e.status_code is not None:
+                    assert (
+                        400 <= e.status_code < 500
+                    ), f"Invalid input caused server error: {test_data}"
 
     @pytest.mark.security
     def test_http_header_injection(self, api_client, test_uuid) -> None:

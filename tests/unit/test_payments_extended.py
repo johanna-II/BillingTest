@@ -332,7 +332,7 @@ class TestPaymentsExtended:
         assert self.payment_manager.validate_payment_method("BANK_TRANSFER") is True
         assert self.payment_manager.validate_payment_method("INVALID_METHOD") is False
         assert self.payment_manager.validate_payment_method("") is False
-        assert self.payment_manager.validate_payment_method(None) is False
+        assert self.payment_manager.validate_payment_method(None) is False  # type: ignore[arg-type]
 
     def test_make_payment_with_retries(self) -> None:
         """Test make_payment with retry logic."""

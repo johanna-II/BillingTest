@@ -5,6 +5,7 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 
 import requests
@@ -15,7 +16,7 @@ def find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return s.getsockname()[1]
+        return int(s.getsockname()[1])
 
 
 def wait_for_server(url: str, timeout: int = 30) -> bool:
@@ -44,7 +45,9 @@ def wait_for_server(url: str, timeout: int = 30) -> bool:
 
 
 @contextmanager
-def mock_server_context(port: int | None = None, verbose: bool = False):
+def mock_server_context(
+    port: int | None = None, verbose: bool = False
+) -> Generator[str, None, None]:
     """Context manager to start and stop mock server."""
     if port is None:
         port = find_free_port()
@@ -96,7 +99,7 @@ class MockServerManager:
 
     def __init__(self, port: int | None = None) -> None:
         self.port = port or find_free_port()
-        self.process = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.url = f"http://localhost:{self.port}"
 
     def start(self, verbose: bool = False) -> str:

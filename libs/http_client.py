@@ -303,7 +303,7 @@ class BillingAPIClient:
                 msg = f"API error: {message}"
                 raise APIRequestException(msg, response_data=data)
 
-        return cast(JsonData, data)
+        return cast("JsonData", data)
 
     def _extract_error_message(self, data: Any, status_code: int) -> str:
         """Extract error message from response data."""

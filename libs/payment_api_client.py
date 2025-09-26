@@ -92,7 +92,7 @@ class PaymentAPIClient(BillingAPIClient):
         params.update(kwargs)
 
         response = self.get("billing/payment/history", params=params)
-        return cast(list[dict[str, Any]], response.get("payments", []))
+        return cast("list[dict[str, Any]]", response.get("payments", []))
 
     def retry_payment(self, payment_id: str, retry_count: int = 1) -> dict[str, Any]:
         """Retry a failed payment."""

@@ -3,10 +3,7 @@ import os
 
 import pytest
 
-from libs.Calculation import CalculationManager as Calculation
-from libs.Credit import CreditManager as Credit
 from libs.InitializeConfig import InitializeConfig
-from libs.Metering import MeteringManager as Metering
 
 
 @pytest.mark.core
@@ -16,12 +13,13 @@ from libs.Metering import MeteringManager as Metering
 @pytest.mark.serial  # These tests must run serially due to shared state
 class TestCreditAll:
     @pytest.fixture(autouse=True)
-    def setup(self, env, member, month) -> None:
+    def setup(self, env, member, month, use_mock) -> None:
         if member == "etc":
             pytest.skip(
                 "Credit test should be skipped if member country is not KR or JP"
             )
-        self.config = InitializeConfig(env, member, month)
+
+        self.config = InitializeConfig(env, member, month, use_mock=use_mock)
         self.config.prepare()
 
         # Reset mock server data for this UUID if using mock server
@@ -40,14 +38,10 @@ class TestCreditAll:
             except Exception:
                 pass
 
-        self.meteringObj = Metering(month)
-        self.meteringObj.appkey = self.config.appkey[0]
-        self.credit = Credit()
-        self.credit.uuid = self.config.uuid
-        self.credit.campaign_id = self.config.campaign_id
-        self.credit.give_campaign_id = self.config.give_campaign_id
-        self.credit.paid_campaign_id = self.config.paid_campaign_id
-        self.calcObj = Calculation(self.config.month, self.config.uuid)
+        # Get managers from config
+        self.meteringObj = self.config.metering_manager
+        self.credit = self.config.credit_manager
+        self.calcObj = self.config.calculation_manager
 
     @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
