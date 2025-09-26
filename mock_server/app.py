@@ -15,7 +15,6 @@ from flask_cors import CORS
 from .mock_data import (
     generate_batch_progress,
     generate_billing_detail,
-    generate_contract_data,
     generate_credit_data,
 )
 from .test_data_manager import get_data_manager
@@ -75,6 +74,7 @@ data_manager = get_data_manager()
 
 # In-memory storage for batch jobs
 batch_jobs = {}
+batch_progress = {}
 
 # In-memory storage for adjustments
 adjustments = {}
@@ -84,6 +84,12 @@ contracts = {}
 
 # In-memory storage for billing data
 billing_data = {}
+
+# In-memory storage for metering data
+metering_data = {}
+
+# In-memory storage for credit data
+credit_data = {}
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
@@ -1211,7 +1217,7 @@ def reset_test_data():
     if uuid_param:
         # Use data manager to clear UUID-specific data
         data_manager.clear_uuid_data(uuid_param)
-        logger.info(f"Cleared all test data for UUID: {uuid_param}")
+        # Cleared all test data for UUID
 
         # Log the action
         with open("mock_metering.log", "a") as f:
@@ -1245,8 +1251,29 @@ def provider_states():
 
     # Handle different states
     if state == "A contract exists":
-        # Ensure contract 12345 exists
-        contracts["12345"] = generate_contract_data("12345")
+        # Ensure contract 12345 exists in Pact-compatible format
+        contracts["12345"] = {
+            "id": "12345",
+            "status": "ACTIVE",
+            "customer": {
+                "id": "CUST001",
+                "name": "Test Customer",
+                "email": "test@example.com",
+            },
+            "items": [
+                {
+                    "id": "ITEM001",
+                    "description": "Compute Instance",
+                    "quantity": 1,
+                    "unit_price": 100.0,
+                    "total": 100.0,
+                }
+            ],
+            "total_amount": 500.0,
+            "currency": "USD",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        }
     elif state == "Customer exists":
         # Customer data is already available
         pass
@@ -1294,7 +1321,35 @@ def get_contract_v1(contract_id):
             404,
         )
 
-    return jsonify(contracts[contract_id]), 200
+    # Return the contract data in Pact-expected format
+    contract = contracts.get(contract_id)
+    if isinstance(contract, dict) and "id" in contract:
+        # Already in Pact format
+        return jsonify(contract), 200
+    # Convert old format to Pact format
+    pact_contract = {
+        "id": contract_id,
+        "status": contract.get("status", "ACTIVE"),
+        "customer": {
+            "id": "CUST001",
+            "name": "Test Customer",
+            "email": "test@example.com",
+        },
+        "items": [
+            {
+                "id": "ITEM001",
+                "description": "Compute Instance",
+                "quantity": 1,
+                "unit_price": 100.0,
+                "total": 100.0,
+            }
+        ],
+        "total_amount": 500.0,
+        "currency": "USD",
+        "created_at": contract.get("startDate", datetime.now().isoformat()),
+        "updated_at": datetime.now().isoformat(),
+    }
+    return jsonify(pact_contract), 200
 
 
 @app.route("/api/v1/credits", methods=["POST"])
@@ -1317,12 +1372,16 @@ def create_credit_v1():
         )
 
     credit_id = str(uuid.uuid4())
+
+    # Create response that matches both existing tests and Pact expectations
     credit = {
         "id": credit_id,
+        "creditId": credit_id,  # For backward compatibility
         "customer_id": data["customer_id"],
         "amount": data["amount"],
         "currency": data.get("currency", "USD"),
         "description": data.get("description", ""),
+        "reason": data.get("reason", data.get("description", "")),  # Pact uses "reason"
         "type": data.get("type", "ADJUSTMENT"),
         "status": "APPROVED",
         "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -1358,6 +1417,26 @@ def get_metering_v1():
     }
 
     return jsonify(data), 200
+
+
+@app.route("/api/v1/payments/<payment_id>", methods=["GET"])
+def get_payment_v1(payment_id):
+    """Get payment status (v1 API for contract compliance)."""
+    if payment_id not in billing_data:
+        # Create default payment for testing
+        billing_data[payment_id] = {
+            "payment_id": payment_id,
+            "status": "PENDING",
+            "amount": 1500.0,
+            "currency": "USD",
+            "due_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+            "invoice": {
+                "id": "INV001",
+                "url": "https://api.example.com/invoices/INV001",
+            },
+        }
+
+    return jsonify(billing_data[payment_id]), 200
 
 
 @app.route("/api/v1/payments/<payment_id>", methods=["PATCH"])
@@ -1508,32 +1587,7 @@ def handle_undefined_api(path):
 # Provider states endpoint was already defined above, removed duplicate
 
 
-# Credits endpoints
-@app.route("/api/v1/credits", methods=["POST"])
-def create_credit():
-    """Create a new credit."""
-    data = request.get_json()
-
-    credit_id = f"CREDIT_{uuid.uuid4().hex[:8].upper()}"
-
-    response = {
-        "header": {"isSuccessful": True, "resultCode": 0, "resultMessage": "SUCCESS"},
-        "creditId": credit_id,
-        "status": "ACTIVE",
-        "customer_id": data.get("customer_id"),
-        "amount": data.get("amount"),
-        "currency": data.get("currency", "USD"),
-        "description": data.get("description"),
-        "type": data.get("type", "ADJUSTMENT"),
-        "created_at": datetime.now().isoformat(),
-    }
-
-    # Store in test data manager
-    credits_data = data_manager.get_data("credits", {})
-    credits_data[credit_id] = response
-    data_manager.set_data("credits", credits_data)
-
-    return jsonify(response), 201
+# Credits endpoint is already defined above as create_credit_v1
 
 
 # Contract endpoints already defined above, removed duplicate

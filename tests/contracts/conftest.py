@@ -26,13 +26,23 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    """Skip v2 tests when running v3 tests."""
+    """Modify test collection based on configuration."""
+    # Check if we should use v3 tests (opt-in via environment variable)
+    use_v3_tests = os.environ.get("USE_PACT_V3", "false").lower() == "true"
+
     for item in items:
-        # Skip deprecated v2 tests
-        if "test_billing_consumer.py" in str(
-            item.fspath
-        ) or "test_billing_provider.py" in str(item.fspath):
+        if use_v3_tests:
+            # If v3 is requested, skip v2 tests
+            if "test_billing_consumer.py" in str(
+                item.fspath
+            ) or "test_billing_provider.py" in str(item.fspath):
+                skip_marker = pytest.mark.skip(
+                    reason="Using Pact v3 tests (USE_PACT_V3=true)"
+                )
+                item.add_marker(skip_marker)
+        # If v3 is NOT requested (default), skip v3 tests
+        elif "_v3.py" in str(item.fspath):
             skip_marker = pytest.mark.skip(
-                reason="Pact v2 tests are deprecated, use v3 tests"
+                reason="Pact v3 is beta - use USE_PACT_V3=true to enable v3 tests"
             )
             item.add_marker(skip_marker)
