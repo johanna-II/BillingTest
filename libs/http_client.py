@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 from urllib.parse import urlencode, urljoin, urlparse
 
 import requests
@@ -303,7 +303,7 @@ class BillingAPIClient:
                 msg = f"API error: {message}"
                 raise APIRequestException(msg, response_data=data)
 
-        return data
+        return cast(JsonData, data)
 
     def _extract_error_message(self, data: Any, status_code: int) -> str:
         """Extract error message from response data."""
@@ -505,7 +505,7 @@ class BillingAPIClient:
                 return False
 
         # At this point, current should be a string value to compare
-        return current == success_value
+        return bool(current == success_value)
 
     def set_auth_token(self, token: str) -> None:
         """Set authorization token for all requests."""

@@ -161,7 +161,7 @@ class TestContractBasedTesting:
     @pytest.fixture
     def openapi_validator(self):
         """Create OpenAPI response validator."""
-        import yaml
+        import yaml  # type: ignore[import-untyped]
         from openapi_core import create_spec
 
         with open("docs/openapi/billing-api.yaml") as f:

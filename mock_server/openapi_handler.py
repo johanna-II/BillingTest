@@ -3,10 +3,11 @@
 import json
 import random
 import re
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from jsonschema import ValidationError, validate
 
 
@@ -19,14 +20,14 @@ class OpenAPIHandler:
         self.spec_dict = self._load_spec()
         self._example_generators = self._setup_generators()
 
-    def _load_spec(self) -> dict:
+    def _load_spec(self) -> dict[str, Any]:
         """Load OpenAPI specification from file."""
         with open(self.spec_path) as f:
             if self.spec_path.endswith(".yaml") or self.spec_path.endswith(".yml"):
-                return yaml.safe_load(f)
-            return json.load(f)
+                return cast(dict[str, Any], yaml.safe_load(f))
+            return cast(dict[str, Any], json.load(f))
 
-    def _setup_generators(self) -> dict[str, callable]:
+    def _setup_generators(self) -> dict[str, Callable[[], Any]]:
         """Set up value generators for different formats."""
         return {
             "uuid": lambda: str(self._generate_uuid()),
@@ -55,7 +56,7 @@ class OpenAPIHandler:
         if path in self.spec_dict["paths"]:
             path_item = self.spec_dict["paths"][path]
             if method in path_item:
-                return path_item[method]
+                return cast(dict[str, Any], path_item[method])
 
         # Try pattern matching for path parameters
         for spec_path, path_item in self.spec_dict["paths"].items():
@@ -66,7 +67,7 @@ class OpenAPIHandler:
                 pattern = f"^{pattern}$"
 
                 if re.match(pattern, path):
-                    return path_item[method]
+                    return cast(dict[str, Any], path_item[method])
 
         return None
 
@@ -96,7 +97,7 @@ class OpenAPIHandler:
             schema = self._resolve_ref(schema["$ref"])
 
         # Generate response based on schema
-        return self._generate_from_schema(schema)
+        return cast(dict[str, Any], self._generate_from_schema(schema))
 
     def _resolve_ref(self, ref: str) -> dict[str, Any]:
         """Resolve a JSON reference."""
@@ -185,12 +186,12 @@ class OpenAPIHandler:
         """Generate string based on schema."""
         # Check for enum
         if "enum" in schema:
-            return random.choice(schema["enum"])
+            return str(random.choice(schema["enum"]))
 
         # Check for format
         format_type = schema.get("format")
         if format_type and format_type in self._example_generators:
-            return self._example_generators[format_type]()
+            return str(self._example_generators[format_type]())
 
         # Check for pattern
         pattern = schema.get("pattern")
@@ -274,7 +275,7 @@ class OpenAPIHandler:
         if not operation:
             return {}
 
-        examples = {"request": {}, "responses": {}}
+        examples: dict[str, Any] = {"request": {}, "responses": {}}
 
         # Extract request examples
         if "requestBody" in operation:

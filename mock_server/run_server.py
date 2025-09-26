@@ -14,7 +14,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
 
     # Use waitress for production-grade performance
-    from waitress import serve
+    from waitress import serve  # type: ignore[import-untyped]
 
     serve(
         app,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from collections import defaultdict
+from typing import Any
 
 
 class TestDataManager:
@@ -12,25 +13,25 @@ class TestDataManager:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         # UUID-based data stores
-        self.metering_data = defaultdict(dict)
-        self.batch_jobs = defaultdict(dict)
-        self.billing_data = defaultdict(dict)
-        self.credit_data = defaultdict(dict)
-        self.payments = defaultdict(dict)
-        self.contracts = defaultdict(dict)
-        self.meters = defaultdict(dict)
-        self.bills = defaultdict(dict)
-        self.cache = defaultdict(dict)
-        self.adjustments = defaultdict(dict)
+        self.metering_data: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.batch_jobs: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.billing_data: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.credit_data: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.payments: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.contracts: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.meters: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.bills: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.cache: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self.adjustments: defaultdict[str, dict[str, Any]] = defaultdict(dict)
 
-    def get_store(self, store_name: str, uuid: str) -> dict:
+    def get_store(self, store_name: str, uuid: str) -> dict[str, Any]:
         """Get UUID-specific data store."""
         with self._lock:
             store = getattr(self, store_name, None)
             if store is None:
                 msg = f"Unknown store: {store_name}"
                 raise ValueError(msg)
-            return store[uuid]
+            return dict(store[uuid])
 
     def clear_uuid_data(self, uuid: str) -> None:
         """Clear all data for a specific UUID."""
@@ -70,27 +71,27 @@ class TestDataManager:
                 if store:
                     store.clear()
 
-    def get_metering_data(self, uuid: str) -> dict:
+    def get_metering_data(self, uuid: str) -> dict[str, Any]:
         """Get metering data for UUID."""
         return self.get_store("metering_data", uuid)
 
-    def get_batch_jobs(self, uuid: str) -> dict:
+    def get_batch_jobs(self, uuid: str) -> dict[str, Any]:
         """Get batch jobs for UUID."""
         return self.get_store("batch_jobs", uuid)
 
-    def get_billing_data(self, uuid: str) -> dict:
+    def get_billing_data(self, uuid: str) -> dict[str, Any]:
         """Get billing data for UUID."""
         return self.get_store("billing_data", uuid)
 
-    def get_credit_data(self, uuid: str) -> dict:
+    def get_credit_data(self, uuid: str) -> dict[str, Any]:
         """Get credit data for UUID."""
         return self.get_store("credit_data", uuid)
 
-    def get_payments(self, uuid: str) -> dict:
+    def get_payments(self, uuid: str) -> dict[str, Any]:
         """Get payments for UUID."""
         return self.get_store("payments", uuid)
 
-    def get_contracts(self, uuid: str) -> dict:
+    def get_contracts(self, uuid: str) -> dict[str, Any]:
         """Get contracts for UUID."""
         return self.get_store("contracts", uuid)
 

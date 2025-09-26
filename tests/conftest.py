@@ -12,6 +12,7 @@ from __future__ import annotations
 # Fix gevent/pytest-xdist conflict before any imports
 import os
 import sys
+from typing import Any
 
 
 def _disable_gevent_in_parallel_mode() -> None:
@@ -23,12 +24,12 @@ def _disable_gevent_in_parallel_mode() -> None:
 
         # Mock gevent modules to prevent import
         class MockGevent:
-            def __getattr__(self, name):
+            def __getattr__(self, name: str) -> Any:
                 return lambda *args, **kwargs: None
 
         if "gevent" not in sys.modules:
-            sys.modules["gevent"] = MockGevent()
-            sys.modules["gevent.monkey"] = MockGevent()
+            sys.modules["gevent"] = MockGevent()  # type: ignore[assignment]
+            sys.modules["gevent.monkey"] = MockGevent()  # type: ignore[assignment]
 
 
 _disable_gevent_in_parallel_mode()
@@ -317,7 +318,7 @@ def use_mock(test_config: TestConfig) -> bool:
 
 # Mock server fixture
 @pytest.fixture(scope="session")
-def mock_server(use_mock: bool) -> Generator[str, None, None] | None:
+def mock_server(use_mock: bool) -> Generator[str | None, None, None]:
     """Start and stop mock server for tests.
 
     Args:
@@ -328,32 +329,31 @@ def mock_server(use_mock: bool) -> Generator[str, None, None] | None:
     """
     if not use_mock:
         yield None
-        return
+    else:
+        # Import mock server management
+        try:
+            from tests.fixtures.mock_server import MockServerManager, find_free_port
 
-    # Import mock server management
-    try:
-        from tests.fixtures.mock_server import MockServerManager, find_free_port
+            # Use dynamic port to avoid conflicts in parallel execution
+            port = int(os.environ.get("MOCK_SERVER_PORT", "0"))
+            if port == 0:
+                port = find_free_port()
 
-        # Use dynamic port to avoid conflicts in parallel execution
-        port = int(os.environ.get("MOCK_SERVER_PORT", "0"))
-        if port == 0:
-            port = find_free_port()
+            manager = MockServerManager(port=port)
 
-        manager = MockServerManager(port=port)
+            # Start server
+            manager.start()
+            logger.info(f"Mock server started on {manager.url}")
 
-        # Start server
-        manager.start()
-        logger.info(f"Mock server started on {manager.url}")
+            yield manager.url
 
-        yield manager.url
+            # Stop server
+            manager.stop()
+            logger.info("Mock server stopped")
 
-        # Stop server
-        manager.stop()
-        logger.info("Mock server stopped")
-
-    except ImportError:
-        logger.warning("Mock server fixtures not available")
-        yield None
+        except ImportError:
+            logger.warning("Mock server fixtures not available")
+            yield None
 
 
 # Mock server URL fixture
@@ -434,8 +434,9 @@ def performance_monitor():
 
     class PerformanceMonitor:
         def __init__(self) -> None:
-            self.start_time = None
-            self.measurements = {}
+            self.start_time: float | None = None
+            self.measurements: dict[str, float] = {}
+            self.current_name: str = ""
 
         def start(self, name: str) -> None:
             self.start_time = time.time()

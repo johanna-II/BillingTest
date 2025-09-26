@@ -18,6 +18,7 @@ from libs.constants import (
     PaymentStatus,
 )
 from libs.Contract import ContractManager
+from libs.exceptions import APIRequestException
 from libs.http_client import BillingAPIClient
 from libs.Metering import MeteringManager
 from libs.Payments import PaymentManager
@@ -183,7 +184,7 @@ class TestOpenAPIValidation:
     @pytest.fixture
     def openapi_spec(self):
         """Load OpenAPI specification."""
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         with open("docs/openapi/billing-api.yaml") as f:
             return yaml.safe_load(f)

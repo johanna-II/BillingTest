@@ -216,7 +216,7 @@ def configure_dependencies(
 
 
 # Decorators for dependency injection
-def inject(**dependencies):
+def inject(**dependencies: type[Any]) -> Callable[[Any], Any]:
     """Decorator to inject dependencies into a class or function.
 
     Example:
@@ -226,12 +226,12 @@ def inject(**dependencies):
                 self.client = client
     """
 
-    def decorator(cls_or_func):
+    def decorator(cls_or_func: Any) -> Any:
         if isinstance(cls_or_func, type):
             # Class decorator
             original_init = cls_or_func.__init__  # type: ignore[misc]
 
-            def new_init(self, *args, **kwargs) -> None:
+            def new_init(self: Any, *args: Any, **kwargs: Any) -> None:
                 # Inject dependencies
                 for name, service_type in dependencies.items():
                     if name not in kwargs:
@@ -242,7 +242,7 @@ def inject(**dependencies):
             return cls_or_func
 
         # Function decorator
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Inject dependencies
             for name, service_type in dependencies.items():
                 if name not in kwargs:

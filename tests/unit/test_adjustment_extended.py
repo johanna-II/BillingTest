@@ -1,5 +1,6 @@
 """Extended unit tests for Adjustment module to improve coverage."""
 
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -147,7 +148,7 @@ class TestAdjustmentExtended:
 
     def test_delete_adjustment_empty_dict(self) -> None:
         """Test delete_adjustment with empty dict."""
-        adjustment_data = {"adjustments": []}
+        adjustment_data: dict[str, list[Any]] = {"adjustments": []}
 
         # Should return early without calling delete
         self.adjustment_manager.delete_adjustment(

@@ -168,7 +168,8 @@ class TestCreditWorkflows:
                 coupon_entries = [
                     h
                     for h in history
-                    if hasattr(h, "credit_type") and h.credit_type == CreditType.COUPON
+                    if hasattr(h, "credit_type")
+                    and h.credit_type == CreditType.PROMOTIONAL
                 ]
                 assert len(coupon_entries) > 0
         except Exception:

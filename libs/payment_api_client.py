@@ -1,6 +1,6 @@
 """Payment-specific API client extensions."""
 
-from typing import Any
+from typing import Any, cast
 
 from libs.http_client import BillingAPIClient
 
@@ -92,7 +92,7 @@ class PaymentAPIClient(BillingAPIClient):
         params.update(kwargs)
 
         response = self.get("billing/payment/history", params=params)
-        return response.get("payments", [])
+        return cast(list[dict[str, Any]], response.get("payments", []))
 
     def retry_payment(self, payment_id: str, retry_count: int = 1) -> dict[str, Any]:
         """Retry a failed payment."""

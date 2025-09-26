@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from flask import Blueprint, render_template_string
 
 swagger_bp = Blueprint("swagger", __name__)

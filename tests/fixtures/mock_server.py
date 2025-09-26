@@ -28,7 +28,7 @@ class MockServerManager:
             port: Specific port to use. If None, finds a free port.
         """
         self.port = port or find_free_port()
-        self.process = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.url = f"http://localhost:{self.port}"
 
     def start(self) -> None:

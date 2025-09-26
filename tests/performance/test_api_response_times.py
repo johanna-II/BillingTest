@@ -19,7 +19,7 @@ class SimpleBenchmark:
     """Simple benchmark replacement for parallel test mode."""
 
     def __init__(self) -> None:
-        self.stats = {}
+        self.stats: dict[str, float] = {}
 
     def __call__(self, func):
         start = time.time()

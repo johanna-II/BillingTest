@@ -259,7 +259,7 @@ class TestCreditManagerBase:
     def test_grant_credit_to_users_success(self) -> None:
         """Test granting credit to multiple users."""
         # Using bulk_grant_credit instead of grant_credit_to_users
-        self.mock_api_client._client.post.return_value = {
+        self.mock_api_client._client.post.return_value = {  # type: ignore[attr-defined]
             "grantedCount": 1,
             "totalCredit": 1000,
         }

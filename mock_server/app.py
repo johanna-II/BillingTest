@@ -20,14 +20,17 @@ from .mock_data import (
 from .test_data_manager import get_data_manager
 
 try:
-    from .openapi_handler import get_openapi_handler, setup_openapi_handler
+    from .openapi_handler import OpenAPIHandler, setup_openapi_handler
+    from .openapi_handler import get_openapi_handler as _get_openapi_handler
 
     OPENAPI_AVAILABLE = True
+    get_openapi_handler = _get_openapi_handler
 except ImportError:
     OPENAPI_AVAILABLE = False
-    setup_openapi_handler = None
+    setup_openapi_handler = None  # type: ignore[assignment]
+    OpenAPIHandler = None  # type: ignore[misc,assignment]
 
-    def get_openapi_handler() -> None:
+    def get_openapi_handler() -> Any:
         return None
 
 
@@ -73,23 +76,23 @@ app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 data_manager = get_data_manager()
 
 # In-memory storage for batch jobs
-batch_jobs = {}
-batch_progress = {}
+batch_jobs: dict[str, Any] = {}
+batch_progress: dict[str, int] = {}
 
 # In-memory storage for adjustments
-adjustments = {}
+adjustments: dict[str, Any] = {}
 
 # In-memory storage for contracts
-contracts = {}
+contracts: dict[str, Any] = {}
 
 # In-memory storage for billing data
-billing_data = {}
+billing_data: dict[str, Any] = {}
 
 # In-memory storage for metering data
-metering_data = {}
+metering_data: dict[str, Any] = {}
 
 # In-memory storage for credit data
-credit_data = {}
+credit_data: dict[str, Any] = {}
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
@@ -231,7 +234,7 @@ def health():
 @app.route("/billing/meters", methods=["POST"])
 def create_metering():
     """Create metering data."""
-    data = request.json
+    data = request.json or {}
     test_uuid = request.headers.get("uuid", "default")
 
     # Get UUID-specific metering store
@@ -375,7 +378,7 @@ def get_credit_balance():
 @app.route("/billing/credits/history", methods=["GET"])
 def get_credit_history():
     """Get credit history."""
-    uuid_param = request.headers.get("uuid")
+    uuid_param = request.headers.get("uuid", "default")
     balance_type = request.args.get("balancePriceTypeCode", "FREE")
 
     # Get user's credit data
@@ -402,8 +405,8 @@ def get_credit_history():
 @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
 def grant_campaign_credit(campaign_id):
     """Grant credit through campaign."""
-    data = request.json
-    uuid_param = request.headers.get("uuid")
+    data = request.json or {}
+    uuid_param = request.headers.get("uuid", "default")
 
     # Store credit data
     credit_amount = data.get("creditList", [{}])[0].get("creditAmt", 0)
@@ -437,7 +440,7 @@ def grant_campaign_credit(campaign_id):
 @app.route("/billing/coupons/<coupon_code>", methods=["POST"])
 def apply_coupon_credit(coupon_code):
     """Apply coupon credit to user."""
-    uuid_param = request.headers.get("uuid")
+    uuid_param = request.headers.get("uuid", "default")
 
     # Default coupon amounts based on code pattern
     coupon_amounts = {
@@ -470,8 +473,8 @@ def apply_coupon_credit(coupon_code):
 @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
 def grant_paid_credit(campaign_id):
     """Grant paid credit to user."""
-    data = request.json
-    uuid_param = request.headers.get("uuid")
+    data = request.json or {}
+    uuid_param = request.headers.get("uuid", "default")
 
     # Extract credit info from request
     credit_info = {
@@ -519,8 +522,8 @@ def cancel_campaign_credit(campaign_id):
 @app.route("/billing/admin/campaign/<campaign_id>/give", methods=["POST"])
 def give_credit(campaign_id):
     """Give credit to user (legacy endpoint)."""
-    data = request.json
-    uuid_param = data.get("uuid")
+    data = request.json or {}
+    uuid_param = data.get("uuid", "default")
     amount = data.get("amount", 0)
 
     # Initialize credit data if not exists
@@ -542,10 +545,10 @@ def give_credit(campaign_id):
 def cancel_credit():
     """Cancel credit."""
     if request.method == "DELETE":
-        uuid_param = request.args.get("uuid")
+        uuid_param = request.args.get("uuid", "default")
     else:
-        data = request.json
-        uuid_param = data.get("uuid")
+        data = request.json or {}
+        uuid_param = data.get("uuid", "default")
 
     with data_lock:
         if uuid_param in credit_data:
@@ -562,7 +565,7 @@ def cancel_credit():
 @app.route("/billing/credits/remaining", methods=["GET"])
 def get_remaining_credits():
     """Get remaining credits."""
-    uuid_param = request.args.get("uuid")
+    uuid_param = request.args.get("uuid", "default")
 
     # Return mock remaining credits based on uuid
     if uuid_param in credit_data:
@@ -589,8 +592,8 @@ def get_remaining_credits():
 @app.route("/billing/v5.0/bills/detail", methods=["GET"])
 def get_billing_detail():
     """Get billing details."""
-    uuid_param = request.args.get("uuid")
-    month = request.args.get("month")
+    uuid_param = request.args.get("uuid", "default")
+    month = request.args.get("month", "")
 
     # Check if user has any discounts (e.g., from contracts)
     has_discount = uuid_param in contracts
@@ -720,8 +723,8 @@ def get_billing_detail():
 @app.route("/billing/console/statements", methods=["GET"])
 def get_statements():
     """Get billing statements."""
-    uuid_param = request.args.get("uuid")
-    month = request.args.get("month")
+    uuid_param = request.args.get("uuid", "default")
+    month = request.args.get("month", "")
 
     # Get billing detail if exists
     billing_key = f"{uuid_param}:{month}"
@@ -797,7 +800,7 @@ def handle_contracts():
 
         return jsonify(create_success_response({"contracts": contract_list}))
     # Create contract
-    data = request.json
+    data = request.json or {}
     contract_id = str(uuid.uuid4())
 
     contracts[contract_id] = {"contractId": contract_id, "status": "ACTIVE", **data}
@@ -871,8 +874,8 @@ def get_payment_status(payment_id):
 @app.route("/billing/console/payments", methods=["GET"])
 def get_payments():
     """Get payments list."""
-    uuid_param = request.args.get("uuid")
-    month = request.args.get("month")
+    uuid_param = request.args.get("uuid", "default")
+    month = request.args.get("month", "")
 
     # Return mock payment data
     mock_payments = [
@@ -944,7 +947,7 @@ def create_calculation():
 @app.route("/billing/payments/<month>/statements", methods=["GET"])
 def get_payment_statements_console(month):
     """Get payment statements for console API."""
-    uuid_param = request.headers.get("uuid")
+    uuid_param = request.headers.get("uuid", "default")
 
     # Return mock payment status
     return jsonify(
@@ -989,7 +992,7 @@ def get_contract_prices(contract_id):
 @app.route("/billing/v5.0/credits", methods=["GET"])
 def get_credits_v5():
     """Get credits (v5.0 API)."""
-    uuid_param = request.headers.get("uuid")
+    uuid_param = request.headers.get("uuid", "default")
 
     if uuid_param in credit_data:
         data = credit_data[uuid_param]
@@ -1028,15 +1031,15 @@ def manage_campaign_credits(campaign_id):
     """Manage campaign credits."""
     if request.method == "DELETE":
         # Delete credits
-        uuid_param = request.args.get("uuid") or request.headers.get("uuid")
+        uuid_param = request.args.get("uuid") or request.headers.get("uuid", "default")
         with data_lock:
             if uuid_param in credit_data:
                 credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
         return jsonify(create_success_response())
     # Grant credits
-    data = request.json
+    data = request.json or {}
     # Handle different data structures
-    uuid_param = None
+    uuid_param = ""
     amount = 0
 
     # Check for direct structure (from actual API)
@@ -1045,7 +1048,7 @@ def manage_campaign_credits(campaign_id):
         amount = data.get("credit", 0)
     # Check for simplified structure
     else:
-        uuid_param = data.get("uuid")
+        uuid_param = data.get("uuid", "default")
         amount = data.get("amount", 0)
 
     if uuid_param:
@@ -1085,7 +1088,7 @@ def project_adjustments():
     if request.method == "GET":
         # Get query parameters
         project_id = request.args.get("projectId")
-        month = request.args.get("month")
+        month = request.args.get("month", "")
 
         # Filter adjustments
         filtered = []
@@ -1096,7 +1099,7 @@ def project_adjustments():
 
         return jsonify(create_success_response({"adjustments": filtered}))
     # Create adjustment
-    data = request.json
+    data = request.json or {}
     adj_id = str(uuid.uuid4())
 
     # Store adjustment
@@ -1127,7 +1130,7 @@ def billing_group_adjustments():
     if request.method == "GET":
         # Get query parameters
         billing_group_id = request.args.get("billingGroupId")
-        month = request.args.get("month")
+        month = request.args.get("month", "")
 
         # Filter adjustments
         filtered = []
@@ -1159,7 +1162,7 @@ def billing_group_adjustments():
             )
         )
     # Create adjustment
-    data = request.json
+    data = request.json or {}
     adj_id = str(uuid.uuid4())
 
     # Store adjustment
@@ -1186,7 +1189,7 @@ def billing_group_adjustments():
 @app.route("/billing/admin/batches", methods=["POST"])
 def create_batch():
     """Create batch job."""
-    data = request.json
+    data = request.json or {}
     batch_id = str(uuid.uuid4())
 
     batch_jobs[batch_id] = {
@@ -1212,7 +1215,7 @@ def health_check():
 def reset_test_data():
     """Reset all test data for a specific UUID."""
     data = request.json or {}
-    uuid_param = data.get("uuid") or request.headers.get("uuid")
+    uuid_param = data.get("uuid") or request.headers.get("uuid", "default")
 
     if uuid_param:
         # Use data manager to clear UUID-specific data
@@ -1246,7 +1249,7 @@ def reset_test_data():
 @app.route("/pact-states", methods=["POST"])
 def provider_states():
     """Handle provider state setup for Pact verification."""
-    data = request.json
+    data = request.json or {}
     state = data.get("state")
 
     # Handle different states
@@ -1322,7 +1325,7 @@ def get_contract_v1(contract_id):
         )
 
     # Return the contract data in Pact-expected format
-    contract = contracts.get(contract_id)
+    contract = contracts[contract_id]  # We know it exists from the check above
     if isinstance(contract, dict) and "id" in contract:
         # Already in Pact format
         return jsonify(contract), 200
@@ -1355,7 +1358,7 @@ def get_contract_v1(contract_id):
 @app.route("/api/v1/credits", methods=["POST"])
 def create_credit_v1():
     """Create credit transaction (v1 API for contract compliance)."""
-    data = request.json
+    data = request.json or {}
 
     # Validate amount
     if data.get("amount", 0) < 0:
@@ -1395,7 +1398,7 @@ def create_credit_v1():
 def get_metering_v1():
     """Get metering data (v1 API for contract compliance)."""
     project_id = request.args.get("project_id")
-    month = request.args.get("month")
+    month = request.args.get("month", "")
 
     if project_id in metering_data:
         return jsonify(metering_data[project_id]), 200
@@ -1442,7 +1445,7 @@ def get_payment_v1(payment_id):
 @app.route("/api/v1/payments/<payment_id>", methods=["PATCH"])
 def update_payment_v1(payment_id):
     """Update payment status (v1 API for contract compliance)."""
-    data = request.json
+    data = request.json or {}
 
     if payment_id not in billing_data:
         billing_data[payment_id] = {
@@ -1476,7 +1479,7 @@ def get_openapi_spec():
     spec = handler.spec_dict
 
     if request.path.endswith(".yaml"):
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         response = make_response(yaml.dump(spec))
         response.headers["Content-Type"] = "application/x-yaml"
@@ -1492,7 +1495,7 @@ def validate_openapi_request():
     if not handler:
         return jsonify({"error": "OpenAPI not available"}), 404
 
-    data = request.json
+    data = request.json or {}
     method = data.get("method", "GET")
     path = data.get("path", "/")
     body = data.get("body")

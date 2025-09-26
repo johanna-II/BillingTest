@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 import requests
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 @pytest.mark.api
@@ -65,7 +65,7 @@ class TestOpenAPIIntegration:
     def test_validate_invalid_request(self) -> None:
         """Test request validation with invalid data."""
         # Missing required field
-        validation_request = {
+        validation_request: dict[str, Any] = {
             "method": "POST",
             "path": "/api/v1/credits",
             "body": {
