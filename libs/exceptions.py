@@ -41,11 +41,21 @@ class ErrorCode(Enum):
     RESOURCE_NOT_FOUND = 5000
     RESOURCE_ALREADY_EXISTS = 5001
     RESOURCE_LOCKED = 5002
+    DUPLICATE_REQUEST = 5003
 
     # Business logic errors (6xxx)
     PAYMENT_FAILED = 6000
     CREDIT_INSUFFICIENT = 6001
     CONTRACT_VIOLATED = 6002
+    PAYMENT_REQUIRED = 6003
+    INSUFFICIENT_CREDIT = 6004
+
+    # Network errors (7xxx)
+    NETWORK_ERROR = 7000
+    CONNECTION_TIMEOUT = 7001
+
+    # Rate limiting (8xxx)
+    RATE_LIMIT_EXCEEDED = 8000
 
     # System errors (9xxx)
     INTERNAL_ERROR = 9000
@@ -544,7 +554,7 @@ class RateLimitException(BillingTestException):
             context: Error context
         """
         if context is None:
-            details = {}
+            details: dict[str, Any] = {}
             if limit:
                 details["limit"] = limit
             if reset_time:
@@ -582,7 +592,7 @@ class ServerException(BillingTestException):
             context: Error context
         """
         if context is None:
-            details = {}
+            details: dict[str, Any] = {}
             if status_code:
                 details["status_code"] = status_code
             if error_code:
@@ -597,7 +607,7 @@ class ServerException(BillingTestException):
 
         super().__init__(message, context)
         self.status_code = status_code
-        self.error_code = error_code
+        self.server_error_code = error_code
 
 
 class NetworkException(BillingTestException):
@@ -619,11 +629,11 @@ class NetworkException(BillingTestException):
             context: Error context
         """
         if context is None:
-            details = {}
+            details: dict[str, Any] = {}
             if operation:
                 details["operation"] = operation
             if cause:
-                details["cause"] = cause
+                details["cause"] = str(cause)
 
             context = ErrorContext(
                 error_code=ErrorCode.NETWORK_ERROR,
@@ -632,9 +642,9 @@ class NetworkException(BillingTestException):
                 suggested_action="Check network connectivity and retry",
             )
 
-        super().__init__(message, context)
+        super().__init__(message, context, cause)
         self.operation = operation
-        self.cause = cause
+        self.network_cause = cause
 
 
 class PaymentRequiredException(BillingTestException):
@@ -656,7 +666,7 @@ class PaymentRequiredException(BillingTestException):
             context: Error context
         """
         if context is None:
-            details = {}
+            details: dict[str, Any] = {}
             if required_amount:
                 details["required_amount"] = required_amount
             if currency:

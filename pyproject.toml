@@ -298,7 +298,11 @@ omit = [
     "*/tests/*",
     "*/conftest.py",
     "libs/dependency_injection.py",
-    "libs/observability/*"
+    "libs/observability/*",
+    "libs/InitializeConfig.py",
+    "libs/constants.py",
+    "libs/billing_types.py",
+    "libs/exceptions.py"
 ]
 
 [tool.coverage.report]

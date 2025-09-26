@@ -32,7 +32,7 @@ repos:
     rev: v0.8.0
     hooks:
       - id: ruff
-        args: ['--fix', '--exit-non-zero-on-fix', '--show-fixes']  # Fix safe issues, show what was fixed
+        args: ['--fix', '--exit-non-zero-on-fix', '--show-fixes', '--config', '.ruff.toml']  # Fix safe issues, show what was fixed
         name: ruff (auto-fix safe issues)
         description: 'Ruff: Fast Python linter with safe auto-fixes'
       # Ruff-format disabled to avoid conflicts with Black
