@@ -25,10 +25,14 @@ class TestPaymentWorkflows:
         client = BillingAPIClient(base_url=base_url)
 
         return {
-            "payment": PaymentManager(month=month, uuid=f"uuid-{member}"),
-            "metering": MeteringManager(month=month),
-            "calculation": CalculationManager(month=month, uuid=f"uuid-{member}"),
-            "credit": CreditManager(uuid=f"uuid-{member}"),
+            "payment": PaymentManager(
+                month=month, uuid=f"uuid-{member}", client=client
+            ),
+            "metering": MeteringManager(month=month, client=client),
+            "calculation": CalculationManager(
+                month=month, uuid=f"uuid-{member}", client=client
+            ),
+            "credit": CreditManager(uuid=f"uuid-{member}", client=client),
             "client": client,
         }
 

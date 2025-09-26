@@ -18,18 +18,19 @@ logger = logging.getLogger(__name__)
 class MeteringManager:
     """Manages metering data submission and deletion."""
 
-    def __init__(self, month: str) -> None:
+    def __init__(self, month: str, client: BillingAPIClient | None = None) -> None:
         """Initialize metering manager.
 
         Args:
             month: Target month in YYYY-MM format
+            client: Optional API client (creates default if not provided)
 
         Raises:
             ValidationException: If month format is invalid
         """
         self._validate_month_format(month)
         self.month = month
-        self._client = BillingAPIClient(url.BASE_METERING_URL)
+        self._client = client or BillingAPIClient(url.BASE_METERING_URL)
         self._iaas_template = self._create_default_template()
 
     def __repr__(self) -> str:

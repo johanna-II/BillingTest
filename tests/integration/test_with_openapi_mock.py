@@ -94,9 +94,7 @@ class TestWithOpenAPIMockServer:
         assert contract_result.get("header", {}).get("resultMessage") == "SUCCESS"
 
         # 2. Send metering data
-        # Create MeteringManager with mock client
-        metering_manager = MeteringManager(month="2024-01")
-        metering_manager._client = api_client  # Override the client with mock
+        metering_manager = MeteringManager(month="2024-01", client=api_client)
 
         meter_result = metering_manager.send_metering(
             app_key="test-app",
@@ -186,7 +184,7 @@ class TestOpenAPIValidation:
         """Test that requests match OpenAPI schema."""
         # This would use OpenAPI validation libraries
         # to ensure our requests match the specification
-        metering_manager = MeteringManager(month="2024-01")
+        metering_manager = MeteringManager(month="2024-01", client=api_client)
 
         # The mock server validates requests against OpenAPI spec
         # Invalid requests should be rejected

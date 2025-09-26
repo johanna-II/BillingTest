@@ -44,15 +44,19 @@ class TestBillingWorkflows:
     def managers(self, api_client, month, member):
         """Create all managers needed for billing workflows."""
         return {
-            "adjustment": AdjustmentManager(month=month),
-            "batch": BatchManager(month=month),
+            "adjustment": AdjustmentManager(month=month, client=api_client),
+            "batch": BatchManager(month=month, client=api_client),
             "contract": ContractManager(
-                month=month, billing_group_id=f"bg-{member}-001"
+                month=month, billing_group_id=f"bg-{member}-001", client=api_client
             ),
-            "calculation": CalculationManager(month=month, uuid=f"uuid-{member}-001"),
-            "metering": MeteringManager(month=month),
-            "payment": PaymentManager(month=month, uuid=f"uuid-{member}-001"),
-            "credit": CreditManager(uuid=f"uuid-{member}-001"),
+            "calculation": CalculationManager(
+                month=month, uuid=f"uuid-{member}-001", client=api_client
+            ),
+            "metering": MeteringManager(month=month, client=api_client),
+            "payment": PaymentManager(
+                month=month, uuid=f"uuid-{member}-001", client=api_client
+            ),
+            "credit": CreditManager(uuid=f"uuid-{member}-001", client=api_client),
         }
 
     def test_standard_billing_cycle(self, managers) -> None:

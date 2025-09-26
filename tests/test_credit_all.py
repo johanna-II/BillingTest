@@ -43,10 +43,21 @@ class TestCreditAll:
         self.credit = self.config.credit_manager
         self.calcObj = self.config.calculation_manager
 
+        # Get app_key from config
+        self.app_key = self.config.appkey[0] if self.config.appkey else "TEST-APP-KEY"
+        # Store campaign_id for teardown
+        self.used_campaign_ids = []
+
     @pytest.fixture(autouse=True)
     def teardown(self, env, member, month):
         yield
-        self.credit.cancel_credit()
+        # Cancel all used campaign credits
+        if hasattr(self, "used_campaign_ids"):
+            for campaign_id in self.used_campaign_ids:
+                try:
+                    self.credit.cancel_credit(campaign_id)
+                except Exception:
+                    pass  # Ignore errors during cleanup
 
     def test_creditTC1(self) -> None:
         self.meteringObj.send_iaas_metering(
@@ -54,10 +65,15 @@ class TestCreditAll:
             counter_type="GAUGE",
             counter_unit="HOURS",
             counter_volume="720",
+            app_key=self.app_key,
         )
-        self.calcObj.recalculation_all()
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.calcObj.recalculate_all()
+        campaign_id = (
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001"
+        )
+        self.used_campaign_ids.append(campaign_id)
+        self.credit.grant_credit(
+            campaign_id,
             100000,
         )  # 100,000 / 무료, 지급형, 전체형 크레딧
         # 결제 후 금액 비교
@@ -68,7 +84,9 @@ class TestCreditAll:
         expect_result = (statements["charge"] - 100000) + math.floor(
             (statements["charge"] - 100000) * 0.1
         )
-        rest_credit, total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        total_credit_amt = credit_balance["total"]
 
         assert statements_with_credit == total_payments == expect_result
         assert rest_credit == total_credit_amt == 0
@@ -79,31 +97,36 @@ class TestCreditAll:
             counter_type="DELTA",
             counter_unit="HOURS",
             counter_volume="720",
+            app_key=self.app_key,
         )
         self.meteringObj.send_iaas_metering(
             counter_name="storage.volume.ssd",
             counter_type="DELTA",
             counter_unit="KB",
             counter_volume="524288000",
+            app_key=self.app_key,
         )
         self.meteringObj.send_iaas_metering(
             counter_name="network.floating_ip",
             counter_type="DELTA",
             counter_unit="HOURS",
             counter_volume="720",
+            app_key=self.app_key,
         )
-        self.calcObj.recalculation_all()
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.calcObj.recalculate_all()
+        self.credit.grant_credit(
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001",
             100000,
         )  # 100,000 / 무료, 쿠폰형, 이벤트 크레딧
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.credit.grant_credit(
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001",
             2000000,
         )  # 2,000,000 / 무료, 쿠폰형, 전체형 크레딧
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         statements_with_credit = statements["totalAmount"]
         # 크레딧은 charge에서만 차감됨 (VAT 제외)
         expected_rest_credit = 2100000 - statements["charge"]
@@ -129,9 +152,9 @@ class TestCreditAll:
             counter_unit="KB",
             counter_volume="524288000",
         )
-        self.calcObj.recalculation_all()
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.calcObj.recalculate_all()
+        self.credit.grant_credit(
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001",
             2000000,
         )  # 2,000,000 / 무료, 지급형, 전체형 크레딧
         # 결제 후 금액 비교
@@ -139,7 +162,9 @@ class TestCreditAll:
         statements_with_credit = statements["totalAmount"]
         # 크레딧은 charge에서만 차감됨 (VAT 제외)
         expected_rest_credit = 2000000 - statements["charge"]
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         assert statements_with_credit == total_payments == 0
         assert rest_credit == expected_rest_credit
 
@@ -162,7 +187,7 @@ class TestCreditAll:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        self.calcObj.recalculation_all()
+        self.calcObj.recalculate_all()
         self.credit.give_paid_credit(
             campaignId=(
                 self.credit.paid_campaign_id[0]
@@ -174,7 +199,9 @@ class TestCreditAll:
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         statements_with_credit = statements["totalAmount"]
-        rest_credit, total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        total_credit_amt = credit_balance["total"]
         expect_result = (statements["charge"] - 100000) + math.floor(
             (statements["charge"] - 100000) * 0.1
         )
@@ -206,7 +233,7 @@ class TestCreditAll:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        self.calcObj.recalculation_all()
+        self.calcObj.recalculate_all()
         self.credit.give_paid_credit(
             campaignId=(
                 self.credit.paid_campaign_id[0]
@@ -220,7 +247,9 @@ class TestCreditAll:
         statements_with_credit = statements["totalAmount"]
         # 크레딧은 charge에서만 차감됨 (VAT 제외)
         expected_rest_credit = 2000000 - statements["charge"]
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         assert statements_with_credit == total_payments == 0
         assert rest_credit == expected_rest_credit
 
@@ -231,7 +260,7 @@ class TestCreditAll:
             counter_unit="HOURS",
             counter_volume="720",
         )
-        self.calcObj.recalculation_all()
+        self.calcObj.recalculate_all()
         self.credit.give_paid_credit(
             campaignId=(
                 self.credit.paid_campaign_id[0]
@@ -254,7 +283,9 @@ class TestCreditAll:
         # mock server는 모든 크레딧을 동일하게 처리함
         # 2100000 크레딧 중 charge만큼 사용
         expected_rest_credit = 2100000 - statements["charge"]
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         assert statements_with_credit == total_payments == 0
         assert rest_credit == expected_rest_credit
 
@@ -278,9 +309,9 @@ class TestCreditAll:
             counter_volume="720",
         )
 
-        self.calcObj.recalculation_all()
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.calcObj.recalculate_all()
+        self.credit.grant_credit(
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001",
             100000,
         )  # 무료, 쿠폰형, 전체형 크레딧
         self.credit.give_paid_credit(
@@ -295,7 +326,9 @@ class TestCreditAll:
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
         statements_with_credit = statements["totalAmount"]
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         # 크레딧은 charge에서만 차감됨 (VAT 제외)
         expected_rest_credit = 2100000 - statements["charge"]
         assert statements_with_credit == total_payments == 0
@@ -327,9 +360,9 @@ class TestCreditAll:
             counter_volume="720",
         )
 
-        self.calcObj.recalculation_all()
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.calcObj.recalculate_all()
+        self.credit.grant_credit(
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001",
             100000,
         )  # 무료, 지급형, 이벤트 크레딧
         self.credit.give_paid_credit(
@@ -347,7 +380,9 @@ class TestCreditAll:
         expect_result = (statements["charge"] - 200000) + math.floor(
             (statements["charge"] - 200000) * 0.1
         )
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         assert statements_with_credit == total_payments == expect_result
         assert rest_credit == 0
 
@@ -359,9 +394,9 @@ class TestCreditAll:
             counter_volume="720",
         )
 
-        self.calcObj.recalculation_all()
-        self.credit.give_credit(
-            self.credit.campaign_id[0] if self.credit.campaign_id else "CAMPAIGN-001",
+        self.calcObj.recalculate_all()
+        self.credit.grant_credit(
+            self.config.campaign_id[0] if self.config.campaign_id else "CAMPAIGN-001",
             1000000,
         )  # 무료, 지급형, 이벤트 크레딧
         self.credit.give_paid_credit(
@@ -375,7 +410,9 @@ class TestCreditAll:
 
         # 결제 후 금액 비교
         statements, total_payments = self.config.common_test()
-        rest_credit, _total_credit_amt = self.credit.inquiry_rest_credit()
+        credit_balance = self.credit.get_credit_balance()
+        rest_credit = credit_balance["total"]
+        _total_credit_amt = credit_balance["total"]
         # mock server는 모든 크레딧을 동일하게 처리함
         # 2000000 크레딧 중 charge만큼 사용
         expected_rest_credit = 2000000 - statements["charge"]

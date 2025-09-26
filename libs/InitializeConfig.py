@@ -189,8 +189,7 @@ class DefaultManagerFactory:
 
     def create_metering_manager(self, month: str) -> MeteringManager:
         """Create metering manager instance."""
-        # MeteringManager doesn't accept client parameter yet
-        return MeteringManager(month)
+        return MeteringManager(month, client=self._client)
 
     def create_calculation_manager(self, month: str, uuid: str) -> CalculationManager:
         """Create calculation manager instance."""
@@ -393,9 +392,16 @@ class InitializeConfig:
         if manager_factory is None:
             from config import url
 
-            base_url = url.BASE_BILLING_URL if not use_mock else "http://localhost:5000"
-            client = BillingAPIClient(base_url, use_mock=use_mock)
-            self._manager_factory = DefaultManagerFactory(client)
+            from .payment_api_client import PaymentAPIClient
+
+            if use_mock:
+                # For mock mode, create PaymentAPIClient with mock server URL
+                payment_client = PaymentAPIClient("http://localhost:5000")
+                self._manager_factory = DefaultManagerFactory(payment_client)
+            else:
+                base_url = url.BASE_BILLING_URL
+                client = BillingAPIClient(base_url, use_mock=use_mock)
+                self._manager_factory = DefaultManagerFactory(client)
         else:
             self._manager_factory = manager_factory
 

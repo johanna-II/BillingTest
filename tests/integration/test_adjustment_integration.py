@@ -16,12 +16,14 @@ class TestAdjustmentIntegration:
     def adjustment_context(self, api_client, month, test_billing_group):
         """Setup adjustment test context."""
         return {
-            "adjustment": AdjustmentManager(month=month),
-            "metering": MeteringManager(month=month),
+            "adjustment": AdjustmentManager(month=month, client=api_client),
+            "metering": MeteringManager(month=month, client=api_client),
             "calculation": CalculationManager(
-                month=month, uuid=f"uuid-{test_billing_group}"
+                month=month, uuid=f"uuid-{test_billing_group}", client=api_client
             ),
-            "payment": PaymentManager(month=month, uuid=f"uuid-{test_billing_group}"),
+            "payment": PaymentManager(
+                month=month, uuid=f"uuid-{test_billing_group}", client=api_client
+            ),
             "billing_group": test_billing_group,
         }
 

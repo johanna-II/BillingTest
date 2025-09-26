@@ -22,14 +22,14 @@ class TestCreditWorkflows:
         """Setup credit test context."""
         mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
         base_url = f"{mock_url}/api/v1" if use_mock else None
-        BillingAPIClient(base_url=base_url)
+        client = BillingAPIClient(base_url=base_url)
         uuid = f"uuid-{member}-credit"
 
         return {
-            "credit": CreditManager(uuid=uuid),
-            "payment": PaymentManager(month=month, uuid=uuid),
-            "metering": MeteringManager(month=month),
-            "calculation": CalculationManager(month=month, uuid=uuid),
+            "credit": CreditManager(uuid=uuid, client=client),
+            "payment": PaymentManager(month=month, uuid=uuid, client=client),
+            "metering": MeteringManager(month=month, client=client),
+            "calculation": CalculationManager(month=month, uuid=uuid, client=client),
             "uuid": uuid,
             "month": month,
         }

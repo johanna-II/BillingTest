@@ -37,7 +37,7 @@ class TestManagersWithOpenAPIMock:
     def test_adjustment_manager_with_real_client(self, real_client) -> None:
         """Test AdjustmentManager with real HTTP calls to mock server."""
         # No mocking - using real HTTP client
-        manager = AdjustmentManager(month="2024-01")
+        manager = AdjustmentManager(month="2024-01", client=real_client)
 
         # This will make real HTTP request to mock server
         result = manager.apply_adjustment(
@@ -53,7 +53,7 @@ class TestManagersWithOpenAPIMock:
 
     def test_batch_manager_with_real_client(self, real_client) -> None:
         """Test BatchManager with real HTTP calls."""
-        manager = BatchManager(month="2024-01")
+        manager = BatchManager(month="2024-01", client=real_client)
 
         result = manager.request_batch_job(BatchJobCode.BATCH_CREDIT_EXPIRY)
 
@@ -63,7 +63,9 @@ class TestManagersWithOpenAPIMock:
 
     def test_contract_manager_with_real_client(self, real_client) -> None:
         """Test ContractManager with real HTTP calls."""
-        manager = ContractManager(month="2024-01", billing_group_id="bg-123")
+        manager = ContractManager(
+            month="2024-01", billing_group_id="bg-123", client=real_client
+        )
 
         result = manager.apply_contract(
             contract_id="contract-456", name="Test Contract"
@@ -74,7 +76,7 @@ class TestManagersWithOpenAPIMock:
 
     def test_metering_manager_with_real_client(self, real_client) -> None:
         """Test MeteringManager with real HTTP calls."""
-        manager = MeteringManager(month="2024-01")
+        manager = MeteringManager(month="2024-01", client=real_client)
 
         result = manager.send_metering(
             app_key="test-app",
@@ -89,7 +91,7 @@ class TestManagersWithOpenAPIMock:
 
     def test_payment_manager_with_real_client(self, real_client) -> None:
         """Test PaymentManager with real HTTP calls."""
-        manager = PaymentManager(month="2024-01", uuid="test-uuid")
+        manager = PaymentManager(month="2024-01", uuid="test-uuid", client=real_client)
 
         # Get payment status makes real API call
         pg_id, status = manager.get_payment_status()
@@ -122,8 +124,8 @@ class TestManagersMinimalMocking:
         # Use real client and manager classes
         from config import url
 
-        BillingAPIClient(base_url=url.BASE_BILLING_URL)
-        manager = AdjustmentManager(month="2024-01")
+        client = BillingAPIClient(base_url=url.BASE_BILLING_URL)
+        manager = AdjustmentManager(month="2024-01", client=client)
 
         result = manager.apply_adjustment(
             adjustment_amount=1000.0,
@@ -145,8 +147,8 @@ class TestManagersMinimalMocking:
 
         from config import url
 
-        BillingAPIClient(base_url=url.BASE_BILLING_URL)
-        manager = CalculationManager(month="2024-01", uuid="test-uuid")
+        client = BillingAPIClient(base_url=url.BASE_BILLING_URL)
+        manager = CalculationManager(month="2024-01", uuid="test-uuid", client=client)
 
         result = manager.recalculate_all()
 
@@ -171,8 +173,8 @@ class TestContractBasedTesting:
 
     def test_response_matches_contract(self, mock_base_url, openapi_validator) -> None:
         """Test that responses match OpenAPI contract."""
-        BillingAPIClient(base_url=mock_base_url)
-        manager = MeteringManager(month="2024-01")
+        client = BillingAPIClient(base_url=mock_base_url)
+        manager = MeteringManager(month="2024-01", client=client)
 
         # Make real call
         result = manager.send_metering(
