@@ -144,21 +144,43 @@ jobs:
           --benchmark-json=benchmark.json \
           --benchmark-autosave
     
-    - name: Store benchmark result
+    - name: Store benchmark result as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: benchmark.json
+        retention-days: 30
+    
+    - name: Comment benchmark result
+      if: github.event_name == 'pull_request'
       uses: benchmark-action/github-action-benchmark@v1
       with:
         tool: 'pytest'
         output-file-path: benchmark.json
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        # gh-pages 브랜치가 없으면 자동 생성
-        gh-pages-branch: gh-pages
-        benchmark-data-dir-path: 'dev/bench'
-        auto-push: true
+        # PR 코멘트로만 결과 표시 (gh-pages 사용 안 함)
+        comment-always: true
+        save-data-file: false
         alert-threshold: '150%'
         comment-on-alert: true
         fail-on-alert: false
-        # gh-pages 브랜치가 없을 때 자동 생성 허용
-        skip-fetch-gh-pages: true
+    
+    - name: Add benchmark to job summary
+      if: always()
+      run: |
+        echo "## 📊 Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -f benchmark.json ]; then
+          python -c "
+import json
+with open('benchmark.json') as f:
+    data = json.load(f)
+    for benchmark in data.get('benchmarks', []):
+        print(f\"- **{benchmark['name']}**: {benchmark['stats']['mean']:.4f}s ± {benchmark['stats']['stddev']:.4f}s\")
+          " >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No benchmark results found." >> $GITHUB_STEP_SUMMARY
+        fi
 
   flaky-test-detection:
     name: Flaky Test Detection
@@ -305,8 +327,8 @@ jobs:
           test-results-*.xml
           htmlcov/
 
-  deploy:
-    name: Deploy Documentation
+  publish-coverage:
+    name: Publish Coverage Report
     runs-on: ubuntu-latest
     needs: [lint, test, coverage-check]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -316,11 +338,32 @@ jobs:
     - name: Download coverage reports
       uses: actions/download-artifact@v4
       with:
-        name: test-results-unit
-        path: ./htmlcov
+        pattern: test-results-*
+        merge-multiple: true
     
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
+    - name: Create coverage badge
+      run: |
+        # Extract coverage percentage from XML if exists
+        if [ -f coverage-combined.xml ]; then
+          COVERAGE=$(python -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('coverage-combined.xml')
+root = tree.getroot()
+coverage = float(root.attrib.get('line-rate', 0)) * 100
+print(f'{coverage:.1f}')
+          ")
+          echo "Coverage: ${COVERAGE}%"
+          
+          # Create a simple JSON for the badge
+          echo "{\"coverage\": \"${COVERAGE}%\"}" > coverage-badge.json
+        fi
+    
+    - name: Upload coverage summary
+      uses: actions/upload-artifact@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./htmlcov
+        name: coverage-report-main
+        path: |
+          coverage-combined.xml
+          coverage-badge.json
+          htmlcov*/
+        retention-days: 90
