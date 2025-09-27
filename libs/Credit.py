@@ -63,7 +63,7 @@ class CreditRequest:
 
     def to_api_format(self) -> dict[str, Any]:
         """Convert to API request format."""
-        return {
+        data = {
             "credit": int(self.amount),
             "creditName": self.credit_name,
             "expirationDateFrom": self.expiration_date_from,
@@ -72,6 +72,12 @@ class CreditRequest:
             "uuidList": self.uuid_list,
             "emailList": self.email_list,
         }
+
+        # Add credit type if available
+        if hasattr(self, "credit_type"):
+            data["creditType"] = self.credit_type
+
+        return data
 
 
 @dataclass
@@ -383,6 +389,10 @@ class CreditManager:
             expiration_date_to=expiration_date_to,
             uuid_list=[self.uuid],
         )
+
+        # Add credit type to request data if provided
+        if credit_type:
+            setattr(credit_request, "credit_type", credit_type)
 
         logger.info(
             f"Granting credit: {amount} via campaign {campaign_id} "

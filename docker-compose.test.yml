@@ -25,7 +25,7 @@ services:
       --cov-report=term-missing
       --cov-report=html
       --cov-report=xml
-      --cov-omit=libs/observability/*,libs/dependency_injection.py
+      --cov-omit=libs/observability/*
       tests/unit
       -v
       --use-mock

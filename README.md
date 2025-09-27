@@ -59,14 +59,8 @@ Tests are organized by category, each with its own run script:
 # Run all test categories with mock server (RECOMMENDED)
 USE_MOCK_SERVER=true pytest --use-mock
 
-# Using the category runner (automatically handles mock server)
-python scripts/test/run_all.py
-
-# Skip specific categories
-python scripts/test/run_all.py --skip performance,security
-
-# Run only specific categories
-python scripts/test/run_all.py --only unit,integration
+# Run all test categories with appropriate test runner
+python tests/run_all_tests.py --use-mock
 ```
 
 **🧪 Run Specific Category:**
@@ -82,9 +76,9 @@ python tests/integration/run.py
 # Run performance tests (with mock for stable results)
 USE_MOCK_SERVER=true pytest tests/performance --use-mock
 
-# Using the category runner
-python scripts/test/run_category.py unit
-python scripts/test/run_category.py integration --parallel 2
+# Using the test runner for specific categories
+python tests/unit/run.py
+python tests/integration/run.py --parallel 2
 ```
 
 **⚡ Common Options:**

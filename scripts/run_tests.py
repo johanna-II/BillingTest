@@ -155,7 +155,7 @@ class TestRunner:
                                 "--cov=libs",
                                 "--cov-report=term-missing",
                                 "--cov-report=xml",
-                                "--cov-omit=libs/observability/*,libs/dependency_injection.py",
+                                "--cov-omit=libs/observability/*",
                             ]
                         )
                 elif test == "integration":
@@ -230,7 +230,7 @@ class TestRunner:
                             "--cov=libs",
                             "--cov-report=term-missing",
                             "--cov-report=xml",
-                            "--cov-omit=libs/observability/*,libs/dependency_injection.py",
+                            "--cov-omit=libs/observability/*",
                         ]
                     )
             else:
@@ -243,7 +243,7 @@ class TestRunner:
                             "--cov=libs",
                             "--cov-report=term-missing",
                             "--cov-report=xml",
-                            "--cov-omit=libs/observability/*,libs/dependency_injection.py",
+                            "--cov-omit=libs/observability/*",
                         ]
                     )
 

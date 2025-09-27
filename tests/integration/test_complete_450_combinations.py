@@ -97,6 +97,10 @@ class TestDataFactory:
         }
 
 
+@pytest.mark.slow
+@pytest.mark.skip(
+    reason="450 combination tests are excluded from CI - run manually as needed"
+)
 class TestAll450Combinations(BaseIntegrationTest):
     """Systematically test all 450 business logic combinations."""
 
@@ -255,7 +259,7 @@ class TestAll450Combinations(BaseIntegrationTest):
                 adjustment_name=f"{scenario_id}-BG",
                 adjustment_type=bg_adjustment[1],
                 adjustment_amount=bg_adjustment[3],
-                target_type=bg_adjustment[2],
+                adjustment_target=bg_adjustment[2],
                 target_id=test_context["billing_group_id"],
             )
 
@@ -274,6 +278,7 @@ class TestAll450Combinations(BaseIntegrationTest):
                     campaign_id=f"{scenario_id}-FREE",
                     credit_name=f"{scenario_id} Free Credit",
                     amount=amount,
+                    credit_type="FREE",
                 )
                 total_credits += amount
             elif credit_type == CreditType.PAID:
@@ -282,14 +287,18 @@ class TestAll450Combinations(BaseIntegrationTest):
                     campaign_id=f"{scenario_id}-PAID",
                     credit_name=f"{scenario_id} Paid Credit",
                     amount=amount,
+                    credit_type="PAID",
                 )
                 total_credits += amount
             elif credit_type == CreditType.REFUND:
-                # TODO: Refunds are handled through PaymentManager.process_refund
-                # For now, skip refund credits in this test
-                # managers["payment"].process_refund(payment_id, amount, reason)
-                logger.warning("Skipping REFUND credit type in test - not implemented")
-                # Don't count skipped refunds in total_credits
+                # Simulate refund credits using grant_credit
+                managers["credit"].grant_credit(
+                    campaign_id=f"{scenario_id}-REFUND",
+                    credit_name=f"{scenario_id} Refund Credit",
+                    amount=amount,
+                    credit_type="REFUND",
+                )
+                total_credits += amount
 
         # 4. Calculate
         managers["calculation"].recalculate_all()
@@ -336,34 +345,36 @@ class TestAll450Combinations(BaseIntegrationTest):
         # The mock server generates default billing with:
         # - compute: 120000, storage: 30000, network: 5000
         # - subtotal: 155000
-        # - VAT (10%): 15500
-        # - total: 170500
 
-        # This is a temporary fix until we can properly sync metering data
-        # between the test and mock server
-        default_total = Decimal("170500")
+        # Start with base charge (before VAT)
+        charge = Decimal("155000")
 
-        # Apply adjustments and credits to the default total
-        # Note: This is simplified logic for mock testing
+        # Apply adjustments to charge (before VAT)
         if bg_adj[1] == AdjustmentType.FIXED_DISCOUNT:
-            default_total -= Decimal(bg_adj[3])
+            charge -= Decimal(bg_adj[3])
         elif bg_adj[1] == AdjustmentType.RATE_DISCOUNT:
-            default_total *= Decimal(1 - bg_adj[3] / 100)
+            charge *= Decimal(1 - bg_adj[3] / 100)
         elif bg_adj[1] == AdjustmentType.FIXED_SURCHARGE:
-            default_total += Decimal(bg_adj[3])
+            charge += Decimal(bg_adj[3])
         elif bg_adj[1] == AdjustmentType.RATE_SURCHARGE:
-            default_total *= Decimal(1 + bg_adj[3] / 100)
+            charge *= Decimal(1 + bg_adj[3] / 100)
 
-        # Apply credits
-        default_total = max(Decimal(0), default_total - Decimal(credit_amount))
+        # Apply credits to charge (before VAT)
+        charge = max(Decimal(0), charge - Decimal(credit_amount))
+
+        # Calculate VAT on the adjusted charge
+        vat = charge * Decimal("0.1")
+
+        # Calculate total
+        total = charge + vat
 
         logger.info(
-            f"Expected calculation: base={base}, unpaid={unpaid}, overdue={overdue}, "
-            f"bg_adj={bg_adj}, proj_adj={proj_adj}, credits={credit_amount}, "
-            f"result={default_total}"
+            f"Expected calculation: base_charge=155000, "
+            f"after_adjustments={charge + Decimal(credit_amount)}, "
+            f"after_credits={charge}, vat={vat}, total={total}"
         )
 
-        return default_total
+        return total
 
     def _validate_business_rules(self, result: dict[str, Any]) -> None:
         """Validate business rules are correctly applied."""

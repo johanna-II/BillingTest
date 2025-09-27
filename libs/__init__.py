@@ -66,12 +66,3 @@ __all__ = [
     "TimeoutException",
     "ValidationException",
 ]
-
-# Legacy compatibility aliases
-Adjustments = AdjustmentManager
-Metering = MeteringManager
-Calculation = CalculationManager
-Payments = PaymentManager
-Contract = ContractManager
-Credit = CreditManager
-Batch = BatchManager

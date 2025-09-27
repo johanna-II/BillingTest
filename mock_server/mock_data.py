@@ -107,10 +107,15 @@ def generate_billing_detail(
 
 
 # Credit data templates
-def generate_credit_data(uuid: str, credit_amount: int = 0) -> dict[str, Any]:
+def generate_credit_data(
+    uuid: str, credit_amount: int = 0, credit_type: str = "FREE"
+) -> dict[str, Any]:
     """Generate credit data for user."""
     # Start with no usage for testing
     used_amount = 0
+
+    # Map credit types to codes
+    credit_code = f"{credit_type}_CREDIT"
 
     return {
         "uuid": uuid,
@@ -122,7 +127,8 @@ def generate_credit_data(uuid: str, credit_amount: int = 0) -> dict[str, Any]:
                 {
                     "creditId": f"CRD-{uuid[:8]}",
                     "campaignId": "CAMPAIGN-001",
-                    "creditCode": "FREE_CREDIT",
+                    "creditCode": credit_code,
+                    "creditType": credit_type,
                     "amount": credit_amount,
                     "usedAmount": used_amount,
                     "restAmount": credit_amount,

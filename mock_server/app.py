@@ -233,8 +233,43 @@ def health():
     )
 
 
+# Test reset endpoint
+@app.route("/test/reset", methods=["POST"])
+def reset_test_data():
+    """Reset all test data for a specific UUID."""
+    uuid_param = request.headers.get("uuid", "")
+
+    if not uuid_param:
+        return jsonify(create_error_response("UUID required in headers", 400))
+
+    with data_lock:
+        # Reset credit data
+        if uuid_param in credit_data:
+            del credit_data[uuid_param]
+
+        # Reset metering data
+        metering_keys_to_delete = []
+        for key in metering_data.keys():
+            if key.startswith(f"{uuid_param}:"):
+                metering_keys_to_delete.append(key)
+        for key in metering_keys_to_delete:
+            del metering_data[key]
+
+        # Reset billing data
+        billing_keys_to_delete = []
+        for key in billing_data.keys():
+            if key.startswith(f"{uuid_param}:"):
+                billing_keys_to_delete.append(key)
+        for key in billing_keys_to_delete:
+            del billing_data[key]
+
+    return jsonify(
+        create_success_response({"message": f"Reset data for UUID: {uuid_param}"})
+    )
+
+
 @app.route("/test/reset/<uuid>", methods=["DELETE"])
-def reset_test_data(uuid):
+def reset_test_data_by_uuid(uuid):
     """Reset test data for a specific UUID."""
     data_manager.clear_uuid_data(uuid)
 
@@ -405,19 +440,64 @@ def get_calculation_progress():
 @app.route("/billing/credits/balance", methods=["GET"])
 def get_credit_balance():
     """Get credit balance."""
-    request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", "default")
 
-    # Return mock balance data
-    balance_data = {
-        "totalBalance": 1000.0,
-        "availableBalance": 800.0,
-        "pendingBalance": 200.0,
-        "currency": "USD",
-        "balances": [
-            {"type": "FREE", "amount": 500.0, "expiryDate": "2024-12-31"},
-            {"type": "PAID", "amount": 300.0, "expiryDate": "2024-12-31"},
-        ],
-    }
+    # Get actual credit data
+    if uuid_param in credit_data:
+        user_credit = credit_data[uuid_param]
+        total_balance = user_credit.get("totalAmount", 0)
+        rest_amount = user_credit.get("restAmount", 0)
+
+        # Group credits by type
+        balances = []
+        credits_list = user_credit.get("credits", [])
+
+        # Aggregate by credit type
+        type_totals = {}
+        for credit in credits_list:
+            credit_type = credit.get("creditCode", "FREE_CREDIT")
+            # Extract type from code (e.g., "FREE_CREDIT" -> "FREE")
+            if "_CREDIT" in credit_type:
+                credit_type = credit_type.replace("_CREDIT", "")
+
+            if credit_type not in type_totals:
+                type_totals[credit_type] = {
+                    "amount": 0,
+                    "expiryDate": credit.get("expireDate", "2024-12-31"),
+                }
+            type_totals[credit_type]["amount"] += credit.get("restAmount", 0)
+
+        # Convert to list format
+        for credit_type, data in type_totals.items():
+            if data["amount"] > 0:
+                balances.append(
+                    {
+                        "type": credit_type,
+                        "amount": float(data["amount"]),
+                        "expiryDate": (
+                            data["expiryDate"][:10]
+                            if len(data["expiryDate"]) > 10
+                            else data["expiryDate"]
+                        ),
+                    }
+                )
+
+        balance_data = {
+            "totalBalance": float(total_balance),
+            "availableBalance": float(rest_amount),
+            "pendingBalance": 0.0,
+            "currency": "KRW",
+            "balances": balances,
+        }
+    else:
+        # Return default if no credit data exists
+        balance_data = {
+            "totalBalance": 0.0,
+            "availableBalance": 0.0,
+            "pendingBalance": 0.0,
+            "currency": "KRW",
+            "balances": [],
+        }
 
     return jsonify(create_success_response(balance_data))
 
@@ -449,8 +529,9 @@ def get_credit_history():
     )
 
 
-@app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
-def grant_campaign_credit(campaign_id):
+# DUPLICATE - Commented out to avoid conflicts
+# @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
+def grant_campaign_credit_old1(campaign_id):
     """Grant credit through campaign."""
     data = request.json or {}
     uuid_param = request.headers.get("uuid", "default")
@@ -517,8 +598,9 @@ def apply_coupon_credit(coupon_code):
     )
 
 
-@app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
-def grant_paid_credit(campaign_id):
+# DUPLICATE - Commented out to avoid conflicts
+# @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
+def grant_paid_credit_old2(campaign_id):
     """Grant paid credit to user."""
     data = request.json or {}
     uuid_param = request.headers.get("uuid", "default")
@@ -528,6 +610,7 @@ def grant_paid_credit(campaign_id):
         "creditName": data.get("creditName", "test"),
         "credit": data.get("credit", 0),
         "uuidList": data.get("uuidList", []),
+        "creditType": data.get("creditType", "FREE"),
     }
 
     # Use first UUID from list if header UUID not provided
@@ -555,8 +638,9 @@ def grant_paid_credit(campaign_id):
     )
 
 
-@app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["DELETE"])
-def cancel_campaign_credit(campaign_id):
+# DUPLICATE - Commented out as DELETE is handled in manage_campaign_credits
+# @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["DELETE"])
+def cancel_campaign_credit_old3(campaign_id):
     """Cancel credit for a specific campaign."""
     reason = request.args.get("reason", "test")
 
@@ -774,14 +858,14 @@ def get_billing_detail():
         billing_detail["totalAmount"] = new_total
 
     # Add top-level fields that tests expect
-    # totalAmount stays original, totalPayments is what user actually pays
-    original_total = billing_detail.get("totalAmount", 0)
+    # Get the final total amount (after credit application)
+    final_total = billing_detail.get("totalAmount", 0)
 
     response_data = {
         **billing_detail,
         "charge": billing_detail.get("charge", 0),
-        "totalAmount": original_total,  # Keep original total
-        "totalPayments": original_total,  # Will be adjusted by common_test()
+        "totalAmount": final_total,  # Total after credits
+        "totalPayments": final_total,  # Same as totalAmount
         "discountAmount": billing_detail.get("discount", 0),
         "vat": billing_detail.get("vat", 0),
         "totalCredit": credit_to_use,
@@ -956,15 +1040,17 @@ def get_statements():
                 adj_data.get("billingGroupId") and adj_data.get("adjustmentType")
             ):
                 adj_type = adj_data["adjustmentType"]
-                adj_amount = adj_data.get("adjustment", 0)
+                adj_amount = adj_data.get(
+                    "adjustment", adj_data.get("adjustmentValue", 0)
+                )
 
-                if adj_type == "STATIC_DISCOUNT":
+                if adj_type in ["STATIC_DISCOUNT", "FIXED_DISCOUNT"]:
                     adjusted_charge -= adj_amount
-                elif adj_type == "STATIC_EXTRA":
+                elif adj_type in ["STATIC_EXTRA", "FIXED_SURCHARGE"]:
                     adjusted_charge += adj_amount
-                elif adj_type == "PERCENT_DISCOUNT":
+                elif adj_type in ["PERCENT_DISCOUNT", "RATE_DISCOUNT"]:
                     adjusted_charge *= 1 - adj_amount / 100
-                elif adj_type == "PERCENT_EXTRA":
+                elif adj_type in ["PERCENT_EXTRA", "RATE_SURCHARGE"]:
                     adjusted_charge *= 1 + adj_amount / 100
 
     # Recalculate VAT and total if adjustments were applied
@@ -975,6 +1061,34 @@ def get_statements():
     else:
         adjusted_charge = int(final_charge)
 
+    # Apply credits
+    credit_to_use = 0
+    if uuid_param in credit_data:
+        rest_credits = credit_data[uuid_param].get("restAmount", 0)
+        # Debug log
+        with open("mock_credit.log", "a") as f:
+            f.write(
+                f"get_statements - UUID: {uuid_param}, rest_credits: {rest_credits}, adjusted_charge: {adjusted_charge}\n"
+            )
+            f.write(f"  Credit data: {credit_data.get(uuid_param, {})}\n")
+        if rest_credits > 0:
+            # Apply credit to charge amount (before VAT)
+            credit_to_use = min(rest_credits, adjusted_charge)
+
+            # Update credit data to reflect usage
+            with data_lock:
+                total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
+                already_used = credit_data[uuid_param].get("usedAmount", 0)
+                credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
+                credit_data[uuid_param]["restAmount"] = max(
+                    0, total_credit_amount - (already_used + credit_to_use)
+                )
+
+            # Recalculate with credits
+            adjusted_charge -= credit_to_use
+            final_vat = int(adjusted_charge * 0.1)
+            final_total = adjusted_charge + final_vat
+
     statement_data = {
         "statements": [
             {
@@ -982,6 +1096,7 @@ def get_statements():
                 "totalAmount": final_total,
                 "vat": final_vat,
                 "discount": final_discount,
+                "totalCredit": credit_to_use,
                 "items": detail.get("statements", []),
             }
         ],
@@ -1400,24 +1515,39 @@ def manage_campaign_credits(campaign_id):
     # Handle different data structures
     uuid_param = ""
     amount = 0
+    credit_type = "FREE"  # Default to FREE
 
     # Check for direct structure (from actual API)
     if data.get("uuidList"):
         uuid_param = data["uuidList"][0]
         amount = data.get("credit", 0)
+        credit_type = data.get("creditType", "FREE")
     # Check for simplified structure
     else:
         uuid_param = data.get("uuid", "default")
         amount = data.get("amount", 0)
+        credit_type = data.get("creditType", "FREE")
 
     if uuid_param:
         with data_lock:
             if uuid_param not in credit_data:
-                credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
+                credit_data[uuid_param] = generate_credit_data(
+                    uuid_param, 0, credit_type
+                )
 
             current_total = credit_data[uuid_param]["totalAmount"]
             new_total = current_total + amount
-            credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
+            credit_data[uuid_param] = generate_credit_data(
+                uuid_param, new_total, credit_type
+            )
+            # Debug log
+            with open("mock_credit.log", "a") as f:
+                f.write(
+                    f"manage_campaign_credits - UUID: {uuid_param}, amount: {amount}, new_total: {new_total}\n"
+                )
+                f.write(
+                    f"  Credit data after grant: {credit_data.get(uuid_param, {})}\n"
+                )
 
     return jsonify(create_success_response({"creditId": str(uuid.uuid4())}))
 

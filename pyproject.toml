@@ -235,11 +235,6 @@ module = "libs.http_client"
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-module = "libs.dependency_injection"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-
-[[tool.mypy.overrides]]
 module = "libs.Credit"
 warn_return_any = false
 
@@ -297,7 +292,6 @@ source = ["libs"]
 omit = [
     "*/tests/*",
     "*/conftest.py",
-    "libs/dependency_injection.py",
     "libs/observability/*",
     "libs/InitializeConfig.py",
     "libs/constants.py",

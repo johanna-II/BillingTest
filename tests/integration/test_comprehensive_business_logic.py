@@ -106,7 +106,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                     adjustment_name=adj_desc,
                     adjustment_type=adj_type,
                     adjustment_amount=adj_amount,
-                    target_type=adj_target,
+                    adjustment_target=adj_target,
                     target_id=target_id,
                 )
                 assert adj_result.get("header", {}).get("isSuccessful", False)
@@ -246,7 +246,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                     adjustment_name="Small volume discount",
                     adjustment_type=AdjustmentType.RATE_DISCOUNT,
                     adjustment_amount=5,
-                    target_type=AdjustmentTarget.PROJECT,
+                    adjustment_target=AdjustmentTarget.PROJECT,
                     target_id=test_app_keys[0],
                 )
             elif volume <= 500:
@@ -255,7 +255,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                     adjustment_name="Medium volume discount",
                     adjustment_type=AdjustmentType.FIXED_DISCOUNT,
                     adjustment_amount=10000,
-                    target_type=AdjustmentTarget.BILLING_GROUP,
+                    adjustment_target=AdjustmentTarget.BILLING_GROUP,
                     target_id=test_context["billing_group_id"],
                 )
             else:
@@ -264,18 +264,18 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                     adjustment_name="Large volume rate discount",
                     adjustment_type=AdjustmentType.RATE_DISCOUNT,
                     adjustment_amount=10,
-                    target_type=AdjustmentTarget.PROJECT,
+                    adjustment_target=AdjustmentTarget.PROJECT,
                     target_id=test_app_keys[0],
                 )
                 adj2 = managers["adjustment"].apply_adjustment(
                     adjustment_name="Large volume fixed discount",
                     adjustment_type=AdjustmentType.FIXED_DISCOUNT,
                     adjustment_amount=20000,
-                    target_type=AdjustmentTarget.BILLING_GROUP,
+                    adjustment_target=AdjustmentTarget.BILLING_GROUP,
                     target_id=test_context["billing_group_id"],
                 )
 
-    def test_credit_priority_and_expiration_logic(self, test_context):
+    def test_credit_priority_and_expiration_logic(self, test_context, test_app_keys):
         """Test credit usage priority and expiration handling.
 
         Credit Priority (highest to lowest):
@@ -325,7 +325,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
 
         for usage in usage_amounts:
             managers["metering"].send_metering(
-                app_key=test_context["test_app_keys"][0],
+                app_key=test_app_keys[0],
                 counter_name="credit.priority.test",
                 counter_type=CounterType.DELTA,
                 counter_unit="UNITS",
@@ -360,7 +360,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
 
         for job_code, exec_day in batch_jobs:
             result = managers["batch"].request_batch_job(
-                job_code=job_code, exec_day=exec_day
+                job_code=job_code, execution_day=exec_day
             )
 
             if result.get("header", {}).get("isSuccessful", False):
@@ -441,7 +441,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                     adjustment_name="Enterprise volume discount",
                     adjustment_type=AdjustmentType.RATE_DISCOUNT,
                     adjustment_amount=15,
-                    target_type=AdjustmentTarget.PROJECT,
+                    adjustment_target=AdjustmentTarget.PROJECT,
                     target_id=project["app_key"],
                 )
             elif project["tier"] == "premium":
@@ -482,7 +482,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
             adjustment_name="First discount",
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_amount=10,
-            target_type=AdjustmentTarget.PROJECT,
+            adjustment_target=AdjustmentTarget.PROJECT,
             target_id=test_app_keys[0],
         )
 
@@ -490,7 +490,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
             adjustment_name="Second discount",
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_amount=20,
-            target_type=AdjustmentTarget.PROJECT,
+            adjustment_target=AdjustmentTarget.PROJECT,
             target_id=test_app_keys[0],
         )
 
@@ -540,7 +540,7 @@ class TestBusinessRuleValidation(BaseIntegrationTest):
             adjustment_name="Extreme discount test",
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_amount=150,  # 150% discount (should be capped or rejected)
-            target_type=AdjustmentTarget.BILLING_GROUP,
+            adjustment_target=AdjustmentTarget.BILLING_GROUP,
             target_id=test_context["billing_group_id"],
         )
 

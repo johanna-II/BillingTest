@@ -59,7 +59,8 @@ class TestBillingAPIClientUnit:
         """Test initialization with mock mode."""
         client = BillingAPIClient("https://api.example.com", use_mock=True)
 
-        assert client.base_url == "http://localhost:5000"
+        # Now use_mock doesn't override base_url to support different ports (e.g., Pact)
+        assert client.base_url == "https://api.example.com"
         assert client.use_mock
 
     def test_init_with_custom_retry_config(self, retry_config) -> None:

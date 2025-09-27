@@ -94,6 +94,16 @@ class BaseIntegrationTest:
         except Exception:
             pass  # Ignore cleanup errors
 
+        try:
+            # Reset all mock server data for this UUID
+            uuid = test_context["uuid"]
+            # Use any manager's client to make the reset call
+            client = test_context["managers"]["credit"]._client
+            headers = {"uuid": uuid}
+            client.post("test/reset", headers=headers)
+        except Exception:
+            pass  # Ignore reset errors in case mock server doesn't have this endpoint
+
     @pytest.fixture
     def test_app_keys(self, member) -> list[str]:
         """Generate unique app keys for testing."""

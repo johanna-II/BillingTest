@@ -1,8 +1,0 @@
-[tool.pytest.ini_options]
-minversion = "8.0"
-addopts = [
-    "-ra",
-    "--tb=no",
-    "-q",
-]
-testpaths = ["tests"]
