@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from libs.Credit import CreditManager
 from libs.Credit import CreditType as LibCreditType
@@ -64,28 +65,15 @@ class CreditRepositoryImpl(CreditRepository):
 
     def save(self, credit: Credit) -> Credit:
         """Save a credit."""
-        # Map domain credit to lib API call
-        if credit.type == CreditType.FREE:
-            self.credit_manager.grant_coupon_credit(
-                campaign_id=credit.campaign_id or f"CREDIT-{credit.id}",
-                amount=float(credit.amount),
-                expire_date=credit.expires_at.strftime("%Y-%m-%d"),
-            )
-        elif credit.type == CreditType.PAID:
-            self.credit_manager.grant_paid_credit(
-                campaign_id=credit.campaign_id or f"PAID-{credit.id}",
-                paid_amount=float(credit.amount),
-            )
-        else:  # REFUND
-            self.credit_manager.refund_credit(
-                refund_items=[
-                    {
-                        "paymentStatementId": credit.campaign_id or credit.id,
-                        "refundAmount": float(credit.amount),
-                        "reason": credit.description,
-                    }
-                ]
-            )
+        # Map domain credit to lib API call using the unified grant_credit method
+        # Convert domain CreditType to lib CreditType
+        lib_credit_type = self._domain_to_lib_credit_type(credit.type)
+        self.credit_manager.grant_credit(
+            campaign_id=credit.campaign_id or f"{credit.type.value}-{credit.id}",
+            credit_name=f"{credit.type.value} Credit - {credit.id}",
+            amount=float(credit.amount),
+            credit_type=lib_credit_type,
+        )
 
         # Return the credit as saved (lib doesn't return full credit object)
         return credit
@@ -125,19 +113,36 @@ class CreditRepositoryImpl(CreditRepository):
         return mapping[credit_type]
 
     def _map_history_to_domain(
-        self, history_item: dict, credit_type: CreditType
+        self, history_item: Any, credit_type: CreditType
     ) -> Credit | None:
         """Map credit history item to domain model."""
         try:
-            # Extract data from history item
-            # This depends on actual API response format
-            credit_id = history_item.get("id", f"CREDIT-{datetime.now().timestamp()}")
-            amount = Decimal(str(history_item.get("amount", 0)))
-            balance = Decimal(str(history_item.get("balance", amount)))
+            # Handle both dict and CreditHistory types
+            if hasattr(history_item, "__dict__"):
+                # CreditHistory object
+                credit_id = (
+                    getattr(history_item, "campaign_id", None)
+                    or f"CREDIT-{datetime.now().timestamp()}"
+                )
+                amount = Decimal(str(getattr(history_item, "amount", 0)))
+                balance = Decimal(str(getattr(history_item, "balance", amount)))
+            else:
+                # Dictionary format
+                credit_id = history_item.get(
+                    "id", f"CREDIT-{datetime.now().timestamp()}"
+                )
+                amount = Decimal(str(history_item.get("amount", 0)))
+                balance = Decimal(str(history_item.get("balance", amount)))
 
             # Parse dates
-            created_str = history_item.get("createdAt", datetime.now().isoformat())
-            expires_str = history_item.get("expiresAt", "2099-12-31")
+            if hasattr(history_item, "__dict__"):
+                created_str = getattr(
+                    history_item, "transaction_date", datetime.now().isoformat()
+                )
+                expires_str = "2099-12-31"  # CreditHistory doesn't have expiry
+            else:
+                created_str = history_item.get("createdAt", datetime.now().isoformat())
+                expires_str = history_item.get("expiresAt", "2099-12-31")
 
             created_at = datetime.fromisoformat(created_str)
             expires_at = datetime.fromisoformat(expires_str)
@@ -155,3 +160,12 @@ class CreditRepositoryImpl(CreditRepository):
         except Exception as e:
             print(f"Error mapping credit history item: {e}")
             return None
+
+    def _domain_to_lib_credit_type(self, credit_type: CreditType) -> LibCreditType:
+        """Convert domain CreditType to library CreditType."""
+        mapping = {
+            CreditType.FREE: LibCreditType.FREE,
+            CreditType.PAID: LibCreditType.PAID,
+            CreditType.REFUND: LibCreditType.FREE,  # Lib doesn't have REFUND type
+        }
+        return mapping.get(credit_type, LibCreditType.FREE)

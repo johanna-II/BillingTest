@@ -188,7 +188,7 @@ class BillingCalculationService:
         if not unpaid_payments:
             return None
 
-        total_unpaid = sum(p.amount for p in unpaid_payments)
+        total_unpaid = Decimal(sum(p.amount for p in unpaid_payments))
 
         # Calculate overdue days from oldest unpaid
         oldest_payment = min(unpaid_payments, key=lambda p: p.created_at)

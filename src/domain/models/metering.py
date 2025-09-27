@@ -76,7 +76,7 @@ class UsageAggregation:
 
         if first_meter.is_delta:
             # Sum all delta values
-            return sum(m.counter_volume for m in matching_meters)
+            return Decimal(sum(m.counter_volume for m in matching_meters))
         if first_meter.is_gauge:
             # Use latest gauge value (or average, depending on business rules)
             latest = max(matching_meters, key=lambda m: m.timestamp)

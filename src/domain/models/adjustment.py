@@ -84,16 +84,18 @@ class Adjustment:
 
         if self.type == AdjustmentType.FIXED_DISCOUNT:
             return max(Decimal(0), amount - self.amount)
-        if self.type == AdjustmentType.RATE_DISCOUNT:
+        elif self.type == AdjustmentType.RATE_DISCOUNT:
             discount = amount * (self.amount / 100)
             return max(Decimal(0), amount - discount)
-        if self.type == AdjustmentType.FIXED_SURCHARGE:
+        elif self.type == AdjustmentType.FIXED_SURCHARGE:
             return amount + self.amount
-        if self.type == AdjustmentType.RATE_SURCHARGE:
+        elif self.type == AdjustmentType.RATE_SURCHARGE:
             surcharge = amount * (self.amount / 100)
             return amount + surcharge
-        msg = f"Unknown adjustment type: {self.type}"
-        raise ValueError(msg)
+        else:
+            # This should never happen if AdjustmentType enum is complete
+            msg = f"Unknown adjustment type: {self.type}"  # type: ignore[unreachable]
+            raise ValueError(msg)
 
 
 @dataclass

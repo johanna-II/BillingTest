@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 
 
 class PaymentStatus(Enum):
@@ -100,7 +101,7 @@ class Payment:
             raise ValueError(msg)
 
         # Create new instance with updated status
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "id": self.id,
             "payment_group_id": self.payment_group_id,
             "amount": self.amount,
@@ -118,7 +119,21 @@ class Payment:
         elif new_status == PaymentStatus.CANCELLED:
             kwargs["cancelled_at"] = datetime.now()
 
-        return Payment(**kwargs)
+        return Payment(
+            id=str(kwargs["id"]),
+            payment_group_id=str(kwargs["payment_group_id"]),
+            amount=Decimal(kwargs["amount"]),
+            status=PaymentStatus(kwargs["status"]),
+            method=str(kwargs.get("method", "CREDIT_CARD")),
+            transaction_id=(
+                kwargs.get("transaction_id")
+                if kwargs.get("transaction_id") is not None
+                else None
+            ),
+            created_at=kwargs.get("created_at", datetime.now()),
+            paid_at=kwargs.get("paid_at"),
+            cancelled_at=kwargs.get("cancelled_at"),
+        )
 
     @property
     def is_complete(self) -> bool:

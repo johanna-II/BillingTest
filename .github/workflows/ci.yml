@@ -141,9 +141,8 @@ jobs:
         tool: 'pytest'
         output-file-path: benchmark.json
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        gh-pages-branch: 'gh-pages'
-        benchmark-data-dir-path: 'dev/bench'
-        # Temporarily disable auto-push until gh-pages branch is created
+        # Store benchmark results as artifacts instead of gh-pages
+        save-data-file: false
         auto-push: false
         alert-threshold: '150%'
         comment-on-alert: true

@@ -31,8 +31,10 @@ class TestDataManager:
             if store is None:
                 msg = f"Unknown store: {store_name}"
                 raise ValueError(msg)
+            # Explicit type cast for mypy
+            store_dict: defaultdict[str, dict[str, Any]] = store
             # Return the actual store, not a copy
-            return store[uuid]
+            return store_dict[uuid]
 
     def clear_uuid_data(self, uuid: str) -> None:
         """Clear all data for a specific UUID."""

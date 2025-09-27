@@ -56,10 +56,11 @@ class TelemetryPlugin:
     ) -> Generator[None, None, None]:
         """Called after test execution."""
         outcome = yield
-        if hasattr(outcome, "get_result"):
-            report: TestReport = outcome.get_result()
-        else:
+        if outcome is None:
             return
+        if not hasattr(outcome, "get_result"):  # type: ignore[unreachable]
+            return
+        report: TestReport = outcome.get_result()
 
         if report.when == "call":  # Only process actual test execution
             test_name = item.nodeid

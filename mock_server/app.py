@@ -273,7 +273,8 @@ def create_metering():
 
     # Use the standard test UUID as default
     if not test_uuid:
-        test_uuid = "<kr_UUID>"
+        # For integration tests, use a consistent test UUID pattern
+        test_uuid = "uuid-kr-test"
 
     # Get UUID-specific metering store
     metering_store = data_manager.get_metering_data(test_uuid)
@@ -291,13 +292,13 @@ def create_metering():
             }
             meter_ids.append(meter_id)
 
-    with open("mock_metering.log", "a") as f:
-        f.write(
-            f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n"
-        )
-        # Log all current metering data for all UUIDs
-        all_data = data_manager.metering_data
-        f.write(f"  All UUID keys in metering_data: {list(all_data.keys())}\n")
+        with open("mock_metering.log", "a") as f:
+            f.write(
+                f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n"
+            )
+            # Log all current metering data for all UUIDs
+            all_data = data_manager.metering_data
+            f.write(f"  All UUID keys in metering_data: {list(all_data.keys())}\n")
 
         return jsonify(
             create_success_response(
@@ -307,15 +308,16 @@ def create_metering():
                 }
             )
         )
-    # Handle single meter format
-    meter_id = str(uuid.uuid4())
-    metering_store[meter_id] = {
-        "id": meter_id,
-        "timestamp": datetime.now().isoformat(),
-        "uuid": test_uuid,
-        **data,
-    }
-    return jsonify(create_success_response({"meterId": meter_id}))
+    else:
+        # Handle single meter format
+        meter_id = str(uuid.uuid4())
+        metering_store[meter_id] = {
+            "id": meter_id,
+            "timestamp": datetime.now().isoformat(),
+            "uuid": test_uuid,
+            **data,
+        }
+        return jsonify(create_success_response({"meterId": meter_id}))
 
 
 @app.route("/billing/meters/<meter_id>", methods=["GET"])
@@ -642,7 +644,7 @@ def get_billing_detail():
 
     # Check if user has any contracts
     has_contract = False
-    contract_discount_rate = 0
+    contract_discount_rate = 0.0
 
     # Find applicable contract for this UUID
     for contract_data in contracts.values():
@@ -688,6 +690,9 @@ def get_billing_detail():
         elif counter_name == "network.floating_ip":
             # Floating IP: 25 per hour (adjusted to match test expectations)
             network_amount += int(volume * 25)
+        elif counter_name.startswith("test."):
+            # Test metering data - use volume directly as the amount
+            compute_amount += int(volume)
 
     # Debug logging
     with open("mock_metering.log", "a") as f:
@@ -793,7 +798,7 @@ def get_statements():
 
     # Check if user has any contracts
     has_contract = False
-    contract_discount_rate = 0
+    contract_discount_rate = 0.0
 
     # Find applicable contract for this UUID
     for contract_data in contracts.values():

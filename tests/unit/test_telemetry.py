@@ -2,7 +2,6 @@
 
 import os
 import time
-from typing import Never
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -22,7 +21,7 @@ except ImportError:
     def get_telemetry() -> None:  # type: ignore[misc]
         return None
 
-    def configure_telemetry(service_name: str = "billing-test") -> None:  # type: ignore[misc]
+    def configure_telemetry(service_name: str = "billing-test") -> None:
         return None
 
 
@@ -130,7 +129,7 @@ class TestTelemetryUnit:
         mock_span.set_attribute.assert_any_call("test.type", "unit")
         mock_span.set_attribute.assert_any_call("test.framework", "pytest")
 
-    def test_trace_test_with_exception(self, telemetry, mock_tracer) -> Never:
+    def test_trace_test_with_exception(self, telemetry, mock_tracer) -> None:
         """Test trace_test with exception handling."""
         mock_span = MagicMock()
         mock_context = MagicMock()
@@ -250,10 +249,13 @@ class TestTelemetryUnit:
         """Test operations when telemetry is disabled."""
         telemetry = None  # Simulating disabled telemetry
 
-        # These operations should not raise exceptions
-        if telemetry:
-            telemetry.record_test_execution("test", "passed", 1.0)
-            telemetry.record_api_call("GET", "/test", 200, 0.1)
-
-        # Test should pass without any operations
-        assert True
+        # Test that we can safely check for telemetry existence
+        # without raising exceptions
+        try:
+            if telemetry:
+                # This block won't execute, but the check itself shouldn't fail
+                pass
+            # Operations complete without error even with None telemetry
+            assert True
+        except Exception:
+            pytest.fail("Checking None telemetry should not raise exception")

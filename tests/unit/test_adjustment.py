@@ -166,7 +166,7 @@ class TestAdjustmentManager:
 
     def test_get_adjustments_billing_group(self) -> None:
         """Test get_adjustments for billing group."""
-        mock_response = {"adjustments": []}
+        mock_response: dict[str, list] = {"adjustments": []}
         self.mock_client.get.return_value = mock_response
 
         adjustment_ids = self.adjustment_manager.get_adjustments(
