@@ -38,7 +38,7 @@ class TestOpenAPIContracts:
         pact = consumer.has_pact_with(
             provider,
             host_name="localhost",
-            port=5000,
+            port=1234,  # Use different port to avoid conflict with mock server
             pact_dir="./tests/contracts/pacts",
         )
 
@@ -49,7 +49,8 @@ class TestOpenAPIContracts:
     @pytest.fixture
     def api_client(self):
         """Create API client for tests."""
-        return BillingAPIClient("http://localhost:5000", use_mock=True)
+        # Use Pact mock service port
+        return BillingAPIClient("http://localhost:1234", use_mock=True)
 
     def test_contract_api_get_contract_details(self, pact, api_client):
         """Test GET /contracts/{contractId} endpoint."""

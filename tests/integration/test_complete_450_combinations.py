@@ -6,7 +6,7 @@ parameterized testing to ensure complete coverage.
 
 import itertools
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -29,7 +29,7 @@ class BusinessRules:
     MAX_SINGLE_DISCOUNT_RATE: float = 50.0  # Maximum single discount rate
 
     # Credit rules
-    CREDIT_PRIORITY_ORDER: list[CreditType] = []
+    CREDIT_PRIORITY_ORDER: list[CreditType] = field(default_factory=list)
 
     # Overdue rules
     OVERDUE_GRACE_PERIOD_DAYS: int = 30

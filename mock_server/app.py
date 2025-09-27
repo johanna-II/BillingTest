@@ -1753,9 +1753,47 @@ def create_credit_v1():
     return jsonify(credit), 201
 
 
-@app.route("/api/v1/metering", methods=["GET"])
-def get_metering_v1():
-    """Get metering data (v1 API for contract compliance)."""
+@app.route("/api/v1/metering", methods=["GET", "POST"])
+def handle_metering_v1():
+    """Handle metering data (v1 API for contract compliance)."""
+    if request.method == "POST":
+        # Handle POST request for sending usage data
+        data = request.get_json() or {}
+
+        # Validate required fields
+        if not data.get("resource_id") or not data.get("usage"):
+            return (
+                jsonify(
+                    {
+                        "error": "Bad Request",
+                        "message": "Missing required fields: resource_id, usage",
+                    }
+                ),
+                400,
+            )
+
+        # Store metering data
+        meter_id = str(uuid.uuid4())
+        metering_data[meter_id] = {
+            "id": meter_id,
+            "timestamp": datetime.now().isoformat(),
+            "resource_id": data.get("resource_id"),
+            "usage": data.get("usage"),
+            "project_id": data.get("project_id", "default"),
+        }
+
+        return (
+            jsonify(
+                {
+                    "id": meter_id,
+                    "status": "accepted",
+                    "message": "Usage data recorded successfully",
+                }
+            ),
+            201,
+        )
+
+    # GET request
     project_id = request.args.get("project_id")
     month = request.args.get("month", "")
 
@@ -1974,6 +2012,82 @@ def submit_meter_contract():
     }
 
     return jsonify(response), 201
+
+
+# Payment statements endpoint
+@app.route("/api/v1/payments/statements", methods=["GET"])
+def get_payment_statements_v1():
+    """Get payment statements (v1 API for contract compliance)."""
+    month = request.args.get("month", "")
+    user_id = request.args.get("user_id", "")
+
+    # Generate a default statement
+    statement = {
+        "user_id": user_id,
+        "month": month,
+        "statements": [
+            {
+                "id": f"STMT-{month}-001",
+                "billing_period": {
+                    "start": f"{month}-01T00:00:00",
+                    "end": f"{month}-31T23:59:59",
+                },
+                "total_amount": 1500.00,
+                "currency": "USD",
+                "status": "PENDING",
+                "due_date": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+                "line_items": [
+                    {
+                        "description": "Compute Usage",
+                        "quantity": 744.0,
+                        "unit_price": 1.0,
+                        "amount": 744.0,
+                    },
+                    {
+                        "description": "Storage Usage",
+                        "quantity": 100.0,
+                        "unit_price": 0.1,
+                        "amount": 10.0,
+                    },
+                ],
+            }
+        ],
+        "total": 1500.00,
+    }
+
+    return jsonify(statement), 200
+
+
+# Batch jobs endpoint
+@app.route("/api/v1/batch/jobs", methods=["GET", "POST"])
+def handle_batch_jobs_v1():
+    """Handle batch jobs (v1 API for contract compliance)."""
+    if request.method == "POST":
+        # Create a new batch job
+        data = request.get_json() or {}
+
+        job_id = str(uuid.uuid4())
+        batch_job = {
+            "id": job_id,
+            "type": data.get("type", "BILLING_CALCULATION"),
+            "status": "CREATED",
+            "created_at": datetime.now().isoformat(),
+            "parameters": data.get("parameters", {}),
+            "result": None,
+        }
+
+        # Store the job
+        billing_data[f"batch-job-{job_id}"] = batch_job
+
+        return jsonify(batch_job), 201
+
+    # GET request - list batch jobs
+    jobs = []
+    for key, value in billing_data.items():
+        if key.startswith("batch-job-"):
+            jobs.append(value)
+
+    return jsonify({"jobs": jobs, "total": len(jobs)}), 200
 
 
 # Payment endpoints already defined above, removed duplicate

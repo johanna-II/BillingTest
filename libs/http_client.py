@@ -178,9 +178,10 @@ class BillingAPIClient:
             base_url: Base URL for API endpoints
             timeout: Request timeout in seconds
             retry_config: Optional retry configuration
-            use_mock: Whether to use mock server (localhost:5000)
+            use_mock: Whether to use mock server
         """
-        self.base_url = "http://localhost:5000" if use_mock else base_url
+        # Use provided base_url even when use_mock is True to support different ports
+        self.base_url = base_url
         self.timeout = timeout
         self.retry_config = retry_config or RetryConfig()
         self.use_mock = use_mock
