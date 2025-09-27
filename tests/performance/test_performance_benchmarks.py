@@ -87,7 +87,7 @@ class TestPerformanceBenchmarks:
                 adjustment_name="Performance Test Discount",
                 adjustment_type=AdjustmentType.RATE_DISCOUNT,
                 adjustment_amount=10,
-                target_type=AdjustmentTarget.PROJECT,
+                adjustment_target=AdjustmentTarget.PROJECT,
                 target_id="PROJ-TEST-001",
             )
 
@@ -109,7 +109,7 @@ class TestPerformanceBenchmarks:
                     adjustment_name=f"Bulk Test - {app_key}",
                     adjustment_type=AdjustmentType.FIXED_DISCOUNT,
                     adjustment_amount=1000,
-                    target_type=AdjustmentTarget.PROJECT,
+                    adjustment_target=AdjustmentTarget.PROJECT,
                     target_id=app_key,
                 )
                 results.append(result)
@@ -127,10 +127,10 @@ class TestPerformanceBenchmarks:
         campaign_id = test_data_generator["campaign_ids"][0]
 
         def grant_credit():
-            return manager.grant_campaign_credit(
+            return manager.grant_credit(
                 campaign_id=campaign_id,
                 credit_name="Performance Test Credit",
-                credit_amount=10000,
+                amount=10000,
             )
 
         result = benchmark(grant_credit)
@@ -173,16 +173,16 @@ class TestPerformanceBenchmarks:
                 adjustment_name="Monthly Discount",
                 adjustment_type=AdjustmentType.RATE_DISCOUNT,
                 adjustment_amount=15,
-                target_type=AdjustmentTarget.PROJECT,
+                adjustment_target=AdjustmentTarget.PROJECT,
                 target_id=app_key,
             )
 
             # 3. Grant credit
             credit = CreditManager(uuid=uuid, client=mock_api_client)
-            credit.grant_campaign_credit(
+            credit.grant_credit(
                 campaign_id="MONTHLY-PROMO",
                 credit_name="Monthly Promotion",
-                credit_amount=50000,
+                amount=50000,
             )
 
             # 4. Calculate

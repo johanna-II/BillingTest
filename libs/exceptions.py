@@ -617,7 +617,7 @@ class NetworkException(BillingTestException):
         self,
         message: str,
         operation: str | None = None,
-        cause: str | None = None,
+        cause: Exception | None = None,
         context: ErrorContext | None = None,
     ) -> None:
         """Initialize network exception.
@@ -625,7 +625,7 @@ class NetworkException(BillingTestException):
         Args:
             message: Error message
             operation: The operation that failed
-            cause: The cause of the network failure
+            cause: The underlying exception that caused the network failure
             context: Error context
         """
         if context is None:
