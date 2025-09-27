@@ -43,14 +43,14 @@ class TestBillingWorkflows(BaseIntegrationTest):
                 adjustment_name=desc,
                 adjustment_type=adj_type,
                 adjustment_amount=amount,
-                target_type=AdjustmentTarget.PROJECT,
+                adjustment_target=AdjustmentTarget.PROJECT,
                 target_id=test_app_keys[0],
             )
             self.assert_api_success(result)
 
         # Get adjustments
         retrieved = managers["adjustment"].get_adjustments(
-            target_type=AdjustmentTarget.PROJECT, target_id=test_app_keys[0]
+            adjustment_target=AdjustmentTarget.PROJECT, target_id=test_app_keys[0]
         )
         self.assert_api_success(retrieved)
         assert len(retrieved.get("adjustments", [])) >= len(adjustments)
@@ -65,7 +65,7 @@ class TestBillingWorkflows(BaseIntegrationTest):
             adjustment_name="Billing Group Discount",
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_amount=15,
-            target_type=AdjustmentTarget.BILLING_GROUP,
+            adjustment_target=AdjustmentTarget.BILLING_GROUP,
             target_id=bg_id,
         )
         self.assert_api_success(result)
@@ -82,21 +82,11 @@ class TestBillingWorkflows(BaseIntegrationTest):
         managers = test_context["managers"]
         campaign_id = f"CAMPAIGN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # 1. Create campaign
-        campaign_result = managers["credit"].create_campaign(
-            campaign_id=campaign_id,
-            campaign_name="Test Campaign",
-            available_amount=1000000,
-            valid_from="2024-01-01",
-            valid_to="2024-12-31",
-        )
-        self.assert_api_success(campaign_result)
-
-        # 2. Grant credit
-        grant_result = managers["credit"].grant_campaign_credit(
+        # 1. Grant credit directly (campaign creation is not available in API)
+        grant_result = managers["credit"].grant_credit(
             campaign_id=campaign_id,
             credit_name="Test Credit Grant",
-            credit_amount=50000,
+            amount=50000,
         )
         self.assert_api_success(grant_result)
 
@@ -115,10 +105,11 @@ class TestBillingWorkflows(BaseIntegrationTest):
         managers = test_context["managers"]
 
         # Grant paid credit
-        result = managers["credit"].grant_paid_credit(
+        result = managers["credit"].grant_credit(
             campaign_id=f"PAID-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            paid_amount=100000,
-            expire_months=12,
+            credit_name="Paid Credit Test",
+            amount=100000,
+            expiration_months=12,
         )
         self.assert_api_success(result)
 
@@ -211,16 +202,16 @@ class TestBillingWorkflows(BaseIntegrationTest):
             adjustment_name="Monthly Discount",
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_amount=10,
-            target_type=AdjustmentTarget.PROJECT,
+            adjustment_target=AdjustmentTarget.PROJECT,
             target_id=test_app_keys[0],
         )
         self.assert_api_success(adj_result)
 
         # 3. Grant credits
-        credit_result = managers["credit"].grant_campaign_credit(
+        credit_result = managers["credit"].grant_credit(
             campaign_id="CYCLE-TEST",
             credit_name="Billing Cycle Credit",
-            credit_amount=20000,
+            amount=20000,
         )
         self.assert_api_success(credit_result)
 
@@ -254,7 +245,7 @@ class TestBillingWorkflows(BaseIntegrationTest):
             managers["adjustment"].apply_adjustment(
                 adjustment_amount=-100,  # Invalid negative amount
                 adjustment_type=AdjustmentType.FIXED_DISCOUNT,
-                target_type=AdjustmentTarget.PROJECT,
+                adjustment_target=AdjustmentTarget.PROJECT,
                 target_id=test_app_keys[0],
             )
         except Exception as e:
@@ -262,10 +253,10 @@ class TestBillingWorkflows(BaseIntegrationTest):
 
         # Test invalid credit
         try:
-            managers["credit"].grant_campaign_credit(
+            managers["credit"].grant_credit(
                 campaign_id="INVALID-CAMPAIGN",
                 credit_name="Test",
-                credit_amount=999999999,  # Exceeds limits
+                amount=999999999,  # Exceeds limits
             )
         except Exception as e:
             logger.info(f"Expected error for excessive credit: {e}")
@@ -294,13 +285,13 @@ class TestBillingWorkflows(BaseIntegrationTest):
                 adjustment_name=f"Concurrent Test {i}",
                 adjustment_type=AdjustmentType.FIXED_DISCOUNT,
                 adjustment_amount=1000 * (i + 1),
-                target_type=AdjustmentTarget.PROJECT,
+                adjustment_target=AdjustmentTarget.PROJECT,
                 target_id=test_app_keys[0],
             )
 
         # Verify all were applied
         adjustments = managers["adjustment"].get_adjustments(
-            target_type=AdjustmentTarget.PROJECT, target_id=test_app_keys[0]
+            adjustment_target=AdjustmentTarget.PROJECT, target_id=test_app_keys[0]
         )
         assert len(adjustments.get("adjustments", [])) >= 5
 
@@ -313,7 +304,7 @@ class TestBillingWorkflows(BaseIntegrationTest):
             adjustment_name="Max Discount",
             adjustment_type=AdjustmentType.RATE_DISCOUNT,
             adjustment_amount=100,
-            target_type=AdjustmentTarget.PROJECT,
+            adjustment_target=AdjustmentTarget.PROJECT,
             target_id=test_app_keys[0],
         )
         self.assert_api_success(result)

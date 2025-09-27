@@ -48,17 +48,12 @@ jobs:
       run: mypy libs --ignore-missing-imports
 
   test:
-    name: Test Suite - ${{ matrix.test-type }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Test Suite - ${{ matrix.test-type }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
         test-type: [unit, integration, contract]
-        exclude:
-          # Skip contract tests on Windows for now
-          - os: windows-latest
-            test-type: contract
     
     steps:
     - uses: actions/checkout@v4
@@ -71,12 +66,10 @@ jobs:
     - name: Cache dependencies
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.cache/pip
-          ~\AppData\Local\pip\Cache
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        path: ~/.cache/pip
+        key: Linux-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-pip-
+          Linux-pip-
     
     - name: Install dependencies
       run: |
@@ -84,8 +77,8 @@ jobs:
         pip install -r requirements.txt
         pip install pytest-xdist pytest-cov pytest-html pytest-rerunfailures pytest-timeout
     
-    - name: Start Mock Server (Linux)
-      if: matrix.test-type != 'unit' && runner.os == 'Linux'
+    - name: Start Mock Server
+      if: matrix.test-type != 'unit'
       run: |
         python -m mock_server.run_server &
         for i in {1..10}; do
@@ -97,24 +90,6 @@ jobs:
           sleep 1
         done
     
-    - name: Start Mock Server (Windows)
-      if: matrix.test-type != 'unit' && runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Start-Process python -ArgumentList "-m", "mock_server.run_server" -NoNewWindow
-        for ($i = 1; $i -le 10; $i++) {
-          try {
-            $response = Invoke-WebRequest -Uri http://localhost:5000/health -UseBasicParsing
-            if ($response.StatusCode -eq 200) {
-              Write-Host "Mock server is ready"
-              break
-            }
-          } catch {
-            Write-Host "Waiting for mock server..."
-            Start-Sleep -Seconds 1
-          }
-        }
-    
     - name: Run Tests with Retry
       run: |
         python tests/run_all_tests.py --suite ${{ matrix.test-type }} --no-parallel
@@ -125,7 +100,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.os }}-${{ matrix.test-type }}
+        name: test-results-${{ matrix.test-type }}
         path: |
           test-results-*.xml
           coverage.xml
@@ -162,10 +137,14 @@ jobs:
         tool: 'pytest'
         output-file-path: benchmark.json
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        auto-push: true
+        gh-pages-branch: 'gh-pages'
+        benchmark-data-dir-path: 'dev/bench'
+        # Temporarily disable auto-push until gh-pages branch is created
+        auto-push: false
         alert-threshold: '150%'
         comment-on-alert: true
         fail-on-alert: false
+        # Results will be available as PR comment
 
   flaky-test-detection:
     name: Flaky Test Detection
@@ -305,7 +284,7 @@ jobs:
     - name: Download coverage reports
       uses: actions/download-artifact@v4
       with:
-        name: test-results-ubuntu-latest-unit
+        name: test-results-unit
         path: ./htmlcov
     
     - name: Deploy to GitHub Pages

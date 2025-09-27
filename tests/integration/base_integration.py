@@ -28,8 +28,10 @@ class BaseIntegrationTest:
             payment_client = PaymentAPIClient(base_url=mock_url)
         else:
             # Use real API with default configuration
-            billing_client = BillingAPIClient()
-            payment_client = PaymentAPIClient()
+            from config import url
+
+            billing_client = BillingAPIClient(base_url=url.BASE_BILLING_URL)
+            payment_client = PaymentAPIClient(base_url=url.BASE_BILLING_URL)
 
         return {"billing": billing_client, "payment": payment_client}
 
