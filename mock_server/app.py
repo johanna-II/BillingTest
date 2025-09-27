@@ -1149,7 +1149,44 @@ def create_calculation():
 # Duplicate endpoint removed - handled by /billing/credits/cancel above
 
 
+# Credit cancellation endpoint
+@app.route("/billing/admin/credits/<campaign_id>/cancel", methods=["DELETE"])
+def cancel_credit_admin(campaign_id):
+    """Cancel credit for a campaign."""
+    reason = request.args.get("reason", "No reason provided")
+
+    # Create mock response
+    cancel_response = {
+        "campaignId": campaign_id,
+        "cancelledAt": datetime.now().isoformat(),
+        "reason": reason,
+        "status": "CANCELLED",
+    }
+
+    return jsonify(create_success_response(cancel_response))
+
+
 # Payment endpoints for console API (missing endpoint fix)
+@app.route("/billing/payments/<month>", methods=["POST"])
+def make_payment_console(month):
+    """Make a payment for console API."""
+    uuid_param = request.headers.get("uuid", "default")
+    data = request.json or {}
+    payment_group_id = data.get("paymentGroupId", f"PG-{uuid_param[:8]}")
+
+    # Create mock payment response
+    payment_response = {
+        "paymentId": f"PAY-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "paymentGroupId": payment_group_id,
+        "status": "COMPLETED",
+        "amount": 150000,
+        "paymentDate": datetime.now().isoformat(),
+        "month": month,
+    }
+
+    return jsonify(create_success_response(payment_response))
+
+
 @app.route("/billing/payments/<month>/statements", methods=["GET"])
 def get_payment_statements_console(month):
     """Get payment statements for console API."""
@@ -1172,6 +1209,31 @@ def get_payment_statements_console(month):
                 "paymentGroupId": f"PG-{uuid_param[:8]}",
                 "paymentStatus": "READY",
                 "statements": [{"amount": 150000, "month": month, "status": "READY"}],
+            }
+        )
+    )
+
+
+@app.route("/billing/payments/<month>/statements/unpaid", methods=["GET"])
+def get_unpaid_statements_console(month):
+    """Get unpaid statements for console API."""
+    uuid_param = request.headers.get("uuid", "default")
+
+    # Return mock unpaid statements
+    return jsonify(
+        create_success_response(
+            {
+                "statements": [
+                    {
+                        "statementId": f"STMT-{month}-001",
+                        "totalAmount": 150000,
+                        "unpaidAmount": 150000,
+                        "month": month,
+                        "dueDate": (datetime.now() + timedelta(days=15)).isoformat(),
+                        "status": "UNPAID",
+                    }
+                ],
+                "totalUnpaid": 150000,
             }
         )
     )

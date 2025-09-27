@@ -319,9 +319,10 @@ class CreditManager:
 
     def grant_credit(
         self,
-        campaign_id: str,
-        amount: CreditAmount,
+        campaign_id: str | None = None,
+        amount: CreditAmount | None = None,
         credit_name: str | None = None,
+        credit_type: CreditType | None = None,
         expiration_months: int | None = None,
         expiration_date_from: str | None = None,
         expiration_date_to: str | None = None,
@@ -329,9 +330,10 @@ class CreditManager:
         """Grant credit to user through campaign (unified method).
 
         Args:
-            campaign_id: Campaign ID for credit grant
+            campaign_id: Campaign ID for credit grant (auto-generated if not provided)
             amount: Credit amount to grant
             credit_name: Name/description of the credit
+            credit_type: Type of credit (used to generate campaign ID if not provided)
             expiration_months: Expiration period in months
             expiration_date_from: Start date for credit validity
             expiration_date_to: End date for credit validity
@@ -343,10 +345,19 @@ class CreditManager:
             ValidationException: If parameters are invalid
             APIRequestException: If credit grant fails
         """
-        # Validate inputs
-        if not campaign_id:
-            msg = "Campaign ID cannot be empty"
+        # Validate amount is provided
+        if amount is None:
+            msg = "Credit amount must be provided"
             raise ValidationException(msg)
+
+        # Auto-generate campaign ID if not provided
+        if not campaign_id:
+            if credit_type:
+                # Use credit type in campaign ID
+                campaign_id = f"{credit_type.value}-{int(time.time())}"
+            else:
+                # Default campaign ID
+                campaign_id = f"CAMPAIGN-{int(time.time())}"
 
         CreditCalculator.validate_credit_amount(amount)
 
@@ -496,6 +507,32 @@ class CreditManager:
                 total += float(amount)
 
         return total
+
+    def inquiry_credit_balance(self) -> dict[str, Any]:
+        """Get credit balance in API response format (legacy method).
+
+        Returns:
+            API response with balance information
+        """
+        try:
+            balance = self.get_total_credit_balance()
+            return {
+                "header": {
+                    "isSuccessful": True,
+                    "resultCode": 0,
+                    "resultMessage": "Success",
+                },
+                "balance": balance,
+            }
+        except Exception as e:
+            return {
+                "header": {
+                    "isSuccessful": False,
+                    "resultCode": -1,
+                    "resultMessage": str(e),
+                },
+                "balance": 0,
+            }
 
     def bulk_grant_credit(
         self, campaign_ids: list[str], amount: CreditAmount, **kwargs: Any

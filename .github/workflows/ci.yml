@@ -53,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test-type: [unit, integration, contract]
+        test-type: [unit, integration, contracts]
     
     steps:
     - uses: actions/checkout@v4
@@ -92,7 +92,11 @@ jobs:
     
     - name: Run Tests with Retry
       run: |
-        python tests/run_all_tests.py --suite ${{ matrix.test-type }} --no-parallel
+        if [ "${{ matrix.test-type }}" = "contracts" ]; then
+          python tests/run_all_tests.py --suite ${{ matrix.test-type }} --no-parallel --use-mock
+        else
+          python tests/run_all_tests.py --suite ${{ matrix.test-type }} --no-parallel
+        fi
       env:
         PYTEST_TIMEOUT: 300
     

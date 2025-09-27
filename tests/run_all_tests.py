@@ -50,6 +50,7 @@ class TestRunner:
         cmd.extend(
             [
                 "--cov=libs",
+                "--cov-config=.coveragerc",
                 "--cov-report=term-missing",
                 "--cov-report=html:htmlcov/unit",
             ]
@@ -72,6 +73,7 @@ class TestRunner:
         cmd.extend(
             [
                 "--cov=libs",
+                "--cov-config=.coveragerc",
                 "--cov-append",
                 "--cov-report=term-missing",
                 "--cov-report=html:htmlcov/integration",
@@ -96,7 +98,7 @@ class TestRunner:
 
         return self.run_command(cmd)
 
-    def run_contract_tests(self) -> int:
+    def run_contract_tests(self, use_mock: bool = False) -> int:
         """Run contract tests."""
         cmd = [
             "pytest",
@@ -104,12 +106,18 @@ class TestRunner:
             "-v",
             "--tb=short",
             "--cov=libs",
+            "--cov-config=.coveragerc",
             "--cov-append",
             "--cov-report=term-missing",
             "--cov-report=html:htmlcov/contracts",
         ]
 
-        return self.run_command(cmd)
+        if use_mock:
+            cmd.append("--use-mock")
+
+        env = {"USE_MOCK_SERVER": "true"} if use_mock else {}
+
+        return self.run_command(cmd, env)
 
     def run_performance_tests(self) -> int:
         """Run performance tests."""
@@ -166,6 +174,12 @@ def main():
     )
 
     parser.add_argument(
+        "--use-mock",
+        action="store_true",
+        help="Force use of mock server for all tests (including contracts)",
+    )
+
+    parser.add_argument(
         "--sample-450", action="store_true", help="Run only sample of 450 combinations"
     )
 
@@ -190,22 +204,26 @@ def main():
 
     exit_codes = []
 
+    # Determine mock usage
+    use_mock_for_integration = not args.no_mock or args.use_mock
+    use_mock_for_contracts = args.use_mock
+
     # Run selected test suites
     if args.suite == "all":
         exit_codes.append(runner.run_unit_tests(not args.no_parallel))
         exit_codes.append(
-            runner.run_integration_tests(not args.no_mock, not args.no_parallel)
+            runner.run_integration_tests(use_mock_for_integration, not args.no_parallel)
         )
-        exit_codes.append(runner.run_contract_tests())
+        exit_codes.append(runner.run_contract_tests(use_mock_for_contracts))
         # Optionally run other suites
     elif args.suite == "unit":
         exit_codes.append(runner.run_unit_tests(not args.no_parallel))
     elif args.suite == "integration":
         exit_codes.append(
-            runner.run_integration_tests(not args.no_mock, not args.no_parallel)
+            runner.run_integration_tests(use_mock_for_integration, not args.no_parallel)
         )
     elif args.suite == "contracts":
-        exit_codes.append(runner.run_contract_tests())
+        exit_codes.append(runner.run_contract_tests(use_mock_for_contracts))
     elif args.suite == "performance":
         exit_codes.append(runner.run_performance_tests())
     elif args.suite == "security":

@@ -1,0 +1,471 @@
+{
+  "consumer": {
+    "name": "BillingLibraries"
+  },
+  "provider": {
+    "name": "BillingAPI"
+  },
+  "interactions": [
+    {
+      "description": "a request for contract details",
+      "providerState": "Contract 12345 exists",
+      "request": {
+        "method": "get",
+        "path": "/api/v1/contracts/12345"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "id": "12345",
+          "status": "ACTIVE",
+          "customer": {
+            "id": "CUST001",
+            "name": "Test Customer",
+            "email": "test@example.com"
+          },
+          "items": [
+            {
+              "id": "ITEM001",
+              "description": "Compute Instance",
+              "quantity": 1,
+              "unit_price": 100.0,
+              "currency": "USD"
+            }
+          ],
+          "total_amount": 100.0,
+          "created_at": "2024-01-15T10:00:00Z",
+          "billing_period": {
+            "start": "2024-01-01",
+            "end": "2024-01-31"
+          }
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "regex",
+            "regex": "(ACTIVE|INACTIVE|PENDING)"
+          },
+          "$.body.customer.id": {
+            "match": "type"
+          },
+          "$.body.customer.name": {
+            "match": "type"
+          },
+          "$.body.customer.email": {
+            "match": "regex",
+            "regex": ".+@.+\\..+"
+          },
+          "$.body.items": {
+            "min": 1
+          },
+          "$.body.items[*].*": {
+            "match": "type"
+          },
+          "$.body.items[*].id": {
+            "match": "type"
+          },
+          "$.body.items[*].description": {
+            "match": "type"
+          },
+          "$.body.items[*].quantity": {
+            "match": "type"
+          },
+          "$.body.items[*].unit_price": {
+            "match": "type"
+          },
+          "$.body.items[*].currency": {
+            "match": "type"
+          },
+          "$.body.total_amount": {
+            "match": "type"
+          },
+          "$.body.created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+          },
+          "$.body.billing_period.start": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "$.body.billing_period.end": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to grant credit",
+      "providerState": "User USER001 exists",
+      "request": {
+        "method": "post",
+        "path": "/api/v1/credits",
+        "body": {
+          "user_id": "USER001",
+          "amount": 500.0,
+          "currency": "USD",
+          "type": "ADJUSTMENT",
+          "description": "Monthly credit grant",
+          "expires_at": "2024-12-31T23:59:59Z"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+        },
+        "body": {
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "user_id": "USER001",
+          "amount": 500.0,
+          "currency": "USD",
+          "type": "ADJUSTMENT",
+          "status": "APPROVED",
+          "created_at": "2024-01-15T10:00:00Z",
+          "expires_at": "2024-12-31T23:59:59Z"
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "match": "regex",
+            "regex": "[0-9a-f-]+"
+          },
+          "$.body.user_id": {
+            "match": "type"
+          },
+          "$.body.amount": {
+            "match": "type"
+          },
+          "$.body.currency": {
+            "match": "type"
+          },
+          "$.body.type": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "regex",
+            "regex": "(PENDING|APPROVED|REJECTED)"
+          },
+          "$.body.created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+          },
+          "$.body.expires_at": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to send metering data",
+      "providerState": "Application APP001 exists",
+      "request": {
+        "method": "post",
+        "path": "/api/v1/metering",
+        "body": {
+          "app_key": "APP001",
+          "counter_name": "compute.instance.small",
+          "counter_type": "DELTA",
+          "counter_unit": "HOURS",
+          "counter_volume": "24.5",
+          "timestamp": "2024-01-15T10:00:00Z",
+          "metadata": {
+            "region": "us-east-1",
+            "instance_id": "i-1234567890abcdef0"
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+        },
+        "body": {
+          "id": "meter-123456",
+          "app_key": "APP001",
+          "status": "ACCEPTED",
+          "message": "Metering data recorded successfully",
+          "timestamp": "2024-01-15T10:00:01Z"
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "match": "regex",
+            "regex": "[0-9a-f-]+"
+          },
+          "$.body.app_key": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "type"
+          },
+          "$.body.message": {
+            "match": "type"
+          },
+          "$.body.timestamp": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request for payment statements",
+      "providerState": "User USER001 has statements for 2024-01",
+      "request": {
+        "method": "get",
+        "path": "/api/v1/payments/statements",
+        "query": "month=2024-01&user_id=USER001"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "statements": [
+            {
+              "id": "STMT001",
+              "user_id": "USER001",
+              "billing_period": {
+                "start": "2024-01-01",
+                "end": "2024-01-31"
+              },
+              "charges": {
+                "subtotal": 1000.0,
+                "tax": 100.0,
+                "discounts": 50.0,
+                "credits_applied": 200.0,
+                "total": 850.0
+              },
+              "status": "ISSUED",
+              "due_date": "2024-02-15",
+              "created_at": "2024-02-01T00:00:00Z"
+            }
+          ],
+          "pagination": {
+            "total": 1,
+            "page": 1,
+            "per_page": 20
+          }
+        },
+        "matchingRules": {
+          "$.body.statements[0].id": {
+            "match": "type"
+          },
+          "$.body.statements[0].user_id": {
+            "match": "type"
+          },
+          "$.body.statements[0].billing_period.start": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "$.body.statements[0].billing_period.end": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "$.body.statements[0].charges.subtotal": {
+            "match": "type"
+          },
+          "$.body.statements[0].charges.tax": {
+            "match": "type"
+          },
+          "$.body.statements[0].charges.discounts": {
+            "match": "type"
+          },
+          "$.body.statements[0].charges.credits_applied": {
+            "match": "type"
+          },
+          "$.body.statements[0].charges.total": {
+            "match": "type"
+          },
+          "$.body.statements[0].status": {
+            "match": "regex",
+            "regex": "(DRAFT|ISSUED|PAID|OVERDUE)"
+          },
+          "$.body.statements[0].due_date": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "$.body.statements[0].created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+          },
+          "$.body.pagination.total": {
+            "match": "type"
+          },
+          "$.body.pagination.page": {
+            "match": "type"
+          },
+          "$.body.pagination.per_page": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to create a batch job",
+      "providerState": "Batch processing is available",
+      "request": {
+        "method": "post",
+        "path": "/api/v1/batch/jobs",
+        "body": {
+          "job_type": "BILLING_CALCULATION",
+          "parameters": {
+            "month": "2024-01",
+            "billing_group_id": "BG001",
+            "force_recalculation": true
+          },
+          "scheduled_at": "2024-02-01T00:00:00Z"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+        },
+        "body": {
+          "job_id": "job-123456",
+          "job_type": "BILLING_CALCULATION",
+          "status": "PENDING",
+          "created_at": "2024-01-15T10:00:00Z",
+          "scheduled_at": "2024-02-01T00:00:00Z",
+          "parameters": {
+            "month": "2024-01",
+            "billing_group_id": "BG001",
+            "force_recalculation": true
+          }
+        },
+        "matchingRules": {
+          "$.body.job_id": {
+            "match": "regex",
+            "regex": "[0-9a-f-]+"
+          },
+          "$.body.job_type": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "regex",
+            "regex": "(PENDING|RUNNING|COMPLETED|FAILED)"
+          },
+          "$.body.created_at": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+          },
+          "$.body.scheduled_at": {
+            "match": "type"
+          },
+          "$.body.parameters": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request for non-existent contract",
+      "providerState": "Contract 99999 does not exist",
+      "request": {
+        "method": "get",
+        "path": "/api/v1/contracts/99999"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+        },
+        "body": {
+          "error": {
+            "code": "NOT_FOUND",
+            "message": "Contract not found",
+            "details": {
+              "contract_id": "99999",
+              "timestamp": "2024-01-15T10:00:00Z"
+            }
+          }
+        },
+        "matchingRules": {
+          "$.body.error.code": {
+            "match": "type"
+          },
+          "$.body.error.message": {
+            "match": "type"
+          },
+          "$.body.error.details.contract_id": {
+            "match": "type"
+          },
+          "$.body.error.details.timestamp": {
+            "match": "regex",
+            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request with invalid credit data",
+      "providerState": "Credit validation is enforced",
+      "request": {
+        "method": "post",
+        "path": "/api/v1/credits",
+        "body": {
+          "user_id": "USER001",
+          "amount": -100.0,
+          "currency": "INVALID",
+          "type": "UNKNOWN_TYPE"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+        },
+        "body": {
+          "error": {
+            "code": "VALIDATION_ERROR",
+            "message": "Request validation failed",
+            "details": {
+              "fields": [
+                {
+                  "field": "amount",
+                  "message": "Amount must be positive",
+                  "value": -100.0
+                },
+                {
+                  "field": "currency",
+                  "message": "Invalid currency code",
+                  "value": "INVALID"
+                }
+              ]
+            }
+          }
+        },
+        "matchingRules": {
+          "$.body.error.code": {
+            "match": "type"
+          },
+          "$.body.error.message": {
+            "match": "type"
+          },
+          "$.body.error.details.fields[0].field": {
+            "match": "type"
+          },
+          "$.body.error.details.fields[0].message": {
+            "match": "type"
+          },
+          "$.body.error.details.fields[0].value": {
+            "match": "type"
+          },
+          "$.body.error.details.fields[1].field": {
+            "match": "type"
+          },
+          "$.body.error.details.fields[1].message": {
+            "match": "type"
+          },
+          "$.body.error.details.fields[1].value": {
+            "match": "type"
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}
