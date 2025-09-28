@@ -1,5 +1,9 @@
 FROM python:3.12-slim
 
+# Create non-root user for security
+# Note: Using a non-root user prevents potential container breakout attacks
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -31,7 +35,12 @@ RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code
-COPY . .
+# Note: .dockerignore file ensures sensitive data is not copied
+# This includes git files, test files, IDE configs, and other non-runtime files
+COPY --chown=appuser:appuser . .
 
 # Install project in editable mode
 RUN poetry install --no-interaction --no-ansi
+
+# Switch to non-root user
+USER appuser

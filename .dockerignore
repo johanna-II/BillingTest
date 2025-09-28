@@ -1,0 +1,83 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+htmlcov/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project specific
+report/
+logs/
+*.log
+mock_metering.log
+benchmark.json
+tests/contracts/pacts/
+tests/contracts/logs/
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+docs/
+*.md
+LICENSE*
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+renovate.json
+sonar-project.properties
+
+# Scripts and configs not needed in runtime
+scripts/
+Makefile
+pytest.ini
+mypy.ini
+pyproject.toml
+poetry.lock
+
+# Test files (for production Dockerfile)
+tests/
+conftest.py
+*_test.py
+test_*.py
+
+# Local configuration
+.env
+.env.*
+config.local.py

@@ -1,5 +1,9 @@
 FROM python:3.12-slim
 
+# Create non-root user for security
+# Note: Using a non-root user prevents potential container breakout attacks
+RUN groupadd -r mockuser && useradd -r -g mockuser mockuser
+
 WORKDIR /app
 
 # Install curl for healthcheck
@@ -15,16 +19,23 @@ RUN if [ -f requirements-mock.txt ]; then \
     fi
 
 # Copy mock server code
-COPY mock_server /app/mock_server
+# Note: Selectively copying only required directories instead of entire project
+COPY --chown=mockuser:mockuser mock_server /app/mock_server
 
 # Copy OpenAPI spec (optional, will be mounted in docker-compose)
-COPY docs/openapi /app/docs/openapi
+COPY --chown=mockuser:mockuser docs/openapi /app/docs/openapi
+
+# Ensure proper ownership of the working directory
+RUN chown -R mockuser:mockuser /app
 
 # Set Python path
 ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Expose port
 EXPOSE 5000
+
+# Switch to non-root user
+USER mockuser
 
 # Run the mock server
 CMD ["python", "-m", "mock_server.run_server"]

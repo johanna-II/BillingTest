@@ -40,6 +40,8 @@ except ImportError:
         return None
 
 
+# Note: This is a mock server for testing purposes only.
+# CSRF protection is not enabled as this server is not intended for production use.
 app = Flask(__name__)
 CORS(app)
 
@@ -1113,22 +1115,23 @@ def get_statements():
 
 
 # Contract endpoints
-@app.route("/billing/contracts", methods=["POST", "GET"])
-def handle_contracts():
-    """Handle contracts - create or list."""
-    if request.method == "GET":
-        # List contracts
-        billing_group_id = request.args.get("billingGroupId")
-        contract_list = []
+@app.route("/billing/contracts", methods=["GET"])
+def list_contracts():
+    """List contracts."""
+    # List contracts
+    billing_group_id = request.args.get("billingGroupId")
+    contract_list = []
 
-        for contract in contracts.values():
-            if (
-                not billing_group_id
-                or contract.get("billingGroupId") == billing_group_id
-            ):
-                contract_list.append(contract)
+    for contract in contracts.values():
+        if not billing_group_id or contract.get("billingGroupId") == billing_group_id:
+            contract_list.append(contract)
 
-        return jsonify(create_success_response({"contracts": contract_list}))
+    return jsonify(create_success_response({"contracts": contract_list}))
+
+
+@app.route("/billing/contracts", methods=["POST"])
+def create_contract():
+    """Create a new contract."""
     # Create contract
     data = request.json or {}
     contract_id = str(uuid.uuid4())
@@ -1889,46 +1892,9 @@ def create_credit_v1():
     return jsonify(credit), 201
 
 
-@app.route("/api/v1/metering", methods=["GET", "POST"])
-def handle_metering_v1():
-    """Handle metering data (v1 API for contract compliance)."""
-    if request.method == "POST":
-        # Handle POST request for sending usage data
-        data = request.get_json() or {}
-
-        # Validate required fields
-        if not data.get("resource_id") or not data.get("usage"):
-            return (
-                jsonify(
-                    {
-                        "error": "Bad Request",
-                        "message": "Missing required fields: resource_id, usage",
-                    }
-                ),
-                400,
-            )
-
-        # Store metering data
-        meter_id = str(uuid.uuid4())
-        metering_data[meter_id] = {
-            "id": meter_id,
-            "timestamp": datetime.now().isoformat(),
-            "resource_id": data.get("resource_id"),
-            "usage": data.get("usage"),
-            "project_id": data.get("project_id", "default"),
-        }
-
-        return (
-            jsonify(
-                {
-                    "id": meter_id,
-                    "status": "accepted",
-                    "message": "Usage data recorded successfully",
-                }
-            ),
-            201,
-        )
-
+@app.route("/api/v1/metering", methods=["GET"])
+def get_metering_v1():
+    """Get metering data (v1 API for contract compliance)."""
     # GET request
     project_id = request.args.get("project_id")
     month = request.args.get("month", "")
@@ -1953,6 +1919,46 @@ def handle_metering_v1():
     }
 
     return jsonify(data), 200
+
+
+@app.route("/api/v1/metering", methods=["POST"])
+def create_metering_v1():
+    """Create metering data (v1 API for contract compliance)."""
+    # Handle POST request for sending usage data
+    data = request.get_json() or {}
+
+    # Validate required fields
+    if not data.get("resource_id") or not data.get("usage"):
+        return (
+            jsonify(
+                {
+                    "error": "Bad Request",
+                    "message": "Missing required fields: resource_id, usage",
+                }
+            ),
+            400,
+        )
+
+    # Store metering data
+    meter_id = str(uuid.uuid4())
+    metering_data[meter_id] = {
+        "id": meter_id,
+        "timestamp": datetime.now().isoformat(),
+        "resource_id": data.get("resource_id"),
+        "usage": data.get("usage"),
+        "project_id": data.get("project_id", "default"),
+    }
+
+    return (
+        jsonify(
+            {
+                "id": meter_id,
+                "status": "accepted",
+                "message": "Usage data recorded successfully",
+            }
+        ),
+        201,
+    )
 
 
 @app.route("/api/v1/payments/<payment_id>", methods=["GET"])
@@ -2099,6 +2105,8 @@ def generate_openapi_response(api_path):
 
 
 # Catch-all route for undefined API endpoints
+# Note: This route intentionally handles multiple methods to provide a generic
+# fallback for unimplemented API endpoints in this test mock server
 @app.route("/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 def handle_undefined_api(path):
     """Handle undefined API endpoints using OpenAPI if available."""
@@ -2195,28 +2203,9 @@ def get_payment_statements_v1():
 
 
 # Batch jobs endpoint
-@app.route("/api/v1/batch/jobs", methods=["GET", "POST"])
-def handle_batch_jobs_v1():
-    """Handle batch jobs (v1 API for contract compliance)."""
-    if request.method == "POST":
-        # Create a new batch job
-        data = request.get_json() or {}
-
-        job_id = str(uuid.uuid4())
-        batch_job = {
-            "id": job_id,
-            "type": data.get("type", "BILLING_CALCULATION"),
-            "status": "CREATED",
-            "created_at": datetime.now().isoformat(),
-            "parameters": data.get("parameters", {}),
-            "result": None,
-        }
-
-        # Store the job
-        billing_data[f"batch-job-{job_id}"] = batch_job
-
-        return jsonify(batch_job), 201
-
+@app.route("/api/v1/batch/jobs", methods=["GET"])
+def list_batch_jobs_v1():
+    """List batch jobs (v1 API for contract compliance)."""
     # GET request - list batch jobs
     jobs = []
     for key, value in billing_data.items():
@@ -2224,6 +2213,28 @@ def handle_batch_jobs_v1():
             jobs.append(value)
 
     return jsonify({"jobs": jobs, "total": len(jobs)}), 200
+
+
+@app.route("/api/v1/batch/jobs", methods=["POST"])
+def create_batch_job_v1():
+    """Create a batch job (v1 API for contract compliance)."""
+    # Create a new batch job
+    data = request.get_json() or {}
+
+    job_id = str(uuid.uuid4())
+    batch_job = {
+        "id": job_id,
+        "type": data.get("type", "BILLING_CALCULATION"),
+        "status": "CREATED",
+        "created_at": datetime.now().isoformat(),
+        "parameters": data.get("parameters", {}),
+        "result": None,
+    }
+
+    # Store the job
+    billing_data[f"batch-job-{job_id}"] = batch_job
+
+    return jsonify(batch_job), 201
 
 
 # Payment endpoints already defined above, removed duplicate
