@@ -171,13 +171,7 @@ jobs:
         echo "## 📊 Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         if [ -f benchmark.json ]; then
-          python -c "
-import json
-with open('benchmark.json') as f:
-    data = json.load(f)
-    for benchmark in data.get('benchmarks', []):
-        print(f\"- **{benchmark['name']}**: {benchmark['stats']['mean']:.4f}s ± {benchmark['stats']['stddev']:.4f}s\")
-          " >> $GITHUB_STEP_SUMMARY
+          python -c "import json; f = open('benchmark.json'); data = json.load(f); f.close(); [print(f\"- **{benchmark['name']}**: {benchmark['stats']['mean']:.4f}s ± {benchmark['stats']['stddev']:.4f}s\") for benchmark in data.get('benchmarks', [])]" >> $GITHUB_STEP_SUMMARY
         else
           echo "No benchmark results found." >> $GITHUB_STEP_SUMMARY
         fi
@@ -345,13 +339,7 @@ with open('benchmark.json') as f:
       run: |
         # Extract coverage percentage from XML if exists
         if [ -f coverage-combined.xml ]; then
-          COVERAGE=$(python -c "
-import xml.etree.ElementTree as ET
-tree = ET.parse('coverage-combined.xml')
-root = tree.getroot()
-coverage = float(root.attrib.get('line-rate', 0)) * 100
-print(f'{coverage:.1f}')
-          ")
+          COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage-combined.xml'); root = tree.getroot(); coverage = float(root.attrib.get('line-rate', 0)) * 100; print(f'{coverage:.1f}')")
           echo "Coverage: ${COVERAGE}%"
           
           # Create a simple JSON for the badge
