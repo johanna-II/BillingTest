@@ -68,47 +68,51 @@ class FlakyTestAnalyzer:
 
         return sorted(slow_tests, key=lambda x: x[1], reverse=True)
 
-    def generate_report(self) -> str:
-        """Generate a markdown report of findings."""
-        flaky_tests = self.identify_flaky_tests()
-        slow_tests = self.identify_slow_tests()
+    def _generate_flaky_tests_section(self, flaky_tests: list) -> list[str]:
+        """Generate the flaky tests section of the report."""
+        report = ["\n## Flaky Tests\n"]
 
-        report = ["# Flaky Test Analysis Report\n"]
-        report.append(f"Analyzed {len(self.test_results)} unique tests\n")
-
-        # Flaky tests section
-        report.append("\n## Flaky Tests\n")
-        if flaky_tests:
-            report.append(f"Found {len(flaky_tests)} flaky tests:\n")
-            report.append("| Test | Failure Rate | Pattern | Recent Failures |")
-            report.append("|------|-------------|---------|-----------------|")
-
-            for test_id, failure_rate, results in flaky_tests[:10]:  # Top 10
-                pattern = "".join(["✓" if r else "✗" for r in results[-10:]])
-                failures = self.test_failures[test_id]
-                recent_failure = failures[-1][:50] + "..." if failures else "N/A"
-
-                report.append(
-                    f"| `{test_id}` | {failure_rate:.1%} | {pattern} | {recent_failure} |"
-                )
-
-            if len(flaky_tests) > 10:
-                report.append(f"\n... and {len(flaky_tests) - 10} more flaky tests")
-        else:
+        if not flaky_tests:
             report.append("No flaky tests detected! 🎉")
+            return report
 
-        # Slow tests section
-        report.append("\n## Slow Tests\n")
-        if slow_tests:
-            report.append(f"Found {len(slow_tests)} slow tests (>5s average):\n")
-            report.append("| Test | Avg Duration | Max Duration |")
-            report.append("|------|--------------|--------------|")
+        report.append(f"Found {len(flaky_tests)} flaky tests:\n")
+        report.append("| Test | Failure Rate | Pattern | Recent Failures |")
+        report.append("|------|-------------|---------|-----------------|")
 
-            for test_id, avg_dur, max_dur in slow_tests[:10]:  # Top 10
-                report.append(f"| `{test_id}` | {avg_dur:.2f}s | {max_dur:.2f}s |")
+        for test_id, failure_rate, results in flaky_tests[:10]:  # Top 10
+            pattern = "".join(["✓" if r else "✗" for r in results[-10:]])
+            failures = self.test_failures[test_id]
+            recent_failure = failures[-1][:50] + "..." if failures else "N/A"
 
-        # Statistics section
-        report.append("\n## Test Stability Statistics\n")
+            report.append(
+                f"| `{test_id}` | {failure_rate:.1%} | {pattern} | {recent_failure} |"
+            )
+
+        if len(flaky_tests) > 10:
+            report.append(f"\n... and {len(flaky_tests) - 10} more flaky tests")
+
+        return report
+
+    def _generate_slow_tests_section(self, slow_tests: list) -> list[str]:
+        """Generate the slow tests section of the report."""
+        report = ["\n## Slow Tests\n"]
+
+        if not slow_tests:
+            return report
+
+        report.append(f"Found {len(slow_tests)} slow tests (>5s average):\n")
+        report.append("| Test | Avg Duration | Max Duration |")
+        report.append("|------|--------------|--------------|")
+
+        for test_id, avg_dur, max_dur in slow_tests[:10]:  # Top 10
+            report.append(f"| `{test_id}` | {avg_dur:.2f}s | {max_dur:.2f}s |")
+
+        return report
+
+    def _generate_statistics_section(self, flaky_tests: list) -> list[str]:
+        """Generate the statistics section of the report."""
+        report = ["\n## Test Stability Statistics\n"]
 
         total_runs = sum(len(results) for results in self.test_results.values())
         total_failures = sum(
@@ -120,8 +124,13 @@ class FlakyTestAnalyzer:
         report.append(f"- Overall pass rate: {overall_pass_rate:.1%}")
         report.append(f"- Number of flaky tests: {len(flaky_tests)}")
 
-        # Recommendations
-        report.append("\n## Recommendations\n")
+        return report
+
+    def _generate_recommendations(
+        self, flaky_tests: list, slow_tests: list
+    ) -> list[str]:
+        """Generate recommendations based on findings."""
+        report = ["\n## Recommendations\n"]
 
         if flaky_tests:
             report.append("### For Flaky Tests:")
@@ -136,6 +145,22 @@ class FlakyTestAnalyzer:
             report.append("2. Optimize test data generation")
             report.append("3. Use test parallelization more effectively")
             report.append("4. Mock expensive operations")
+
+        return report
+
+    def generate_report(self) -> str:
+        """Generate a markdown report of findings."""
+        flaky_tests = self.identify_flaky_tests()
+        slow_tests = self.identify_slow_tests()
+
+        report = ["# Flaky Test Analysis Report\n"]
+        report.append(f"Analyzed {len(self.test_results)} unique tests\n")
+
+        # Add sections
+        report.extend(self._generate_flaky_tests_section(flaky_tests))
+        report.extend(self._generate_slow_tests_section(slow_tests))
+        report.extend(self._generate_statistics_section(flaky_tests))
+        report.extend(self._generate_recommendations(flaky_tests, slow_tests))
 
         return "\n".join(report)
 

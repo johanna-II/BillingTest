@@ -18,6 +18,7 @@ DOCKER_COMPOSE_TEST_FILE = "docker-compose.test.yml"
 # Coverage options
 COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
 COV_OMIT_OBSERVABILITY = "--cov-omit=libs/observability/*"
+COV_LIBS = "--cov=libs"
 
 
 class TestRunner:
@@ -161,7 +162,7 @@ class TestRunner:
                     if coverage:
                         cmd.extend(
                             [
-                                "--cov=libs",
+                                COV_LIBS,
                                 COV_REPORT_TERM_MISSING,
                                 "--cov-report=xml",
                                 COV_OMIT_OBSERVABILITY,
@@ -236,10 +237,10 @@ class TestRunner:
                 if coverage and "unit" in test_commands:
                     test_commands["unit"].extend(
                         [
-                            "--cov=libs",
+                            COV_LIBS,
                             COV_REPORT_TERM_MISSING,
                             "--cov-report=xml",
-                            "--cov-omit=libs/observability/*",
+                            COV_OMIT_OBSERVABILITY,
                         ]
                     )
             else:
@@ -249,10 +250,10 @@ class TestRunner:
                 if coverage and test_type == "unit":
                     test_commands[test_type].extend(
                         [
-                            "--cov=libs",
+                            COV_LIBS,
                             COV_REPORT_TERM_MISSING,
                             "--cov-report=xml",
-                            "--cov-omit=libs/observability/*",
+                            COV_OMIT_OBSERVABILITY,
                         ]
                     )
 

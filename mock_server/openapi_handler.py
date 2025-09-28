@@ -13,6 +13,9 @@ from jsonschema import ValidationError, validate
 # Type aliases
 OpenAPIDict = dict[str, Any]
 
+# Constants
+APPLICATION_JSON = "application/json"
+
 
 class OpenAPIHandler:
     """Handler for OpenAPI specification-based mock responses."""
@@ -89,7 +92,7 @@ class OpenAPIHandler:
 
         # Get content schema
         content = response_spec.get("content", {})
-        json_content = content.get("application/json", {})
+        json_content = content.get(APPLICATION_JSON, {})
         schema = json_content.get("schema", {})
 
         if not schema:
@@ -244,6 +247,67 @@ class OpenAPIHandler:
             return random.randint(int(minimum), int(maximum))
         return round(random.uniform(minimum, maximum), 2)
 
+    def _validate_request_body(self, operation: OpenAPIDict, body: dict) -> str | None:
+        """Validate request body against schema."""
+        request_body_spec = operation["requestBody"]
+        if not request_body_spec.get("required", False) and not body:
+            return None
+
+        content = request_body_spec.get("content", {})
+        json_content = content.get(APPLICATION_JSON, {})
+        schema = json_content.get("schema", {})
+
+        if not schema:
+            return None
+
+        if "$ref" in schema:
+            schema = self._resolve_ref(schema["$ref"])
+
+        try:
+            validate(body, schema)
+        except ValidationError as e:
+            return f"Request body validation error: {e.message}"
+
+        return None
+
+    def _validate_query_parameter(
+        self, param_spec: OpenAPIDict, query_params: dict
+    ) -> str | None:
+        """Validate a single query parameter."""
+        param_name = param_spec["name"]
+        required = param_spec.get("required", False)
+
+        if required and param_name not in query_params:
+            return f"Missing required query parameter: {param_name}"
+
+        if param_name not in query_params:
+            return None
+
+        # Validate parameter schema
+        param_schema = param_spec.get("schema", {})
+        try:
+            validate(query_params[param_name], param_schema)
+        except ValidationError as e:
+            return f"Query parameter '{param_name}' validation error: {e.message}"
+
+        return None
+
+    def _validate_query_parameters(
+        self, operation: OpenAPIDict, query_params: dict
+    ) -> str | None:
+        """Validate all query parameters."""
+        parameters = operation.get("parameters", [])
+
+        for param_spec in parameters:
+            if param_spec.get("in") != "query":
+                continue
+
+            error = self._validate_query_parameter(param_spec, query_params)
+            if error:
+                return error
+
+        return None
+
     def validate_request(
         self,
         method: str,
@@ -258,38 +322,15 @@ class OpenAPIHandler:
 
         # Validate request body if present
         if body and "requestBody" in operation:
-            request_body_spec = operation["requestBody"]
-            if request_body_spec.get("required", False) or body:
-                content = request_body_spec.get("content", {})
-                json_content = content.get("application/json", {})
-                schema = json_content.get("schema", {})
-
-                if schema:
-                    if "$ref" in schema:
-                        schema = self._resolve_ref(schema["$ref"])
-
-                    try:
-                        validate(body, schema)
-                    except ValidationError as e:
-                        return f"Request body validation error: {e.message}"
+            error = self._validate_request_body(operation, body)
+            if error:
+                return error
 
         # Validate query parameters
-        if query_params and "parameters" in operation:
-            for param_spec in operation["parameters"]:
-                if param_spec["in"] == "query":
-                    param_name = param_spec["name"]
-                    required = param_spec.get("required", False)
-
-                    if required and param_name not in query_params:
-                        return f"Missing required query parameter: {param_name}"
-
-                    if param_name in query_params:
-                        # Validate parameter schema
-                        param_schema = param_spec.get("schema", {})
-                        try:
-                            validate(query_params[param_name], param_schema)
-                        except ValidationError as e:
-                            return f"Query parameter '{param_name}' validation error: {e.message}"
+        if query_params:
+            error = self._validate_query_parameters(operation, query_params)
+            if error:
+                return error
 
         return None  # Validation passed
 
@@ -304,7 +345,7 @@ class OpenAPIHandler:
         # Extract request examples
         if "requestBody" in operation:
             content = operation["requestBody"].get("content", {})
-            json_content = content.get("application/json", {})
+            json_content = content.get(APPLICATION_JSON, {})
             if "example" in json_content:
                 examples["request"]["body"] = json_content["example"]
             elif "examples" in json_content:
@@ -313,7 +354,7 @@ class OpenAPIHandler:
         # Extract response examples
         for status_code, response_spec in operation.get("responses", {}).items():
             content = response_spec.get("content", {})
-            json_content = content.get("application/json", {})
+            json_content = content.get(APPLICATION_JSON, {})
             if "example" in json_content:
                 examples["responses"][status_code] = json_content["example"]
             elif "examples" in json_content:

@@ -13,6 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Coverage options
 COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
+COV_LIBS = "--cov=libs"
 
 
 def run_integration_tests(args):
@@ -47,7 +48,7 @@ def run_integration_tests(args):
 
     # Add coverage if requested
     if args.coverage:
-        cmd.extend(["--cov=libs", "--cov-report=html", COV_REPORT_TERM_MISSING])
+        cmd.extend([COV_LIBS, "--cov-report=html", COV_REPORT_TERM_MISSING])
 
     # Add markers
     if not args.slow:

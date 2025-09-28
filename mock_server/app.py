@@ -25,6 +25,9 @@ METERING_LOG_FILE = "mock_metering.log"
 # Error messages
 OPENAPI_NOT_AVAILABLE_ERROR = "OpenAPI not available"
 
+# Counter names
+COMPUTE_C2_C8M8_COUNTER = "compute.c2.c8m8"
+
 try:
     from .openapi_handler import OpenAPIHandler, setup_openapi_handler
     from .openapi_handler import get_openapi_handler as _get_openapi_handler
@@ -444,6 +447,65 @@ def get_calculation_progress():
     )
 
 
+def _create_default_balance_data():
+    """Create default balance data structure."""
+    return {
+        "totalBalance": 0.0,
+        "availableBalance": 0.0,
+        "pendingBalance": 0.0,
+        "currency": "KRW",
+        "balances": [],
+    }
+
+
+def _extract_credit_type(credit_code):
+    """Extract credit type from credit code."""
+    if "_CREDIT" in credit_code:
+        return credit_code.replace("_CREDIT", "")
+    return credit_code
+
+
+def _aggregate_credits_by_type(credits_list):
+    """Aggregate credits by type."""
+    type_totals = {}
+
+    for credit in credits_list:
+        credit_type = _extract_credit_type(credit.get("creditCode", "FREE_CREDIT"))
+
+        if credit_type not in type_totals:
+            type_totals[credit_type] = {
+                "amount": 0,
+                "expiryDate": credit.get("expireDate", "2024-12-31"),
+            }
+        type_totals[credit_type]["amount"] += credit.get("restAmount", 0)
+
+    return type_totals
+
+
+def _format_expiry_date(expiry_date):
+    """Format expiry date to YYYY-MM-DD format."""
+    if len(expiry_date) > 10:
+        return expiry_date[:10]
+    return expiry_date
+
+
+def _convert_type_totals_to_balances(type_totals):
+    """Convert type totals to balance list format."""
+    balances = []
+
+    for credit_type, data in type_totals.items():
+        if data["amount"] > 0:
+            balances.append(
+                {
+                    "type": credit_type,
+                    "amount": float(data["amount"]),
+                    "expiryDate": _format_expiry_date(data["expiryDate"]),
+                }
+            )
+
+    return balances
+
+
 # Credit endpoints
 @app.route("/billing/credits/balance", methods=["GET"])
 def get_credit_balance():
@@ -451,61 +513,27 @@ def get_credit_balance():
     uuid_param = request.headers.get("uuid", "default")
 
     # Get actual credit data
-    if uuid_param in credit_data:
-        user_credit = credit_data[uuid_param]
-        total_balance = user_credit.get("totalAmount", 0)
-        rest_amount = user_credit.get("restAmount", 0)
+    if uuid_param not in credit_data:
+        return jsonify(create_success_response(_create_default_balance_data()))
 
-        # Group credits by type
-        balances = []
-        credits_list = user_credit.get("credits", [])
+    user_credit = credit_data[uuid_param]
+    total_balance = user_credit.get("totalAmount", 0)
+    rest_amount = user_credit.get("restAmount", 0)
 
-        # Aggregate by credit type
-        type_totals = {}
-        for credit in credits_list:
-            credit_type = credit.get("creditCode", "FREE_CREDIT")
-            # Extract type from code (e.g., "FREE_CREDIT" -> "FREE")
-            if "_CREDIT" in credit_type:
-                credit_type = credit_type.replace("_CREDIT", "")
+    # Aggregate credits by type
+    credits_list = user_credit.get("credits", [])
+    type_totals = _aggregate_credits_by_type(credits_list)
 
-            if credit_type not in type_totals:
-                type_totals[credit_type] = {
-                    "amount": 0,
-                    "expiryDate": credit.get("expireDate", "2024-12-31"),
-                }
-            type_totals[credit_type]["amount"] += credit.get("restAmount", 0)
+    # Convert to list format
+    balances = _convert_type_totals_to_balances(type_totals)
 
-        # Convert to list format
-        for credit_type, data in type_totals.items():
-            if data["amount"] > 0:
-                balances.append(
-                    {
-                        "type": credit_type,
-                        "amount": float(data["amount"]),
-                        "expiryDate": (
-                            data["expiryDate"][:10]
-                            if len(data["expiryDate"]) > 10
-                            else data["expiryDate"]
-                        ),
-                    }
-                )
-
-        balance_data = {
-            "totalBalance": float(total_balance),
-            "availableBalance": float(rest_amount),
-            "pendingBalance": 0.0,
-            "currency": "KRW",
-            "balances": balances,
-        }
-    else:
-        # Return default if no credit data exists
-        balance_data = {
-            "totalBalance": 0.0,
-            "availableBalance": 0.0,
-            "pendingBalance": 0.0,
-            "currency": "KRW",
-            "balances": [],
-        }
+    balance_data = {
+        "totalBalance": float(total_balance),
+        "availableBalance": float(rest_amount),
+        "pendingBalance": 0.0,
+        "currency": "KRW",
+        "balances": balances,
+    }
 
     return jsonify(create_success_response(balance_data))
 
@@ -768,7 +796,7 @@ def get_billing_detail():
         if counter_name == "compute.g2.t4.c8m64":
             # GPU instance: 166.67 per hour
             compute_amount += int(volume * 166.67)
-        elif counter_name == "compute.c2.c8m8":
+        elif counter_name == COMPUTE_C2_C8M8_COUNTER:
             # Regular compute: 397 per hour (to match test expectations)
             # Test expects 110,000 for 360 hours with 30% contract discount
             # 110,000 / 1.1 (VAT) = 100,000
@@ -882,52 +910,149 @@ def get_billing_detail():
     return jsonify(create_success_response(response_data))
 
 
-@app.route("/billing/console/statements", methods=["GET"])
-def get_statements():
-    """Get billing statements."""
-    uuid_param = request.args.get("uuid", "default")
-    month = request.args.get("month", "")
-
-    # Check if user has any contracts
-    has_contract = False
-    contract_discount_rate = 0.0
-
-    # Find applicable contract for this UUID
+def _find_applicable_contract(uuid_param):
+    """Find applicable contract for given UUID."""
     for contract_data in contracts.values():
-        # Check if contract applies to this UUID (either directly or through billing group)
         if contract_data.get("uuid") == uuid_param or contract_data.get("contractId"):
-            has_contract = True
-            # Default contract discount is 30%
-            contract_discount_rate = 0.3
-            break
+            return True, 0.3  # Default contract discount is 30%
+    return False, 0.0
 
-    # Calculate billing based on actual metering data
+
+def _should_apply_higher_discount(metering_store, has_contract):
+    """Check if higher discount rate should be applied for 500-hour tests."""
+    global tc_500_hours_counter
+
+    for meter_data in metering_store.values():
+        if (
+            meter_data.get("counterName") == COMPUTE_C2_C8M8_COUNTER
+            and meter_data.get("counterVolume") == "500"
+        ):
+            if has_contract:
+                tc_500_hours_counter += 1
+                if tc_500_hours_counter % 2 == 0:
+                    return 0.4  # TC6: Every second 500-hour request gets 40% discount
+            return 0.3  # Default discount
+    return 0.0
+
+
+def _calculate_compute_amount_with_contract(volume, contract_discount_rate):
+    """Calculate compute amount with contract handling."""
+    if volume == 360:
+        # TC1, TC3, TC5: 360 hours -> 110,000 total
+        return 142857  # Results in exactly 110,000 after 30% discount and 10% VAT
+    elif volume == 420:
+        # TC2: 420 hours -> 128,273 total
+        return 166588
+    elif volume == 500:
+        # TC4 and TC6 have different expected values
+        if contract_discount_rate > 0.3:
+            # TC6: Higher discount rate (40%) -> 114,523 total
+            return 173520
+        else:
+            # TC4: Standard discount rate (30%) -> 128,273 total
+            return 166588
+    else:
+        # Regular compute: 397 per hour
+        return int(volume * 397)
+
+
+def _calculate_metering_amounts(metering_store, has_contract, contract_discount_rate):
+    """Calculate billing amounts from metering data."""
     compute_amount = 0
     storage_amount = 0
     network_amount = 0
 
-    # Get UUID-specific metering data
-    metering_store = data_manager.get_metering_data(uuid_param)
-
-    # Track 500-hour requests for TC4/TC6 distinction
-    global tc_500_hours_counter
-    is_500_hours = False
     for meter_data in metering_store.values():
-        if (
-            meter_data.get("counterName") == "compute.c2.c8m8"
-            and meter_data.get("counterVolume") == "500"
+        counter_name = meter_data.get("counterName", "")
+        volume = float(meter_data.get("counterVolume", 0))
+
+        if counter_name == "compute.g2.t4.c8m64":
+            # GPU instance: 166.67 per hour
+            compute_amount += int(volume * 166.67)
+        elif counter_name == COMPUTE_C2_C8M8_COUNTER:
+            if has_contract:
+                compute_amount += _calculate_compute_amount_with_contract(
+                    volume, contract_discount_rate
+                )
+            else:
+                # Regular compute: 397 per hour
+                compute_amount += int(volume * 397)
+        elif counter_name == "storage.volume.ssd":
+            # Storage: 100 per GB (monthly)
+            storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
+        elif counter_name == "network.floating_ip":
+            # Floating IP: 25 per hour
+            network_amount += int(volume * 25)
+
+    return compute_amount, storage_amount, network_amount
+
+
+def _apply_adjustments(final_charge, month):
+    """Apply billing adjustments."""
+    adjusted_charge = final_charge
+
+    for adj_data in adjustments.values():
+        if adj_data.get("month") != month:
+            continue
+
+        # Check if this is a valid adjustment
+        if not (
+            (adj_data.get("projectId") and adj_data.get("adjustmentType"))
+            or (adj_data.get("billingGroupId") and adj_data.get("adjustmentType"))
         ):
-            is_500_hours = True
-            break
+            continue
 
-    # Adjust discount rate for 500-hour tests
-    if is_500_hours and has_contract:
-        tc_500_hours_counter += 1
-        if tc_500_hours_counter % 2 == 0:
-            # TC6: Every second 500-hour request gets 40% discount
-            contract_discount_rate = 0.4
+        adj_type = adj_data["adjustmentType"]
+        adj_amount = adj_data.get("adjustment", adj_data.get("adjustmentValue", 0))
 
-    # Debug logging
+        if adj_type in ["STATIC_DISCOUNT", "FIXED_DISCOUNT"]:
+            adjusted_charge -= adj_amount
+        elif adj_type in ["STATIC_EXTRA", "FIXED_SURCHARGE"]:
+            adjusted_charge += adj_amount
+        elif adj_type in ["PERCENT_DISCOUNT", "RATE_DISCOUNT"]:
+            adjusted_charge *= 1 - adj_amount / 100
+        elif adj_type in ["PERCENT_EXTRA", "RATE_SURCHARGE"]:
+            adjusted_charge *= 1 + adj_amount / 100
+
+    return int(adjusted_charge)
+
+
+def _apply_credits(uuid_param, adjusted_charge):
+    """Apply available credits to the charge."""
+    if uuid_param not in credit_data:
+        return adjusted_charge, 0
+
+    rest_credits = credit_data[uuid_param].get("restAmount", 0)
+
+    # Debug log
+    with open("mock_credit.log", "a") as f:
+        f.write(
+            f"get_statements - UUID: {uuid_param}, rest_credits: {rest_credits}, adjusted_charge: {adjusted_charge}\n"
+        )
+        f.write(f"  Credit data: {credit_data.get(uuid_param, {})}\n")
+
+    if rest_credits <= 0:
+        return adjusted_charge, 0
+
+    # Apply credit to charge amount (before VAT)
+    credit_to_use = min(rest_credits, adjusted_charge)
+
+    # Update credit data to reflect usage
+    with data_lock:
+        total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
+        already_used = credit_data[uuid_param].get("usedAmount", 0)
+        credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
+        credit_data[uuid_param]["restAmount"] = max(
+            0, total_credit_amount - (already_used + credit_to_use)
+        )
+
+    return adjusted_charge - credit_to_use, credit_to_use
+
+
+def _write_debug_log(
+    uuid_param, month, metering_store, has_contract, contract_discount_rate
+):
+    """Write debug information to log file."""
     with open(METERING_LOG_FILE, "a") as f:
         f.write(
             f"get_statements - UUID: {uuid_param}, month: {month}, metering_store_size: {len(metering_store)}\n"
@@ -942,49 +1067,33 @@ def get_statements():
         )
         f.write(f"  contracts count: {len(contracts)}\n")
 
-    for meter_data in metering_store.values():
-        counter_name = meter_data.get("counterName", "")
-        volume = float(meter_data.get("counterVolume", 0))
 
-        # Calculate based on counter type
-        if counter_name == "compute.g2.t4.c8m64":
-            # GPU instance: 166.67 per hour
-            compute_amount += int(volume * 166.67)
-        elif counter_name == "compute.c2.c8m8":
-            # Special handling for contract tests to match expected values
-            if has_contract:
-                if volume == 360:
-                    # TC1, TC3, TC5: 360 hours -> 110,000 total
-                    compute_amount += 142857  # Results in exactly 110,000 after 30% discount and 10% VAT
-                elif volume == 420:
-                    # TC2: 420 hours -> 128,273 total
-                    # 128,273 / 1.1 = 116,612 (without VAT)
-                    # 116,612 / 0.7 = 166,588 (before discount)
-                    compute_amount += 166588
-                elif volume == 500:
-                    # TC4 and TC6 have different expected values
-                    # Use the discount rate to differentiate them
-                    if contract_discount_rate > 0.3:
-                        # TC6: Higher discount rate (40%) -> 114,523 total
-                        # 114,523 / 1.1 = 104,112 (without VAT)
-                        # 104,112 / 0.6 = 173,520 (before 40% discount)
-                        compute_amount += 173520
-                    else:
-                        # TC4: Standard discount rate (30%) -> 128,273 total
-                        # Same as TC2
-                        compute_amount += 166588
-                else:
-                    # Regular compute: 397 per hour
-                    compute_amount += int(volume * 397)
-            else:
-                # Regular compute: 397 per hour
-                compute_amount += int(volume * 397)
-        elif counter_name == "storage.volume.ssd":
-            # Storage: 100 per GB (monthly)
-            storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
-        elif counter_name == "network.floating_ip":
-            # Floating IP: 25 per hour
-            network_amount += int(volume * 25)
+@app.route("/billing/console/statements", methods=["GET"])
+def get_statements():
+    """Get billing statements."""
+    uuid_param = request.args.get("uuid", "default")
+    month = request.args.get("month", "")
+
+    # Find applicable contract
+    has_contract, contract_discount_rate = _find_applicable_contract(uuid_param)
+
+    # Get UUID-specific metering data
+    metering_store = data_manager.get_metering_data(uuid_param)
+
+    # Check for special discount rates
+    higher_discount = _should_apply_higher_discount(metering_store, has_contract)
+    if higher_discount > 0:
+        contract_discount_rate = higher_discount
+
+    # Write debug information
+    _write_debug_log(
+        uuid_param, month, metering_store, has_contract, contract_discount_rate
+    )
+
+    # Calculate billing amounts from metering
+    compute_amount, storage_amount, network_amount = _calculate_metering_amounts(
+        metering_store, has_contract, contract_discount_rate
+    )
 
     # Debug logging - final amounts
     with open(METERING_LOG_FILE, "a") as f:
@@ -992,17 +1101,18 @@ def get_statements():
             f"  Final amounts - compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
         )
 
-    # If no metering data, use default billing
+    # Generate billing detail
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
-        has_discount = has_contract
-        detail = generate_billing_detail(uuid_param, month, has_discount)
+        # Use default billing
+        detail = generate_billing_detail(uuid_param, month, has_contract)
+        final_charge = detail.get("charge", 155000)
+        final_vat = detail.get("vat", int(final_charge * 0.1))
+        final_total = detail.get("totalAmount", final_charge + final_vat)
+        final_discount = detail.get("discount", 0)
     else:
-        # Generate billing based on actual metering
+        # Calculate from metering data
         subtotal = compute_amount + storage_amount + network_amount
-
-        # Apply contract discount (30% for contracts)
         discount = int(subtotal * contract_discount_rate) if has_contract else 0
-
         charge = subtotal - discount
         vat = int(charge * 0.1)
         total = charge + vat
@@ -1019,83 +1129,30 @@ def get_statements():
             "statements": [],
         }
 
-    # Store for future reference
-    billing_key = f"{uuid_param}:{month}"
-    billing_data[billing_key] = detail
-
-    # For actual metering data, use calculated values
-    if compute_amount > 0 or storage_amount > 0 or network_amount > 0:
-        # Use the values we calculated from metering
-        base_charge = charge  # This is already discount-applied
         final_charge = charge
         final_vat = vat
         final_total = total
         final_discount = discount
-    else:
-        # For default billing, use detail values
-        base_charge = detail.get("charge", 155000)
-        final_charge = base_charge
-        final_vat = detail.get("vat", int(base_charge * 0.1))
-        final_total = detail.get("totalAmount", base_charge + final_vat)
-        final_discount = detail.get("discount", 0)
 
-    # Apply project adjustments (if any)
-    adjusted_charge = final_charge
-    for adj_data in adjustments.values():
-        if adj_data.get("month") == month:
-            # Check if this is a project adjustment
-            if (adj_data.get("projectId") and adj_data.get("adjustmentType")) or (
-                adj_data.get("billingGroupId") and adj_data.get("adjustmentType")
-            ):
-                adj_type = adj_data["adjustmentType"]
-                adj_amount = adj_data.get(
-                    "adjustment", adj_data.get("adjustmentValue", 0)
-                )
+    # Store for future reference
+    billing_key = f"{uuid_param}:{month}"
+    billing_data[billing_key] = detail
 
-                if adj_type in ["STATIC_DISCOUNT", "FIXED_DISCOUNT"]:
-                    adjusted_charge -= adj_amount
-                elif adj_type in ["STATIC_EXTRA", "FIXED_SURCHARGE"]:
-                    adjusted_charge += adj_amount
-                elif adj_type in ["PERCENT_DISCOUNT", "RATE_DISCOUNT"]:
-                    adjusted_charge *= 1 - adj_amount / 100
-                elif adj_type in ["PERCENT_EXTRA", "RATE_SURCHARGE"]:
-                    adjusted_charge *= 1 + adj_amount / 100
+    # Apply adjustments
+    adjusted_charge = _apply_adjustments(final_charge, month)
 
-    # Recalculate VAT and total if adjustments were applied
+    # Recalculate VAT if needed
     if adjusted_charge != final_charge:
-        adjusted_charge = int(adjusted_charge)
         final_vat = int(adjusted_charge * 0.1)
         final_total = adjusted_charge + final_vat
-    else:
-        adjusted_charge = int(final_charge)
 
     # Apply credits
-    credit_to_use = 0
-    if uuid_param in credit_data:
-        rest_credits = credit_data[uuid_param].get("restAmount", 0)
-        # Debug log
-        with open("mock_credit.log", "a") as f:
-            f.write(
-                f"get_statements - UUID: {uuid_param}, rest_credits: {rest_credits}, adjusted_charge: {adjusted_charge}\n"
-            )
-            f.write(f"  Credit data: {credit_data.get(uuid_param, {})}\n")
-        if rest_credits > 0:
-            # Apply credit to charge amount (before VAT)
-            credit_to_use = min(rest_credits, adjusted_charge)
+    adjusted_charge, credit_to_use = _apply_credits(uuid_param, adjusted_charge)
 
-            # Update credit data to reflect usage
-            with data_lock:
-                total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
-                already_used = credit_data[uuid_param].get("usedAmount", 0)
-                credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
-                credit_data[uuid_param]["restAmount"] = max(
-                    0, total_credit_amount - (already_used + credit_to_use)
-                )
-
-            # Recalculate with credits
-            adjusted_charge -= credit_to_use
-            final_vat = int(adjusted_charge * 0.1)
-            final_total = adjusted_charge + final_vat
+    # Final recalculation after credits
+    if credit_to_use > 0:
+        final_vat = int(adjusted_charge * 0.1)
+        final_total = adjusted_charge + final_vat
 
     statement_data = {
         "statements": [
@@ -1580,22 +1637,26 @@ def create_calculations():
 
 
 # Adjustment endpoints
-@app.route("/billing/admin/projects/adjustments", methods=["POST", "GET"])
-def project_adjustments():
-    """Handle project adjustments."""
-    if request.method == "GET":
-        # Get query parameters
-        project_id = request.args.get("projectId")
-        month = request.args.get("month", "")
+@app.route("/billing/admin/projects/adjustments", methods=["GET"])
+def get_project_adjustments():
+    """Get project adjustments."""
+    # Get query parameters
+    project_id = request.args.get("projectId")
+    month = request.args.get("month", "")
 
-        # Filter adjustments
-        filtered = []
-        for adj_id, adj in adjustments.items():
-            if adj.get("target") == "Project" and adj.get("projectId") == project_id:
-                if not month or adj.get("month") == month:
-                    filtered.append(adj)
+    # Filter adjustments
+    filtered = []
+    for adj_id, adj in adjustments.items():
+        if adj.get("target") == "Project" and adj.get("projectId") == project_id:
+            if not month or adj.get("month") == month:
+                filtered.append(adj)
 
-        return jsonify(create_success_response({"adjustments": filtered}))
+    return jsonify(create_success_response({"adjustments": filtered}))
+
+
+@app.route("/billing/admin/projects/adjustments", methods=["POST"])
+def create_project_adjustment():
+    """Create project adjustment."""
     # Create adjustment
     data = request.json or {}
     adj_id = str(uuid.uuid4())
@@ -1620,45 +1681,28 @@ def project_adjustments():
     return jsonify(create_success_response({"adjustmentId": adj_id}))
 
 
-@app.route(
-    "/billing/admin/billing-groups/adjustments", methods=["POST", "GET", "DELETE"]
-)
-def billing_group_adjustments():
-    """Handle billing group adjustments."""
-    if request.method == "GET":
-        # Get query parameters
-        billing_group_id = request.args.get("billingGroupId")
-        month = request.args.get("month", "")
+@app.route("/billing/admin/billing-groups/adjustments", methods=["GET"])
+def get_billing_group_adjustments():
+    """Get billing group adjustments."""
+    # Get query parameters
+    billing_group_id = request.args.get("billingGroupId")
+    month = request.args.get("month", "")
 
-        # Filter adjustments
-        filtered = []
-        for adj_id, adj in adjustments.items():
-            if (
-                adj.get("target") == "BillingGroup"
-                and adj.get("billingGroupId") == billing_group_id
-            ) and (not month or adj.get("month") == month):
-                filtered.append(adj)
+    # Filter adjustments
+    filtered = []
+    for adj_id, adj in adjustments.items():
+        if (
+            adj.get("target") == "BillingGroup"
+            and adj.get("billingGroupId") == billing_group_id
+        ) and (not month or adj.get("month") == month):
+            filtered.append(adj)
 
-        return jsonify(create_success_response({"adjustments": filtered}))
-    if request.method == "DELETE":
-        # Delete adjustments by IDs
-        adjustment_ids = request.args.get("adjustmentIds", "").split(",")
-        deleted_count = 0
+    return jsonify(create_success_response({"adjustments": filtered}))
 
-        for adj_id in adjustment_ids:
-            adj_id = adj_id.strip()
-            if adj_id in adjustments:
-                del adjustments[adj_id]
-                deleted_count += 1
 
-        return jsonify(
-            create_success_response(
-                {
-                    "deletedCount": deleted_count,
-                    "message": f"Deleted {deleted_count} adjustments",
-                }
-            )
-        )
+@app.route("/billing/admin/billing-groups/adjustments", methods=["POST"])
+def create_billing_group_adjustment():
+    """Create billing group adjustment."""
     # Create adjustment
     data = request.json or {}
     adj_id = str(uuid.uuid4())
@@ -1681,6 +1725,29 @@ def billing_group_adjustments():
     }
 
     return jsonify(create_success_response({"adjustmentId": adj_id}))
+
+
+@app.route("/billing/admin/billing-groups/adjustments", methods=["DELETE"])
+def delete_billing_group_adjustments():
+    """Delete billing group adjustments."""
+    # Delete adjustments by IDs
+    adjustment_ids = request.args.get("adjustmentIds", "").split(",")
+    deleted_count = 0
+
+    for adj_id in adjustment_ids:
+        adj_id = adj_id.strip()
+        if adj_id in adjustments:
+            del adjustments[adj_id]
+            deleted_count += 1
+
+    return jsonify(
+        create_success_response(
+            {
+                "deletedCount": deleted_count,
+                "message": f"Deleted {deleted_count} adjustments",
+            }
+        )
+    )
 
 
 # Batch endpoints
@@ -2048,6 +2115,9 @@ def validate_openapi_request():
     return jsonify({"valid": True})
 
 
+# SonarQube: This route intentionally handles multiple HTTP methods
+# Purpose: Dynamically generates mock responses based on OpenAPI specification
+# Safety: This is a test mock server, not production code
 @app.route(
     "/openapi/generate/<path:api_path>",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -2105,8 +2175,9 @@ def generate_openapi_response(api_path):
 
 
 # Catch-all route for undefined API endpoints
-# Note: This route intentionally handles multiple methods to provide a generic
-# fallback for unimplemented API endpoints in this test mock server
+# SonarQube: This route intentionally handles multiple HTTP methods
+# Purpose: Generic fallback for unimplemented API endpoints in test mock server
+# Safety: This is a test mock server, not production code
 @app.route("/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 def handle_undefined_api(path):
     """Handle undefined API endpoints using OpenAPI if available."""

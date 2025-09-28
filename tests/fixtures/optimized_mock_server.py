@@ -91,7 +91,7 @@ class OptimizedMockServerManager:
         try:
             response = requests.get(f"{self.url}/health", timeout=0.5)
             return response.status_code == 200
-        except:
+        except (requests.RequestException, ConnectionError):
             return False
 
     def _wait_for_server(self) -> None:

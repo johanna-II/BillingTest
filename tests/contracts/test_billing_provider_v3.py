@@ -32,7 +32,7 @@ def mock_server_running():
             if response.status_code == 200:
                 print("Mock server is ready")
                 break
-        except:
+        except (requests.RequestException, ConnectionError):
             pass
         time.sleep(1)
     else:

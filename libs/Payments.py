@@ -192,7 +192,7 @@ class PaymentAPIWrapper:
 
     def get_unpaid_statements(self, month: str, uuid: str) -> dict[str, Any]:
         """Get unpaid statements."""
-        headers = {"Accept": "application/json", "lang": "kr", "uuid": uuid}
+        headers = {**JSON_HEADERS, "lang": "kr", "uuid": uuid}
 
         endpoint = f"{self.CONSOLE_API_PREFIX}/{month}/statements/unpaid"
 
@@ -397,6 +397,47 @@ class PaymentManager:
             logger.exception(f"Failed to cancel payment: {e}")
             raise
 
+    def _execute_payment_request(self, payment_group_id: str) -> PaymentData:
+        """Execute the actual payment request.
+
+        Args:
+            payment_group_id: Payment group ID to pay
+
+        Returns:
+            API response data
+
+        Raises:
+            APIRequestException: If payment request fails
+        """
+        if hasattr(self._client, "make_payment"):
+            return self._client.make_payment(self.month, payment_group_id, self.uuid)
+
+        if isinstance(self._client, BillingAPIClient):
+            # Use PaymentAPIWrapper for BillingAPIClient
+            wrapper = PaymentAPIWrapper(self._client)
+            return wrapper.make_payment(self.month, payment_group_id, self.uuid)
+
+        raise APIRequestException("Unsupported client type for make_payment")
+
+    def _handle_payment_retry(
+        self, attempt: int, max_retries: int, error: APIRequestException
+    ) -> None:
+        """Handle retry logic with exponential backoff.
+
+        Args:
+            attempt: Current attempt number
+            max_retries: Maximum number of retries
+            error: The exception that occurred
+        """
+        logger.warning(f"Payment attempt {attempt + 1} failed: {error}")
+
+        if attempt < max_retries - 1:
+            import time
+
+            wait_time = 2**attempt  # 1s, 2s, 4s...
+            logger.info(f"Waiting {wait_time}s before retry...")
+            time.sleep(wait_time)
+
     def make_payment(
         self, payment_group_id: str, retry_on_failure: bool = True, max_retries: int = 3
     ) -> PaymentData | None:
@@ -426,40 +467,17 @@ class PaymentManager:
             )
 
             try:
-                # Use the PaymentAPIClient's make_payment method
-                if hasattr(self._client, "make_payment"):
-                    response = self._client.make_payment(
-                        self.month, payment_group_id, self.uuid
-                    )
-                else:
-                    # Fallback to direct API call for BillingAPIClient
-                    if isinstance(self._client, BillingAPIClient):
-                        # Use PaymentAPIWrapper for BillingAPIClient
-                        wrapper = PaymentAPIWrapper(self._client)
-                        response = wrapper.make_payment(
-                            self.month, payment_group_id, self.uuid
-                        )
-                    else:
-                        raise APIRequestException(
-                            "Unsupported client type for make_payment"
-                        )
+                response = self._execute_payment_request(payment_group_id)
                 logger.info(f"Successfully made payment for {self.month}")
                 return response
 
             except APIRequestException as e:
                 last_error = e
-                logger.warning(f"Payment attempt {attempt + 1} failed: {e}")
 
                 if not retry_on_failure or attempt == max_retries - 1:
                     break
 
-                # Exponential backoff for retries
-                if attempt < max_retries - 1:
-                    import time
-
-                    wait_time = 2**attempt  # 1s, 2s, 4s...
-                    logger.info(f"Waiting {wait_time}s before retry...")
-                    time.sleep(wait_time)
+                self._handle_payment_retry(attempt, max_retries, e)
 
         # All retries failed
         if last_error:

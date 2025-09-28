@@ -13,6 +13,7 @@ from pathlib import Path
 
 # Coverage options
 COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
+COV_LIBS = "--cov=libs"
 
 
 class TestRunner:
@@ -52,7 +53,7 @@ class TestRunner:
 
         cmd.extend(
             [
-                "--cov=libs",
+                COV_LIBS,
                 "--cov-config=.coveragerc",
                 COV_REPORT_TERM_MISSING,
                 "--cov-report=html:htmlcov/unit",
@@ -75,7 +76,7 @@ class TestRunner:
 
         cmd.extend(
             [
-                "--cov=libs",
+                COV_LIBS,
                 "--cov-config=.coveragerc",
                 "--cov-append",
                 COV_REPORT_TERM_MISSING,
