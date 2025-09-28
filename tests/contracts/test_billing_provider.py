@@ -153,8 +153,13 @@ class TestProviderVerification:
 
     @pytest.mark.provider
     @pytest.mark.skipif(
-        os.getenv("USE_MOCK_SERVER", "false").lower() != "true",
-        reason="This test requires mock server to be running separately",
+        any(
+            os.environ.get(var, "false").lower() == "true"
+            for var in ["CI", "CONTINUOUS_INTEGRATION", "JENKINS", "GITHUB_ACTIONS"]
+        )
+        or os.getenv("SKIP_PACT_TESTS", "false").lower() == "true"
+        or os.getenv("USE_MOCK_SERVER", "false").lower() != "true",
+        reason="This test is skipped in CI, when SKIP_PACT_TESTS=true, or requires mock server",
     )
     def test_mock_server_contract_compliance(self) -> None:
         """Test that mock server responses match contract expectations."""

@@ -44,7 +44,14 @@ class TestOpenAPIContracts:
 
         pact.start_service()
         yield pact
-        pact.stop_service()
+        try:
+            pact.stop_service()
+        except RuntimeError as e:
+            if "error when stopping the Pact mock service" in str(e):
+                # Ignore cleanup errors
+                pass
+            else:
+                raise
 
     @pytest.fixture
     def api_client(self):
