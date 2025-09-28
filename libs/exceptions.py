@@ -199,7 +199,8 @@ class APIRequestException(BillingTestException):
             return None
 
         # Check common locations for retry-after
-        return response_data.get("retry_after") or response_data.get("retryAfter")
+        retry_after = response_data.get("retry_after") or response_data.get("retryAfter")
+        return int(retry_after) if retry_after is not None else None
 
 
 class ValidationException(BillingTestException):

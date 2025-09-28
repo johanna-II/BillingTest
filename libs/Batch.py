@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from config import url
 
+from .batch_validator import BatchValidator
 from .constants import DEFAULT_LOCALE, BatchJobCode
-from .exceptions import APIRequestException, ValidationException
+from .exceptions import APIRequestException
 from .http_client import BillingAPIClient
 
 if TYPE_CHECKING:
@@ -34,29 +34,12 @@ class BatchManager:
         Raises:
             ValidationException: If month format is invalid
         """
-        self._validate_month_format(month)
+        BatchValidator.validate_month_format(month)
         self.month = month
         self._client = client if client else BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
         return f"BatchManager(month={self.month})"
-
-    @staticmethod
-    def _validate_month_format(month: str) -> None:
-        """Validate month format is YYYY-MM."""
-        # First check the exact format with regex
-        import re
-
-        if not re.match(r"^\d{4}-\d{2}$", month):
-            msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(msg)
-
-        # Then validate it's a real date
-        try:
-            datetime.strptime(month, "%Y-%m")
-        except ValueError:
-            msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(msg)
 
     def request_batch_job(
         self,
@@ -81,23 +64,13 @@ class BatchManager:
             APIRequestException: If batch request fails
         """
         # Normalize job code
-        job_code_str = (
-            job_code.value if isinstance(job_code, BatchJobCode) else job_code
-        )
+        job_code_str = job_code.value if isinstance(job_code, BatchJobCode) else job_code
 
         # Validate job code
-        valid_codes = [code.value for code in BatchJobCode]
-        if job_code_str not in valid_codes:
-            msg = (
-                f"Invalid batch job code: {job_code_str}. "
-                f"Valid codes are: {', '.join(valid_codes)}"
-            )
-            raise ValidationException(msg)
+        BatchValidator.validate_job_code(job_code_str)
 
         # Validate execution day
-        if not 1 <= execution_day <= 31:
-            msg = f"Execution day must be between 1 and 31: {execution_day}"
-            raise ValidationException(msg)
+        BatchValidator.validate_execution_day(execution_day)
 
         # Build execution timestamp
         execution_date = f"{self.month}-{execution_day:02d}T00:00:00+09:00"
@@ -119,9 +92,7 @@ class BatchManager:
         logger.info("Requesting batch job {job_code_str} for %s", self.month)
 
         try:
-            response = self._client.post(
-                endpoint, headers=headers, json_data=batch_data
-            )
+            response = self._client.post(endpoint, headers=headers, json_data=batch_data)
             logger.info("Successfully requested batch job %s", job_code_str)
             return response
         except APIRequestException as e:

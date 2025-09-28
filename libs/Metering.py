@@ -43,15 +43,13 @@ class MeteringManager:
 
         # First check the exact format with regex
         if not re.match(r"^\d{4}-\d{2}$", month):
-            msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(msg)
+            raise ValidationException(f"Invalid month format: {month}. Expected YYYY-MM")
 
         # Then validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
-        except ValueError:
-            msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(msg)
+        except ValueError as e:
+            raise ValidationException(f"Invalid month format: {month}. Expected YYYY-MM") from e
 
     @staticmethod
     def _create_default_template() -> MeteringRequest:
@@ -105,9 +103,7 @@ class MeteringManager:
         """
         # Normalize counter type
         counter_type_str = (
-            counter_type.value
-            if isinstance(counter_type, CounterType)
-            else counter_type
+            counter_type.value if isinstance(counter_type, CounterType) else counter_type
         )
 
         # Validate counter type
@@ -217,9 +213,7 @@ class MeteringManager:
         logger.info("Deleted metering data for %s app keys", deleted_count)
         return {"deleted_count": deleted_count}
 
-    def send_batch_metering(
-        self, app_key: str, meters: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    def send_batch_metering(self, app_key: str, meters: list[dict[str, Any]]) -> dict[str, Any]:
         """Send batch metering data.
 
         Args:
@@ -238,9 +232,7 @@ class MeteringManager:
                 response = self.send_metering(**meter_data)
                 results.append({"success": True, "response": response})
             except APIRequestException as e:
-                logger.exception(
-                    f"Failed to send meter {meter.get('counter_name')}: %s", e
-                )
+                logger.exception(f"Failed to send meter {meter.get('counter_name')}: %s", e)
                 results.append({"success": False, "error": str(e)})
 
         return {"results": results}

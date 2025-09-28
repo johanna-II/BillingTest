@@ -18,9 +18,6 @@ ignore = [
     "E402",  # Module import not at top of file 무시 (테스트 파일에서 필요)
     "E722",  # Bare except 무시
     "F841",  # 테스트 파일의 미사용 변수 허용
-    "TC001", # TYPE_CHECKING imports 허용
-    "TC003", # TYPE_CHECKING imports 허용
-    "FIX002", # TODO 주석 허용
 ]
 
 # 파일별 무시 규칙

@@ -43,9 +43,7 @@ class TestRunner:
             if python_dir not in process_env["PATH"]:
                 process_env["PATH"] = f"{python_dir}{os.pathsep}{process_env['PATH']}"
 
-        result = subprocess.run(
-            cmd, env=process_env, check=False, cwd=str(self.project_root)
-        )
+        result = subprocess.run(cmd, env=process_env, check=False, cwd=str(self.project_root))
         return result.returncode
 
     def run_unit_tests(self, parallel: bool = True) -> int:
@@ -66,9 +64,7 @@ class TestRunner:
 
         return self.run_command(cmd)
 
-    def run_integration_tests(
-        self, use_mock: bool = True, parallel: bool = True
-    ) -> int:
+    def run_integration_tests(self, use_mock: bool = True, parallel: bool = True) -> int:
         """Run integration tests."""
         cmd = ["pytest", "tests/integration/", "-v", TB_SHORT]
 
@@ -218,12 +214,72 @@ def main():
 
     # Run selected test suites
     if args.suite == "all":
-        exit_codes.append(runner.run_unit_tests(not args.no_parallel))
-        exit_codes.append(
-            runner.run_integration_tests(use_mock_for_integration, not args.no_parallel)
+        # Run tests in optimal order with fail-fast behavior
+        print("\n" + "=" * 80)
+        print("🚀 Running tests in optimized order: Unit -> Integration -> Contract")
+        print("=" * 80)
+
+        # Start timing
+        start_time = datetime.now()
+
+        # 1. Unit tests (fastest, no dependencies)
+        print("\n📋 Phase 1/3: UNIT TESTS")
+        unit_start = datetime.now()
+        unit_code = runner.run_unit_tests(not args.no_parallel)
+        unit_duration = (datetime.now() - unit_start).total_seconds()
+        exit_codes.append(unit_code)
+
+        if unit_code != 0:
+            print(f"\n❌ Unit tests FAILED in {unit_duration:.2f}s")
+            print("⏹️  Stopping test execution - fix unit tests first!")
+            runner.generate_report()
+            return 1
+        else:
+            print(f"\n✅ Unit tests PASSED in {unit_duration:.2f}s")
+
+        # 2. Integration tests (medium speed, may use mock)
+        print("\n📋 Phase 2/3: INTEGRATION TESTS")
+        int_start = datetime.now()
+        int_code = runner.run_integration_tests(use_mock_for_integration, not args.no_parallel)
+        int_duration = (datetime.now() - int_start).total_seconds()
+        exit_codes.append(int_code)
+
+        if int_code != 0:
+            print(f"\n❌ Integration tests FAILED in {int_duration:.2f}s")
+            print("⏹️  Stopping test execution - fix integration tests!")
+            runner.generate_report()
+            return 1
+        else:
+            print(f"\n✅ Integration tests PASSED in {int_duration:.2f}s")
+
+        # 3. Contract tests (slowest, external dependencies)
+        print("\n📋 Phase 3/3: CONTRACT TESTS")
+        contract_start = datetime.now()
+        contract_code = runner.run_contract_tests(use_mock_for_contracts)
+        contract_duration = (datetime.now() - contract_start).total_seconds()
+        exit_codes.append(contract_code)
+
+        if contract_code != 0:
+            print(f"\n❌ Contract tests FAILED in {contract_duration:.2f}s")
+        else:
+            print(f"\n✅ Contract tests PASSED in {contract_duration:.2f}s")
+
+        # Summary
+        total_duration = (datetime.now() - start_time).total_seconds()
+        print("\n" + "=" * 80)
+        print("📊 TEST EXECUTION METRICS")
+        print("=" * 80)
+        print(f"Total Duration: {total_duration:.2f}s")
+        print(
+            f"  - Unit Tests:        {unit_duration:.2f}s ({unit_duration/total_duration*100:.1f}%)"
         )
-        exit_codes.append(runner.run_contract_tests(use_mock_for_contracts))
-        # Optionally run other suites
+        print(
+            f"  - Integration Tests: {int_duration:.2f}s ({int_duration/total_duration*100:.1f}%)"
+        )
+        print(
+            f"  - Contract Tests:    {contract_duration:.2f}s ({contract_duration/total_duration*100:.1f}%)"
+        )
+        print("=" * 80)
     elif args.suite == "unit":
         exit_codes.append(runner.run_unit_tests(not args.no_parallel))
     elif args.suite == "integration":

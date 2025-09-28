@@ -13,6 +13,7 @@ from config import url
 from .constants import PaymentStatus
 from .exceptions import APIRequestException, ValidationException
 from .http_client import BillingAPIClient
+from .payment_state_machine import PaymentStateMachine
 
 if TYPE_CHECKING:
     pass
@@ -87,15 +88,17 @@ class PaymentValidator:
 
         # First check the exact format with regex
         if not re.match(r"^\d{4}-\d{2}$", month):
-            msg = f"Invalid month format: {month}. Expected YYYY-MM format (e.g., 2024-01)"
-            raise ValidationException(msg)
+            raise ValidationException(
+                f"Invalid month format: {month}. Expected YYYY-MM format (e.g., 2024-01)"
+            )
 
         # Then validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
         except ValueError as e:
-            msg = f"Invalid month format: {month}. Expected YYYY-MM format (e.g., 2024-01)"
-            raise ValidationException(msg) from e
+            raise ValidationException(
+                f"Invalid month format: {month}. Expected YYYY-MM format (e.g., 2024-01)"
+            ) from e
 
     @staticmethod
     def validate_payment_group_id(payment_group_id: str) -> None:
@@ -110,6 +113,54 @@ class PaymentValidator:
         if not payment_group_id or not payment_group_id.strip():
             msg = "Payment group ID cannot be empty"
             raise ValidationException(msg)
+
+    @staticmethod
+    def is_valid_transition(from_status: PaymentStatus, to_status: PaymentStatus) -> bool:
+        """Check if payment status transition is valid.
+
+        Args:
+            from_status: Current payment status
+            to_status: Target payment status
+
+        Returns:
+            True if transition is valid, False otherwise
+        """
+        # Delegate to PaymentStateMachine for consistency
+        return PaymentStateMachine.can_transition(from_status, to_status)
+
+    @staticmethod
+    def validate_amount(amount: float) -> None:
+        """Validate payment amount.
+
+        Args:
+            amount: Payment amount to validate
+
+        Raises:
+            ValidationException: If amount is invalid
+        """
+        if amount <= 0:
+            raise ValidationException("Amount must be positive")
+
+        if amount > 9_999_999:  # Maximum amount
+            raise ValidationException("Amount exceeds maximum limit")
+
+    @staticmethod
+    def format_currency(amount: float, currency: str = "KRW") -> str:
+        """Format amount as currency string.
+
+        Args:
+            amount: Amount to format
+            currency: Currency code (default: KRW)
+
+        Returns:
+            Formatted currency string
+        """
+        if currency == "KRW":
+            # Round up for KRW (no decimal places)
+            amount = int(amount + 0.5)
+            return f"₩{amount:,}"
+        else:
+            return f"{currency} {amount:,.2f}"
 
 
 class PaymentAPIWrapper:
@@ -181,9 +232,7 @@ class PaymentAPIWrapper:
         logger.info(f"Cancelling payment {payment_group_id}")
         return self._client.delete(endpoint, headers=headers, params=params)
 
-    def make_payment(
-        self, month: str, payment_group_id: str, uuid: str
-    ) -> dict[str, Any]:
+    def make_payment(self, month: str, payment_group_id: str, uuid: str) -> dict[str, Any]:
         """Make a payment."""
         headers = {**JSON_UTF8_HEADERS, "uuid": uuid}
 
@@ -211,9 +260,7 @@ class PaymentManager:
     handling validation, error handling, and retry logic.
     """
 
-    def __init__(
-        self, month: str, uuid: str, client: PaymentAPIClient | None = None
-    ) -> None:
+    def __init__(self, month: str, uuid: str, client: PaymentAPIClient | None = None) -> None:
         """Initialize payment manager.
 
         Args:
@@ -231,12 +278,8 @@ class PaymentManager:
         self.uuid = uuid
 
         # Initialize API client
-        self._client: PaymentAPIClient = client or PaymentAPIClient(
-            url.BASE_BILLING_URL
-        )
-        self._wrapper = PaymentAPIWrapper(
-            self._client
-        )  # Wrapper for additional methods
+        self._client: PaymentAPIClient = client or PaymentAPIClient(url.BASE_BILLING_URL)
+        self._wrapper = PaymentAPIWrapper(self._client)  # Wrapper for additional methods
         self._api = self._client  # Backward compatibility alias
 
         logger.info(f"Initialized PaymentManager for {month}, UUID: {uuid}")
@@ -282,9 +325,7 @@ class PaymentManager:
 
         raise APIRequestException("Unsupported client type for get_statements_console")
 
-    def _parse_payment_status(
-        self, response: dict[str, Any], source: str
-    ) -> PaymentInfo:
+    def _parse_payment_status(self, response: dict[str, Any], source: str) -> PaymentInfo:
         """Parse payment status from API response."""
         statements = response.get("statements", [])
 
@@ -354,9 +395,7 @@ class PaymentManager:
         try:
             # Handle different client types
             if hasattr(self._client, "change_status"):
-                response = self._client.change_status(
-                    self.month, payment_group_id, target_status
-                )
+                response = self._client.change_status(self.month, payment_group_id, target_status)
             else:
                 # Fallback for BillingAPIClient - return mock success
                 logger.warning("change_status not supported, returning mock success")
@@ -466,8 +505,7 @@ class PaymentManager:
 
         for attempt in range(max_retries):
             logger.info(
-                f"Making payment for {payment_group_id} "
-                f"(Attempt {attempt + 1}/{max_retries})"
+                f"Making payment for {payment_group_id} " f"(Attempt {attempt + 1}/{max_retries})"
             )
 
             try:
@@ -508,9 +546,7 @@ class PaymentManager:
                     wrapper = PaymentAPIWrapper(self._client)
                     response = wrapper.get_unpaid_statements(self.month, self.uuid)
                 else:
-                    raise APIRequestException(
-                        "Unsupported client type for get_unpaid_statements"
-                    )
+                    raise APIRequestException("Unsupported client type for get_unpaid_statements")
 
             statements = response.get("statements", [])
             if not statements:
@@ -548,9 +584,7 @@ class PaymentManager:
             msg = f"No payment found for month {self.month}"
             raise ValidationException(msg)
 
-        logger.info(
-            f"Current payment status: {current_status.name} (ID: {payment_group_id})"
-        )
+        logger.info(f"Current payment status: {current_status.name} (ID: {payment_group_id})")
 
         # Handle different statuses
         if current_status == PaymentStatus.PAID:
@@ -678,9 +712,7 @@ class PaymentManager:
             msg = "Refund amount must be positive"
             raise ValidationException(msg)
 
-        return self._client.process_refund(
-            payment_id=payment_id, amount=amount, reason=reason
-        )
+        return self._client.process_refund(payment_id=payment_id, amount=amount, reason=reason)
 
     def get_payment_history(
         self,
@@ -737,9 +769,7 @@ class PaymentManager:
             return False
         return min_amount <= amount <= max_amount
 
-    def calculate_late_fee(
-        self, amount: float, days_late: int, fee_rate: float = 0.001
-    ) -> float:
+    def calculate_late_fee(self, amount: float, days_late: int, fee_rate: float = 0.001) -> float:
         """Calculate late payment fee.
 
         Args:
@@ -771,9 +801,7 @@ class PaymentManager:
         """
         for attempt in range(1, max_retries + 1):
             try:
-                return self._client.retry_payment(
-                    payment_id=payment_id, retry_count=attempt
-                )
+                return self._client.retry_payment(payment_id=payment_id, retry_count=attempt)
             except APIRequestException as e:
                 if attempt < max_retries:
                     logger.warning(f"Retry {attempt} failed: {e}")
@@ -783,9 +811,7 @@ class PaymentManager:
         msg = "Max retries exceeded without raising exception"
         raise RuntimeError(msg)
 
-    def process_batch_payments(
-        self, payment_requests: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    def process_batch_payments(self, payment_requests: list[dict[str, Any]]) -> dict[str, Any]:
         """Process multiple payments in batch.
 
         Args:

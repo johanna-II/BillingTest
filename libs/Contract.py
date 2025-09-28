@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from config import url
 
-from .exceptions import APIRequestException, ValidationException
+from .contract_validator import ContractValidator
+from .exceptions import APIRequestException
 from .http_client import BillingAPIClient
 
 if TYPE_CHECKING:
@@ -36,31 +37,14 @@ class ContractManager:
         Raises:
             ValidationException: If parameters are invalid
         """
-        self._validate_month_format(month)
+        ContractValidator.validate_month_format(month)
+        ContractValidator.validate_billing_group_id(billing_group_id)
         self.month = month
         self.billing_group_id = billing_group_id
         self._client = client if client else BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
         return f"ContractManager(month={self.month}, billing_group_id={self.billing_group_id})"
-
-    @staticmethod
-    def _validate_month_format(month: str) -> None:
-        """Validate month format is YYYY-MM."""
-        import re
-        from datetime import datetime
-
-        # First check the exact format with regex
-        if not re.match(r"^\d{4}-\d{2}$", month):
-            msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(msg)
-
-        # Then validate it's a real date
-        try:
-            datetime.strptime(month, "%Y-%m")
-        except ValueError:
-            msg = f"Invalid month format: {month}. Expected YYYY-MM"
-            raise ValidationException(msg)
 
     def apply_contract(
         self,
@@ -81,13 +65,16 @@ class ContractManager:
         Raises:
             APIRequestException: If contract application fails
         """
+        # Validate contract ID
+        ContractValidator.validate_contract_id(contract_id)
+
         headers = JSON_HEADERS
 
         contract_data: ContractData = {
             "contractId": contract_id,
             "defaultYn": "Y" if is_default else "N",
             "monthFrom": self.month,
-            "name": name,
+            "name": ContractValidator.format_contract_name(name),
         }
 
         endpoint = f"billing/admin/billing-groups/{self.billing_group_id}"
@@ -98,9 +85,7 @@ class ContractManager:
         )
 
         try:
-            response = self._client.put(
-                endpoint, headers=headers, json_data=contract_data
-            )
+            response = self._client.put(endpoint, headers=headers, json_data=contract_data)
             logger.info("Successfully applied contract %s", contract_id)
             return response
         except APIRequestException as e:
@@ -184,9 +169,7 @@ class ContractManager:
 
         endpoint = f"billing/admin/contracts/{contract_id}/products/prices"
 
-        logger.info(
-            "Getting price for counter {counter_name} in contract %s", contract_id
-        )
+        logger.info("Getting price for counter {counter_name} in contract %s", contract_id)
 
         # Retry logic for potential temporary failures
         max_retries = 3
@@ -203,24 +186,23 @@ class ContractManager:
                     original_price,
                 )
 
+                # Use ContractValidator for discount calculation
+                discount_amount, discount_rate = ContractValidator.calculate_discount(
+                    original_price, price
+                )
+
                 return {
                     "counter_name": counter_name,
                     "price": price,
                     "original_price": original_price,
-                    "discount_amount": original_price - price,
-                    "discount_rate": (
-                        ((original_price - price) / original_price * 100)
-                        if original_price > 0
-                        else 0
-                    ),
+                    "discount_amount": float(discount_amount),
+                    "discount_rate": float(discount_rate),
                 }
             except APIRequestException as e:
                 if attempt < max_retries - 1:
                     logger.warning("Attempt %s failed, retrying...", attempt + 1)
                     continue
-                logger.exception(
-                    "Failed to get counter price after {max_retries} attempts: %s", e
-                )
+                logger.exception("Failed to get counter price after {max_retries} attempts: %s", e)
                 raise
         # This should never be reached due to the raise above
         msg = "Unexpected code path in get_counter_price"

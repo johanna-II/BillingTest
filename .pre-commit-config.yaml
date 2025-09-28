@@ -1,49 +1,102 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-default_language_version:
-  python: python3.12
+# Pre-commit hooks for code quality
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run: pre-commit run --all-files
 
 repos:
-  # Basic file checks
+  # Black - Code formatter
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: ['--line-length=100']
+
+  # Ruff - Fast Python linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        args: ['--fix', '--exit-non-zero-on-fix']
+
+  # MyPy - Static type checker
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-PyYAML]
+        args: ['--ignore-missing-imports', '--no-strict-optional']
+        files: ^libs/
+
+  # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v4.5.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-        args: ['--maxkb=1000']  # 1MB limit
+        args: ['--maxkb=1000']
+      - id: check-json
       - id: check-merge-conflict
-      - id: mixed-line-ending
-        args: ['--fix=lf']  # Convert to LF automatically
+      - id: check-ast
+      - id: debug-statements
+      - id: detect-private-key
 
-  # Black - Code formatter CHECK ONLY (no auto-fix)
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
+  # Docstring coverage
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.5.0
     hooks:
-      - id: black
-        args: ['--check', '--diff']  # Check only, show differences
-        language_version: python3.12
-        name: black (check formatting)
-        description: 'Black: Check Python code formatting (no auto-fix)'
+      - id: interrogate
+        args: ['-vv', '--fail-under=80', '--ignore-init-module', '--ignore-init-method']
+        files: ^libs/
+        additional_dependencies: [setuptools]
 
-  # Ruff - Fast Python linter (auto-fix safe issues only)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.0
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
     hooks:
-      - id: ruff
-        args: ['--fix', '--exit-non-zero-on-fix', '--show-fixes', '--config', '.ruff.toml']  # Fix safe issues, show what was fixed
-        name: ruff (auto-fix safe issues)
-        description: 'Ruff: Fast Python linter with safe auto-fixes'
-      # Ruff-format disabled to avoid conflicts with Black
-      # - id: ruff-format
-      #   args: ['--check', '--diff']  # Check formatting only
-      #   name: ruff-format (check formatting)
-      #   description: 'Ruff: Check Python formatting (no auto-fix)'
+      - id: bandit
+        args: ['-ll', '-r', 'libs/']
+        files: ^libs/
 
-exclude: '^(\.git|\.mypy_cache|\.pytest_cache|\.ruff_cache|__pycache__|build|dist|\.venv|venv)'
+  # Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ['--profile', 'black', '--line-length', '100']
 
-# Performance optimizations
-ci:
-  autofix_prs: false
-  autoupdate_schedule: weekly
+  # Unit test runner (fast feedback)
+  - repo: local
+    hooks:
+      - id: unit-tests-check
+        name: Run fast unit tests
+        entry: python -m pytest tests/unit/ -x --tb=short -q --disable-warnings -k "not slow"
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
+# Configuration for specific tools
+default_language_version:
+  python: python3.12
+
+# Only run on Python files by default
+files: \.py$
+exclude: |
+  (?x)^(
+    .*\.egg-info/|
+    \.git/|
+    \.tox/|
+    dist/|
+    build/|
+    __pycache__/|
+    \.pytest_cache/|
+    htmlcov/|
+    \.coverage|
+    \.mypy_cache/|
+    \.ruff_cache/|
+    test-results/|
+    mock_server/static/|
+    docs/_build/
+  )

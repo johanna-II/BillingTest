@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from libs.Contract import ContractManager
+from libs.exceptions import ValidationException
 
 
 class TestContractManagerUnit:
@@ -19,9 +20,7 @@ class TestContractManagerUnit:
     def contract_manager(self, mock_client):
         """Create ContractManager with mocked dependencies."""
         with patch("libs.Contract.BillingAPIClient", return_value=mock_client):
-            manager = ContractManager(
-                month="2024-01", billing_group_id="billing-group-123"
-            )
+            manager = ContractManager(month="2024-01", billing_group_id="billing-group-123")
             manager._client = mock_client
             return manager
 
@@ -108,9 +107,9 @@ class TestContractEdgeCases:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        # Should still create manager (validation might happen later)
-        manager = ContractManager(month="2024-01", billing_group_id="")
-        assert manager.billing_group_id == ""
+        # Should raise validation error
+        with pytest.raises(ValidationException, match="Billing group ID cannot be empty"):
+            ContractManager(month="2024-01", billing_group_id="")
 
     @patch("libs.Contract.BillingAPIClient")
     def test_long_contract_name(self, mock_client_class) -> None:
@@ -138,18 +137,15 @@ class TestContractEdgeCases:
         mock_client_class.return_value = mock_client
         mock_client.put.return_value = {"status": "SUCCESS"}
 
-        # IDs with special characters
+        # Billing group ID with special characters is allowed (no validation on format)
         special_bg_id = "bg-123/456#test"
-        special_contract_id = "contract@789!test"
-
         manager = ContractManager(month="2024-01", billing_group_id=special_bg_id)
         manager._client = mock_client
 
-        result = manager.apply_contract(contract_id=special_contract_id)
+        # Now test contract ID with special characters
+        special_contract_id = "contract@789!test"
+        manager = ContractManager(month="2024-01", billing_group_id="bg-123")
+        manager._client = mock_client
 
-        assert result["status"] == "SUCCESS"
-
-        # Verify special characters were preserved
-        call_args = mock_client.put.call_args
-        assert special_bg_id in call_args[0][0]  # In endpoint URL
-        assert call_args[1]["json_data"]["contractId"] == special_contract_id
+        with pytest.raises(ValidationException, match="Invalid contract ID format"):
+            manager.apply_contract(contract_id=special_contract_id)
