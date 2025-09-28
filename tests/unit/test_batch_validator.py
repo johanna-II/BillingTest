@@ -63,7 +63,9 @@ class TestBatchValidator:
         invalid_days = [0, -1, 32, 100]
 
         for day in invalid_days:
-            with pytest.raises(ValidationException, match="Execution day must be between"):
+            with pytest.raises(
+                ValidationException, match="Execution day must be between"
+            ):
                 BatchValidator.validate_execution_day(day)
 
     def test_is_valid_job_sequence(self):
@@ -91,12 +93,17 @@ class TestBatchValidator:
 
     def test_get_job_category(self):
         """Test job category detection."""
-        assert BatchValidator.get_job_category("API_CALCULATE_USAGE_AND_PRICE") == "billing"
+        assert (
+            BatchValidator.get_job_category("API_CALCULATE_USAGE_AND_PRICE")
+            == "billing"
+        )
         assert BatchValidator.get_job_category("BATCH_GENERATE_STATEMENT") == "billing"
         assert BatchValidator.get_job_category("BATCH_PROCESS_PAYMENT") == "payment"
         assert BatchValidator.get_job_category("BATCH_CREDIT_EXPIRY") == "credit"
         assert BatchValidator.get_job_category("BATCH_CONTRACT_RENEWAL") == "contract"
-        assert BatchValidator.get_job_category("BATCH_RECONCILIATION") == "reconciliation"
+        assert (
+            BatchValidator.get_job_category("BATCH_RECONCILIATION") == "reconciliation"
+        )
         assert BatchValidator.get_job_category("UNKNOWN_JOB") == "other"
 
     def test_get_job_type(self):
@@ -119,7 +126,9 @@ class TestBatchValidator:
             BatchJobCode.API_CALCULATE_USAGE_AND_PRICE.value,
             BatchJobCode.BATCH_GENERATE_STATEMENT.value,
         ]
-        BatchValidator.validate_job_dependencies(BatchJobCode.BATCH_SEND_INVOICE.value, completed)
+        BatchValidator.validate_job_dependencies(
+            BatchJobCode.BATCH_SEND_INVOICE.value, completed
+        )
 
     def test_validate_job_dependencies_failure(self):
         """Test job dependency validation when dependencies are not met."""
@@ -131,7 +140,9 @@ class TestBatchValidator:
 
         # Invoice sending without prerequisites
         with pytest.raises(ValidationException, match="requires these jobs"):
-            BatchValidator.validate_job_dependencies(BatchJobCode.BATCH_SEND_INVOICE.value, [])
+            BatchValidator.validate_job_dependencies(
+                BatchJobCode.BATCH_SEND_INVOICE.value, []
+            )
 
     def test_calculate_next_execution_date(self):
         """Test next execution date calculation."""
@@ -155,11 +166,17 @@ class TestBatchValidator:
         """Test idempotent job detection."""
         # Idempotent jobs
         assert BatchValidator.is_job_idempotent(BatchJobCode.BATCH_RECONCILIATION.value)
-        assert BatchValidator.is_job_idempotent(BatchJobCode.BATCH_PAYMENT_REMINDER.value)
+        assert BatchValidator.is_job_idempotent(
+            BatchJobCode.BATCH_PAYMENT_REMINDER.value
+        )
 
         # Non-idempotent jobs
-        assert not BatchValidator.is_job_idempotent(BatchJobCode.BATCH_PROCESS_PAYMENT.value)
+        assert not BatchValidator.is_job_idempotent(
+            BatchJobCode.BATCH_PROCESS_PAYMENT.value
+        )
         assert not BatchValidator.is_job_idempotent(
             BatchJobCode.API_CALCULATE_USAGE_AND_PRICE.value
         )
-        assert not BatchValidator.is_job_idempotent(BatchJobCode.BATCH_CREDIT_EXPIRY.value)
+        assert not BatchValidator.is_job_idempotent(
+            BatchJobCode.BATCH_CREDIT_EXPIRY.value
+        )

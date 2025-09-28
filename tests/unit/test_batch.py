@@ -47,7 +47,9 @@ class TestBatchManagerUnit:
             json_data=expected_data,
         )
 
-    def test_request_batch_job_with_custom_params(self, batch_manager, mock_client) -> None:
+    def test_request_batch_job_with_custom_params(
+        self, batch_manager, mock_client
+    ) -> None:
         """Test batch job request with custom parameters."""
         mock_response = {"batchId": "batch-456"}
         mock_client.post.return_value = mock_response
@@ -85,7 +87,9 @@ class TestBatchManagerUnit:
 
         assert "Invalid batch job code" in str(exc_info.value)
 
-    def test_request_batch_job_invalid_execution_day(self, batch_manager, mock_client) -> None:
+    def test_request_batch_job_invalid_execution_day(
+        self, batch_manager, mock_client
+    ) -> None:
         """Test batch job request with invalid execution day."""
         with pytest.raises(ValidationException) as exc_info:
             batch_manager.request_batch_job(
@@ -124,7 +128,9 @@ class TestBatchManagerUnit:
         assert all(job.value in results for job in expected_jobs)
         assert all(result["success"] for result in results.values())
 
-    def test_request_common_batch_jobs_partial_failure(self, batch_manager, mock_client) -> None:
+    def test_request_common_batch_jobs_partial_failure(
+        self, batch_manager, mock_client
+    ) -> None:
         """Test requesting common batch jobs with partial failure."""
         # First two succeed, third fails
         mock_client.post.side_effect = [

@@ -56,7 +56,9 @@ class TestMeteringManagerUnit:
             ]
         }
 
-        self.mock_client.post.assert_called_once_with("billing/meters", json_data=expected_data)
+        self.mock_client.post.assert_called_once_with(
+            "billing/meters", json_data=expected_data
+        )
 
     def test_send_metering_with_string_counter_type(self) -> None:
         """Test sending metering with string counter type."""
@@ -139,7 +141,9 @@ class TestMeteringManagerUnit:
             "from": "2023-02-01",
             "to": "2023-02-28",
         }
-        self.mock_client.delete.assert_called_with("billing/admin/meters", params=expected_params)
+        self.mock_client.delete.assert_called_with(
+            "billing/admin/meters", params=expected_params
+        )
 
     def test_send_batch_metering_success(self) -> None:
         """Test sending batch metering data."""

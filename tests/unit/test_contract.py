@@ -20,7 +20,9 @@ class TestContractManagerUnit:
     def contract_manager(self, mock_client):
         """Create ContractManager with mocked dependencies."""
         with patch("libs.Contract.BillingAPIClient", return_value=mock_client):
-            manager = ContractManager(month="2024-01", billing_group_id="billing-group-123")
+            manager = ContractManager(
+                month="2024-01", billing_group_id="billing-group-123"
+            )
             manager._client = mock_client
             return manager
 
@@ -108,7 +110,9 @@ class TestContractEdgeCases:
         mock_client_class.return_value = mock_client
 
         # Should raise validation error
-        with pytest.raises(ValidationException, match="Billing group ID cannot be empty"):
+        with pytest.raises(
+            ValidationException, match="Billing group ID cannot be empty"
+        ):
             ContractManager(month="2024-01", billing_group_id="")
 
     @patch("libs.Contract.BillingAPIClient")

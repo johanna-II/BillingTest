@@ -63,7 +63,9 @@ class TelemetryManager:
             unit="milliseconds",
         )
 
-    def record_test_execution(self, test_name: str, status: str, duration: float) -> None:
+    def record_test_execution(
+        self, test_name: str, status: str, duration: float
+    ) -> None:
         """Record test execution metrics."""
         if not TELEMETRY_AVAILABLE:
             return

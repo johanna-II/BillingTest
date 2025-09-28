@@ -128,9 +128,11 @@ class TestContractValidator:
             "counter3": {"original_price": 200, "price": 200},
         }
 
-        total_orig, total_disc, total_amount = ContractValidator.calculate_total_discount(
-            counter_prices
-        )
+        (
+            total_orig,
+            total_disc,
+            total_amount,
+        ) = ContractValidator.calculate_total_discount(counter_prices)
 
         assert total_orig == Decimal("1700.00")
         assert total_disc == Decimal("1450.00")
@@ -144,9 +146,11 @@ class TestContractValidator:
             "counter3": {"original_price": 500, "price": 400},
         }
 
-        total_orig, total_disc, total_amount = ContractValidator.calculate_total_discount(
-            counter_prices
-        )
+        (
+            total_orig,
+            total_disc,
+            total_amount,
+        ) = ContractValidator.calculate_total_discount(counter_prices)
 
         assert total_orig == Decimal("1500.00")
         assert total_disc == Decimal("1200.00")
@@ -188,7 +192,9 @@ class TestContractValidator:
 
     def test_format_contract_name(self):
         """Test contract name formatting."""
-        assert ContractValidator.format_contract_name("Test Contract") == "Test Contract"
+        assert (
+            ContractValidator.format_contract_name("Test Contract") == "Test Contract"
+        )
         assert ContractValidator.format_contract_name("  Spaces  ") == "Spaces"
         assert ContractValidator.format_contract_name("") == "billing group default"
         assert ContractValidator.format_contract_name(None) == "billing group default"

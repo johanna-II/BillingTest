@@ -22,7 +22,8 @@ class TestMeteringAggregator:
             time_bucket="2024-01",
         )
         assert (
-            dim.to_key() == "app:app-123|counter:cpu.usage|type:DELTA|resource:vm-001|time:2024-01"
+            dim.to_key()
+            == "app:app-123|counter:cpu.usage|type:DELTA|resource:vm-001|time:2024-01"
         )
 
         # Partial dimension
@@ -141,7 +142,9 @@ class TestMeteringAggregator:
         ]
 
         # Hour buckets
-        hour_buckets = MeteringAggregator.aggregate_by_time_bucket(metering_data, "hour")
+        hour_buckets = MeteringAggregator.aggregate_by_time_bucket(
+            metering_data, "hour"
+        )
         assert len(hour_buckets) == 3
         assert "2024-01-01 10:00" in hour_buckets
         assert len(hour_buckets["2024-01-01 10:00"]) == 2
@@ -153,7 +156,9 @@ class TestMeteringAggregator:
         assert len(day_buckets["2024-01-01"]) == 3
 
         # Month buckets
-        month_buckets = MeteringAggregator.aggregate_by_time_bucket(metering_data, "month")
+        month_buckets = MeteringAggregator.aggregate_by_time_bucket(
+            metering_data, "month"
+        )
         assert len(month_buckets) == 1
         assert "2024-01" in month_buckets
         assert len(month_buckets["2024-01"]) == 4
@@ -245,7 +250,9 @@ class TestMeteringAggregator:
             {"counterVolume": "1000"},  # Clear outlier
         ]
 
-        outliers = MeteringAggregator.detect_outliers(metering_data, std_dev_threshold=2.0)
+        outliers = MeteringAggregator.detect_outliers(
+            metering_data, std_dev_threshold=2.0
+        )
 
         assert len(outliers) >= 1
         assert any(float(o["counterVolume"]) == 1000 for o in outliers)
@@ -299,7 +306,9 @@ class TestMeteringAggregator:
         )
 
         assert absolute_growth == Decimal("100.00")
-        assert percentage_growth == Decimal("0.00")  # Can't calculate percentage from zero
+        assert percentage_growth == Decimal(
+            "0.00"
+        )  # Can't calculate percentage from zero
 
     def test_create_usage_summary(self):
         """Test comprehensive usage summary creation."""

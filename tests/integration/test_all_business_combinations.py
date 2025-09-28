@@ -233,7 +233,9 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
         if unpaid_amount > 0:
             # In real scenario, this would be from previous month
             # For testing, we'll track it separately
-            logger.info(f"Simulating unpaid: {unpaid_amount} + overdue: {overdue_charge}")
+            logger.info(
+                f"Simulating unpaid: {unpaid_amount} + overdue: {overdue_charge}"
+            )
 
         # 3. Apply billing group adjustment
         bg_name, bg_type, bg_target, bg_amount = bg_adjustment
@@ -372,7 +374,9 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
         for result in results:
             logger.info(f"\nScenario: {result['scenario']}")
             logger.info(f"  Base amount: {result['base_amount']:,}")
-            logger.info(f"  Unpaid/Overdue: {result['unpaid']:,} / {result['overdue']:,}")
+            logger.info(
+                f"  Unpaid/Overdue: {result['unpaid']:,} / {result['overdue']:,}"
+            )
             logger.info(f"  BG adjustment: {result['bg_adjustment'][0]}")
             logger.info(f"  Proj adjustment: {result['proj_adjustment'][0]}")
             logger.info(f"  Credits applied: {result['credits']:,}")

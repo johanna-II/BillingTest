@@ -104,7 +104,9 @@ class TestCRUDContracts:
                         "FIXED_DISCOUNT",
                     ),
                     "adjustmentAmount": Like(100.0),
-                    "adjustmentTarget": Term(r"(PROJECT|BILLING_GROUP|ORGANIZATION)", "PROJECT"),
+                    "adjustmentTarget": Term(
+                        r"(PROJECT|BILLING_GROUP|ORGANIZATION)", "PROJECT"
+                    ),
                     "targetId": Like("test-app-001"),
                     "description": Like("Test adjustment"),
                     "createdAt": Format().iso_8601_datetime(),

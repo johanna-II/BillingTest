@@ -50,7 +50,9 @@ class FlakyTestAnalyzer:
         # Sort by failure rate (most flaky first)
         return sorted(flaky_tests, key=lambda x: x[1], reverse=True)
 
-    def identify_slow_tests(self, threshold: float = 5.0) -> list[tuple[str, float, float]]:
+    def identify_slow_tests(
+        self, threshold: float = 5.0
+    ) -> list[tuple[str, float, float]]:
         """Identify tests that are consistently slow."""
         slow_tests = []
 
@@ -83,7 +85,9 @@ class FlakyTestAnalyzer:
             failures = self.test_failures[test_id]
             recent_failure = failures[-1][:50] + "..." if failures else "N/A"
 
-            report.append(f"| `{test_id}` | {failure_rate:.1%} | {pattern} | {recent_failure} |")
+            report.append(
+                f"| `{test_id}` | {failure_rate:.1%} | {pattern} | {recent_failure} |"
+            )
 
         if len(flaky_tests) > 10:
             report.append(f"\n... and {len(flaky_tests) - 10} more flaky tests")
@@ -111,7 +115,9 @@ class FlakyTestAnalyzer:
         report = ["\n## Test Stability Statistics\n"]
 
         total_runs = sum(len(results) for results in self.test_results.values())
-        total_failures = sum(results.count(False) for results in self.test_results.values())
+        total_failures = sum(
+            results.count(False) for results in self.test_results.values()
+        )
         overall_pass_rate = 1 - (total_failures / total_runs) if total_runs > 0 else 0
 
         report.append(f"- Total test runs: {total_runs}")
@@ -120,7 +126,9 @@ class FlakyTestAnalyzer:
 
         return report
 
-    def _generate_recommendations(self, flaky_tests: list, slow_tests: list) -> list[str]:
+    def _generate_recommendations(
+        self, flaky_tests: list, slow_tests: list
+    ) -> list[str]:
         """Generate recommendations based on findings."""
         report = ["\n## Recommendations\n"]
 

@@ -160,11 +160,15 @@ class TestBillingCalculator:
         assert tax == Decimal("100.00")  # 10% VAT
 
         # Custom tax rate
-        tax = BillingCalculator.calculate_tax(Decimal("1000"), TaxType.SALES_TAX, Decimal("7.5"))
+        tax = BillingCalculator.calculate_tax(
+            Decimal("1000"), TaxType.SALES_TAX, Decimal("7.5")
+        )
         assert tax == Decimal("75.00")  # 7.5%
 
         # Tax exempt
-        tax = BillingCalculator.calculate_tax(Decimal("1000"), TaxType.VAT, tax_exempt=True)
+        tax = BillingCalculator.calculate_tax(
+            Decimal("1000"), TaxType.VAT, tax_exempt=True
+        )
         assert tax == Decimal("0.00")
 
     def test_calculate_invoice_total(self):
@@ -180,7 +184,9 @@ class TestBillingCalculator:
             ),
         ]
 
-        discounts = [Discount("Loyalty discount", DiscountType.PERCENTAGE, Decimal("5"))]
+        discounts = [
+            Discount("Loyalty discount", DiscountType.PERCENTAGE, Decimal("5"))
+        ]
 
         totals = BillingCalculator.calculate_invoice_total(
             line_items,
@@ -254,5 +260,7 @@ class TestBillingCalculator:
         assert distributions == []
 
         # Single weight
-        distributions = BillingCalculator.distribute_amount(Decimal("100"), [Decimal("1")])
+        distributions = BillingCalculator.distribute_amount(
+            Decimal("100"), [Decimal("1")]
+        )
         assert distributions == [Decimal("100.00")]

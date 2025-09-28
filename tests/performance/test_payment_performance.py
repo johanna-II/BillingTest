@@ -51,7 +51,9 @@ class BillingAPIUser(HttpUser):
     def on_stop(self) -> None:
         """Clean up user session."""
         # Reset test data
-        self.client.post("/test/reset", json={"uuid": self.test_uuid}, headers=self.headers)
+        self.client.post(
+            "/test/reset", json={"uuid": self.test_uuid}, headers=self.headers
+        )
 
     @task(3)
     def send_metering_data(self) -> None:

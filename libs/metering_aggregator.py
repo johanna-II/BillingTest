@@ -190,7 +190,9 @@ class MeteringAggregator:
         return total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     @classmethod
-    def get_latest_gauge_values(cls, metering_data: List[Dict[str, Any]]) -> Dict[str, Decimal]:
+    def get_latest_gauge_values(
+        cls, metering_data: List[Dict[str, Any]]
+    ) -> Dict[str, Decimal]:
         """Get latest GAUGE values for each counter.
 
         Args:
@@ -213,7 +215,9 @@ class MeteringAggregator:
             counter_name = record.get("counterName")
             if counter_name:
                 volume = Decimal(str(record.get("counterVolume", 0)))
-                gauges[counter_name] = volume.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                gauges[counter_name] = volume.quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
 
         return gauges
 
@@ -307,7 +311,9 @@ class MeteringAggregator:
         return datetime.now()
 
     @classmethod
-    def create_usage_summary(cls, metering_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def create_usage_summary(
+        cls, metering_data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Create a comprehensive usage summary.
 
         Args:

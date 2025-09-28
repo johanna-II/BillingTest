@@ -4,7 +4,12 @@ This package contains the core domain entities and value objects
 that represent the business concepts in the billing system.
 """
 
-from .adjustment import Adjustment, AdjustmentApplication, AdjustmentTarget, AdjustmentType
+from .adjustment import (
+    Adjustment,
+    AdjustmentApplication,
+    AdjustmentTarget,
+    AdjustmentType,
+)
 from .billing import BillingPeriod, BillingStatement
 from .contract import Contract, PricingTier
 from .credit import Credit, CreditApplication, CreditPriority, CreditType

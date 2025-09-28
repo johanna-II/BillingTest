@@ -189,16 +189,22 @@ class TestMeteringCalculator:
         """Test cost calculation with custom rates."""
         custom_rates = {"compute.special": 1.5, "storage.premium": 0.001}
 
-        cost = MeteringCalculator.calculate_cost("compute.special", 10, "HOURS", rates=custom_rates)
+        cost = MeteringCalculator.calculate_cost(
+            "compute.special", 10, "HOURS", rates=custom_rates
+        )
         assert cost == 10 * 1.5  # 15.0
 
-        cost = MeteringCalculator.calculate_cost("storage.premium", 500, "GB", rates=custom_rates)
+        cost = MeteringCalculator.calculate_cost(
+            "storage.premium", 500, "GB", rates=custom_rates
+        )
         assert cost == 500 * 0.001  # 0.5
 
     def test_calculate_cost_unit_conversion(self):
         """Test cost calculation with unit conversion."""
         # Rate is per hour, but usage is in minutes
-        cost = MeteringCalculator.calculate_cost("compute.instance.small", 120, "MINUTES")
+        cost = MeteringCalculator.calculate_cost(
+            "compute.instance.small", 120, "MINUTES"
+        )
         assert cost == 2 * 0.10  # 120 minutes = 2 hours
 
     def test_calculate_monthly_projection(self):
@@ -216,7 +222,9 @@ class TestMeteringCalculator:
         assert projection == 930  # 30 units/day * 31 days
 
         # No days elapsed
-        projection = MeteringCalculator.calculate_monthly_projection(daily_usage=0, days_elapsed=0)
+        projection = MeteringCalculator.calculate_monthly_projection(
+            daily_usage=0, days_elapsed=0
+        )
         assert projection == 0
 
     def test_detect_usage_anomalies(self):
@@ -253,20 +261,48 @@ class TestMeteringCalculator:
         """Test human-readable formatting for storage units."""
         assert MeteringCalculator.format_volume_human_readable(512, "KB") == "512.00 KB"
         assert MeteringCalculator.format_volume_human_readable(2048, "KB") == "2.00 MB"
-        assert MeteringCalculator.format_volume_human_readable(1048576, "KB") == "1.00 GB"
-        assert MeteringCalculator.format_volume_human_readable(1073741824, "KB") == "1.00 TB"
+        assert (
+            MeteringCalculator.format_volume_human_readable(1048576, "KB") == "1.00 GB"
+        )
+        assert (
+            MeteringCalculator.format_volume_human_readable(1073741824, "KB")
+            == "1.00 TB"
+        )
 
     def test_format_volume_human_readable_time(self):
         """Test human-readable formatting for time units."""
-        assert MeteringCalculator.format_volume_human_readable(30, "SECONDS") == "30.00 seconds"
-        assert MeteringCalculator.format_volume_human_readable(90, "SECONDS") == "1.50 minutes"
-        assert MeteringCalculator.format_volume_human_readable(3600, "SECONDS") == "1.00 hours"
-        assert MeteringCalculator.format_volume_human_readable(86400, "SECONDS") == "1.00 days"
+        assert (
+            MeteringCalculator.format_volume_human_readable(30, "SECONDS")
+            == "30.00 seconds"
+        )
+        assert (
+            MeteringCalculator.format_volume_human_readable(90, "SECONDS")
+            == "1.50 minutes"
+        )
+        assert (
+            MeteringCalculator.format_volume_human_readable(3600, "SECONDS")
+            == "1.00 hours"
+        )
+        assert (
+            MeteringCalculator.format_volume_human_readable(86400, "SECONDS")
+            == "1.00 days"
+        )
 
-        assert MeteringCalculator.format_volume_human_readable(12, "HOURS") == "12.00 hours"
-        assert MeteringCalculator.format_volume_human_readable(48, "HOURS") == "2.00 days"
+        assert (
+            MeteringCalculator.format_volume_human_readable(12, "HOURS")
+            == "12.00 hours"
+        )
+        assert (
+            MeteringCalculator.format_volume_human_readable(48, "HOURS") == "2.00 days"
+        )
 
     def test_format_volume_human_readable_other(self):
         """Test human-readable formatting for other units."""
-        assert MeteringCalculator.format_volume_human_readable(100, "requests") == "100.00 requests"
-        assert MeteringCalculator.format_volume_human_readable(50.5, "items") == "50.50 items"
+        assert (
+            MeteringCalculator.format_volume_human_readable(100, "requests")
+            == "100.00 requests"
+        )
+        assert (
+            MeteringCalculator.format_volume_human_readable(50.5, "items")
+            == "50.50 items"
+        )

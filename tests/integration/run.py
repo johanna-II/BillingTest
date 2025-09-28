@@ -15,8 +15,12 @@ from test.test_runner import TestRunner, create_argument_parser, get_default_wor
 def main():
     """Run integration tests."""
     parser = create_argument_parser("integration")
-    parser.add_argument("--no-mock", action="store_true", help="Run without mock server")
-    parser.add_argument("--mock-verbose", action="store_true", help="Show mock server output")
+    parser.add_argument(
+        "--no-mock", action="store_true", help="Run without mock server"
+    )
+    parser.add_argument(
+        "--mock-verbose", action="store_true", help="Show mock server output"
+    )
 
     args = parser.parse_args()
 

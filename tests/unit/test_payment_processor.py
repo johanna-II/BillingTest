@@ -380,7 +380,9 @@ class TestPaymentProcessor:
         successes = 0
         for _ in range(10):
             result = PaymentProcessor.simulate_payment_processing(
-                request, success_rate=1.0, processing_time_ms=1  # 100% success
+                request,
+                success_rate=1.0,
+                processing_time_ms=1,  # 100% success
             )
             if result.is_successful:
                 successes += 1
@@ -391,7 +393,9 @@ class TestPaymentProcessor:
         failures = 0
         for _ in range(10):
             result = PaymentProcessor.simulate_payment_processing(
-                request, success_rate=0.0, processing_time_ms=1  # 0% success
+                request,
+                success_rate=0.0,
+                processing_time_ms=1,  # 0% success
             )
             if not result.is_successful:
                 failures += 1

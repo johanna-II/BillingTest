@@ -106,7 +106,9 @@ class TestMonitor:
         recommendations = []
 
         # Check for slow unit tests
-        slow_unit_tests = [t for t in analysis["test_categories"]["unit"] if t["duration"] > 0.5]
+        slow_unit_tests = [
+            t for t in analysis["test_categories"]["unit"] if t["duration"] > 0.5
+        ]
         if slow_unit_tests:
             recommendations.append(
                 f"⚠️  {len(slow_unit_tests)} unit tests take > 0.5s. "
@@ -221,7 +223,8 @@ class TestMonitor:
             baseline = json.load(f)
 
         comparison = {
-            "duration_change": current["summary"]["duration"] - baseline["summary"]["duration"],
+            "duration_change": current["summary"]["duration"]
+            - baseline["summary"]["duration"],
             "new_slow_tests": [],
             "improved_tests": [],
         }

@@ -80,7 +80,9 @@ class TestManagerErrorHandling:
         """Test payment validation for invalid group ID."""
         mock_client = Mock()
         # Mock API to return error
-        mock_client.make_payment = Mock(side_effect=APIRequestException("Invalid payment group"))
+        mock_client.make_payment = Mock(
+            side_effect=APIRequestException("Invalid payment group")
+        )
 
         manager = PaymentManager(month="2024-01", uuid="test-uuid", client=mock_client)
 
@@ -92,7 +94,9 @@ class TestManagerErrorHandling:
         mock_client = Mock()
         manager = PaymentManager(month="2024-01", uuid="test-uuid", client=mock_client)
 
-        with pytest.raises(ValidationException, match="Payment group ID cannot be empty"):
+        with pytest.raises(
+            ValidationException, match="Payment group ID cannot be empty"
+        ):
             manager.make_payment(payment_group_id="")
 
     def test_adjustment_missing_required_params(self):
@@ -114,7 +118,9 @@ class TestManagerErrorHandling:
         manager = CreditManager(uuid="test-uuid", client=mock_client)
 
         with pytest.raises(ValidationException, match="must be positive"):
-            manager.grant_credit(amount=0, credit_type=CreditType.FREE, credit_name="Zero credit")
+            manager.grant_credit(
+                amount=0, credit_type=CreditType.FREE, credit_name="Zero credit"
+            )
 
     def test_api_error_propagation(self):
         """Test that API errors are properly propagated."""

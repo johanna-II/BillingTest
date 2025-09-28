@@ -164,7 +164,9 @@ class PaymentProcessor:
 
         # Calculate percentage fee
         percentage_fee = amount * percentage_rate
-        percentage_fee = percentage_fee.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        percentage_fee = percentage_fee.quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
         # Total fee before tax
         subtotal_fee = percentage_fee + fixed_fee
@@ -188,7 +190,9 @@ class PaymentProcessor:
         }
 
     @classmethod
-    def calculate_retry_delay(cls, attempt_number: int, retry_policy: RetryPolicy) -> int:
+    def calculate_retry_delay(
+        cls, attempt_number: int, retry_policy: RetryPolicy
+    ) -> int:
         """Calculate delay before next retry attempt.
 
         Args:
@@ -286,7 +290,9 @@ class PaymentProcessor:
         )
 
     @classmethod
-    def _is_status_match(cls, internal_status: PaymentStatus, gateway_status: str) -> bool:
+    def _is_status_match(
+        cls, internal_status: PaymentStatus, gateway_status: str
+    ) -> bool:
         """Check if internal and gateway statuses match.
 
         Args:
@@ -337,7 +343,9 @@ class PaymentProcessor:
         for payment_id, internal_record in internal_map.items():
             if payment_id in gateway_map:
                 # Reconcile matched records
-                recon_record = cls.reconcile_payment(internal_record, gateway_map[payment_id])
+                recon_record = cls.reconcile_payment(
+                    internal_record, gateway_map[payment_id]
+                )
 
                 if recon_record.has_discrepancy:
                     discrepancies.append(recon_record)
@@ -460,7 +468,10 @@ class PaymentProcessor:
 
         # Check for required metadata
         if payment_request.payment_method == PaymentMethod.VIRTUAL_ACCOUNT:
-            if not payment_request.metadata or "bank_code" not in payment_request.metadata:
+            if (
+                not payment_request.metadata
+                or "bank_code" not in payment_request.metadata
+            ):
                 return False, "Bank code required for virtual account"
 
         return True, None

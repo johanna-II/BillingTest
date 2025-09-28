@@ -21,7 +21,9 @@ class TestAdjustmentValidation:
     def test_validate_negative_adjustment_amount(self, adjustment_manager):
         """Test validation rejects negative adjustment amounts."""
         # This logic is currently in integration tests but should be unit tested
-        with pytest.raises(ValidationException, match="Adjustment amount cannot be negative"):
+        with pytest.raises(
+            ValidationException, match="Adjustment amount cannot be negative"
+        ):
             adjustment_manager._validate_adjustment_params(
                 adjustment_type=AdjustmentType.FIXED_DISCOUNT,
                 adjustment_target=AdjustmentTarget.PROJECT,
@@ -30,7 +32,9 @@ class TestAdjustmentValidation:
 
     def test_validate_rate_adjustment_exceeds_100(self, adjustment_manager):
         """Test validation rejects rate adjustments over 100%."""
-        with pytest.raises(ValidationException, match="Rate discount cannot exceed 100%"):
+        with pytest.raises(
+            ValidationException, match="Rate discount cannot exceed 100%"
+        ):
             adjustment_manager._validate_adjustment_params(
                 adjustment_type=AdjustmentType.RATE_DISCOUNT,
                 adjustment_target=AdjustmentTarget.PROJECT,

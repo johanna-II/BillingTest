@@ -85,7 +85,9 @@ class ContractManager:
         )
 
         try:
-            response = self._client.put(endpoint, headers=headers, json_data=contract_data)
+            response = self._client.put(
+                endpoint, headers=headers, json_data=contract_data
+            )
             logger.info("Successfully applied contract %s", contract_id)
             return response
         except APIRequestException as e:
@@ -169,7 +171,9 @@ class ContractManager:
 
         endpoint = f"billing/admin/contracts/{contract_id}/products/prices"
 
-        logger.info("Getting price for counter {counter_name} in contract %s", contract_id)
+        logger.info(
+            "Getting price for counter {counter_name} in contract %s", contract_id
+        )
 
         # Retry logic for potential temporary failures
         max_retries = 3
@@ -202,7 +206,9 @@ class ContractManager:
                 if attempt < max_retries - 1:
                     logger.warning("Attempt %s failed, retrying...", attempt + 1)
                     continue
-                logger.exception("Failed to get counter price after {max_retries} attempts: %s", e)
+                logger.exception(
+                    "Failed to get counter price after {max_retries} attempts: %s", e
+                )
                 raise
         # This should never be reached due to the raise above
         msg = "Unexpected code path in get_counter_price"

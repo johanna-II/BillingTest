@@ -71,6 +71,16 @@ extend-exclude = '''
 target-version = "py312"
 line-length = 88
 
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Like Black, indent with spaces, rather than tabs
+indent-style = "space"
+# Like Black, respect magic trailing commas
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending
+line-ending = "auto"
+
 [tool.ruff.lint]
 # Enable ALL ruff rules
 select = ["ALL"]
@@ -188,6 +198,16 @@ max-args = 5
 max-returns = 3
 max-branches = 10
 max-statements = 50
+
+[tool.ruff.lint.isort]
+# Use the same settings as black
+profile = "black"
+combine-as-imports = true
+force-single-line = false
+lines-between-types = 0
+lines-after-imports = 2
+known-first-party = ["libs", "tests", "config", "src", "mock_server"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
 [tool.mypy]
 python_version = "3.12"

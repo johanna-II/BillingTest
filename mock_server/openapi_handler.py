@@ -77,7 +77,9 @@ class OpenAPIHandler:
 
         return None
 
-    def generate_response(self, operation: OpenAPIDict, status_code: int = 200) -> OpenAPIDict:
+    def generate_response(
+        self, operation: OpenAPIDict, status_code: int = 200
+    ) -> OpenAPIDict:
         """Generate response based on OpenAPI schema."""
         responses = operation.get("responses", {})
         response_spec = responses.get(str(status_code))
@@ -189,7 +191,9 @@ class OpenAPIHandler:
 
         for prop_name, prop_schema in properties.items():
             # Always include required properties
-            if prop_name in required or random.random() > 0.3:  # 70% chance for optional
+            if (
+                prop_name in required or random.random() > 0.3
+            ):  # 70% chance for optional
                 result[prop_name] = self._generate_from_schema(prop_schema)
 
         return result
@@ -266,7 +270,9 @@ class OpenAPIHandler:
 
         return None
 
-    def _validate_query_parameter(self, param_spec: OpenAPIDict, query_params: dict) -> str | None:
+    def _validate_query_parameter(
+        self, param_spec: OpenAPIDict, query_params: dict
+    ) -> str | None:
         """Validate a single query parameter."""
         param_name = param_spec["name"]
         required = param_spec.get("required", False)
@@ -286,7 +292,9 @@ class OpenAPIHandler:
 
         return None
 
-    def _validate_query_parameters(self, operation: OpenAPIDict, query_params: dict) -> str | None:
+    def _validate_query_parameters(
+        self, operation: OpenAPIDict, query_params: dict
+    ) -> str | None:
         """Validate all query parameters."""
         parameters = operation.get("parameters", [])
 
@@ -350,7 +358,9 @@ class OpenAPIHandler:
             if "example" in json_content:
                 examples["responses"][status_code] = json_content["example"]
             elif "examples" in json_content:
-                examples["responses"][f"{status_code}_examples"] = json_content["examples"]
+                examples["responses"][f"{status_code}_examples"] = json_content[
+                    "examples"
+                ]
 
         return examples
 

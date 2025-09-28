@@ -13,46 +13,76 @@ class TestPaymentStateMachine:
     def test_valid_transitions(self):
         """Test all valid state transitions."""
         # PENDING -> REGISTERED
-        assert PaymentStateMachine.can_transition(PaymentStatus.PENDING, PaymentStatus.REGISTERED)
+        assert PaymentStateMachine.can_transition(
+            PaymentStatus.PENDING, PaymentStatus.REGISTERED
+        )
 
         # REGISTERED -> PAID
-        assert PaymentStateMachine.can_transition(PaymentStatus.REGISTERED, PaymentStatus.PAID)
+        assert PaymentStateMachine.can_transition(
+            PaymentStatus.REGISTERED, PaymentStatus.PAID
+        )
 
         # REGISTERED -> CANCELLED
-        assert PaymentStateMachine.can_transition(PaymentStatus.REGISTERED, PaymentStatus.CANCELLED)
+        assert PaymentStateMachine.can_transition(
+            PaymentStatus.REGISTERED, PaymentStatus.CANCELLED
+        )
 
         # UNKNOWN -> PENDING (recovery case)
-        assert PaymentStateMachine.can_transition(PaymentStatus.UNKNOWN, PaymentStatus.PENDING)
+        assert PaymentStateMachine.can_transition(
+            PaymentStatus.UNKNOWN, PaymentStatus.PENDING
+        )
 
     def test_invalid_transitions(self):
         """Test invalid state transitions."""
         # Cannot go backwards
-        assert not PaymentStateMachine.can_transition(PaymentStatus.PAID, PaymentStatus.PENDING)
+        assert not PaymentStateMachine.can_transition(
+            PaymentStatus.PAID, PaymentStatus.PENDING
+        )
         assert not PaymentStateMachine.can_transition(
             PaymentStatus.REGISTERED, PaymentStatus.PENDING
         )
 
         # Cannot skip states
-        assert not PaymentStateMachine.can_transition(PaymentStatus.PENDING, PaymentStatus.PAID)
+        assert not PaymentStateMachine.can_transition(
+            PaymentStatus.PENDING, PaymentStatus.PAID
+        )
 
         # Cannot transition from final states
-        assert not PaymentStateMachine.can_transition(PaymentStatus.PAID, PaymentStatus.CANCELLED)
-        assert not PaymentStateMachine.can_transition(PaymentStatus.CANCELLED, PaymentStatus.PAID)
-        assert not PaymentStateMachine.can_transition(PaymentStatus.FAILED, PaymentStatus.PENDING)
+        assert not PaymentStateMachine.can_transition(
+            PaymentStatus.PAID, PaymentStatus.CANCELLED
+        )
+        assert not PaymentStateMachine.can_transition(
+            PaymentStatus.CANCELLED, PaymentStatus.PAID
+        )
+        assert not PaymentStateMachine.can_transition(
+            PaymentStatus.FAILED, PaymentStatus.PENDING
+        )
 
     def test_validate_transition_raises_on_invalid(self):
         """Test that validate_transition raises exception for invalid transitions."""
-        with pytest.raises(ValidationException, match="Invalid payment status transition"):
-            PaymentStateMachine.validate_transition(PaymentStatus.PENDING, PaymentStatus.PAID)
+        with pytest.raises(
+            ValidationException, match="Invalid payment status transition"
+        ):
+            PaymentStateMachine.validate_transition(
+                PaymentStatus.PENDING, PaymentStatus.PAID
+            )
 
-        with pytest.raises(ValidationException, match="Invalid payment status transition"):
-            PaymentStateMachine.validate_transition(PaymentStatus.PAID, PaymentStatus.PENDING)
+        with pytest.raises(
+            ValidationException, match="Invalid payment status transition"
+        ):
+            PaymentStateMachine.validate_transition(
+                PaymentStatus.PAID, PaymentStatus.PENDING
+            )
 
     def test_validate_transition_success_on_valid(self):
         """Test that validate_transition succeeds for valid transitions."""
         # Should not raise
-        PaymentStateMachine.validate_transition(PaymentStatus.PENDING, PaymentStatus.REGISTERED)
-        PaymentStateMachine.validate_transition(PaymentStatus.REGISTERED, PaymentStatus.PAID)
+        PaymentStateMachine.validate_transition(
+            PaymentStatus.PENDING, PaymentStatus.REGISTERED
+        )
+        PaymentStateMachine.validate_transition(
+            PaymentStatus.REGISTERED, PaymentStatus.PAID
+        )
 
     def test_get_next_states(self):
         """Test getting valid next states."""
@@ -117,7 +147,9 @@ class TestPaymentStateMachine:
         assert path == [PaymentStatus.PENDING, PaymentStatus.REGISTERED]
 
         # Two-step transition
-        path = PaymentStateMachine.get_transition_path(PaymentStatus.PENDING, PaymentStatus.PAID)
+        path = PaymentStateMachine.get_transition_path(
+            PaymentStatus.PENDING, PaymentStatus.PAID
+        )
         assert path == [
             PaymentStatus.PENDING,
             PaymentStatus.REGISTERED,
@@ -125,15 +157,21 @@ class TestPaymentStateMachine:
         ]
 
         # Same state
-        path = PaymentStateMachine.get_transition_path(PaymentStatus.PAID, PaymentStatus.PAID)
+        path = PaymentStateMachine.get_transition_path(
+            PaymentStatus.PAID, PaymentStatus.PAID
+        )
         assert path == [PaymentStatus.PAID]
 
         # No path exists
-        path = PaymentStateMachine.get_transition_path(PaymentStatus.PAID, PaymentStatus.PENDING)
+        path = PaymentStateMachine.get_transition_path(
+            PaymentStatus.PAID, PaymentStatus.PENDING
+        )
         assert path == []
 
         # From UNKNOWN to PAID
-        path = PaymentStateMachine.get_transition_path(PaymentStatus.UNKNOWN, PaymentStatus.PAID)
+        path = PaymentStateMachine.get_transition_path(
+            PaymentStatus.UNKNOWN, PaymentStatus.PAID
+        )
         assert path == [
             PaymentStatus.UNKNOWN,
             PaymentStatus.PENDING,
@@ -157,11 +195,15 @@ class TestPaymentStateMachine:
             PaymentStateMachine.validate_payment_action(PaymentStatus.PENDING, "cancel")
 
         with pytest.raises(ValidationException, match="not valid for status"):
-            PaymentStateMachine.validate_payment_action(PaymentStatus.REGISTERED, "register")
+            PaymentStateMachine.validate_payment_action(
+                PaymentStatus.REGISTERED, "register"
+            )
 
         # Unknown action
         with pytest.raises(ValidationException, match="Unknown payment action"):
-            PaymentStateMachine.validate_payment_action(PaymentStatus.PENDING, "unknown")
+            PaymentStateMachine.validate_payment_action(
+                PaymentStatus.PENDING, "unknown"
+            )
 
     def test_state_transition_consistency(self):
         """Test that state machine is internally consistent."""

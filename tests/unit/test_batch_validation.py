@@ -51,7 +51,9 @@ class TestBatchValidation:
         batch_manager._client.post.return_value = {"jobId": "123"}
 
         # Test with enum
-        result = batch_manager.request_batch_job(BatchJobCode.API_CALCULATE_USAGE_AND_PRICE)
+        result = batch_manager.request_batch_job(
+            BatchJobCode.API_CALCULATE_USAGE_AND_PRICE
+        )
         assert result["jobId"] == "123"
 
         # Test with string
@@ -122,10 +124,14 @@ class TestBatchValidation:
         batch_manager._client.post.return_value = {"success": True}
 
         # Test single digit day
-        batch_manager.request_batch_job(BatchJobCode.API_CALCULATE_USAGE_AND_PRICE, execution_day=5)
+        batch_manager.request_batch_job(
+            BatchJobCode.API_CALCULATE_USAGE_AND_PRICE, execution_day=5
+        )
         call_args = batch_manager._client.post.call_args
         posted_data = call_args[1]["json_data"]
-        assert posted_data["date"] == "2024-01-05T00:00:00+09:00"  # Should be zero-padded
+        assert (
+            posted_data["date"] == "2024-01-05T00:00:00+09:00"
+        )  # Should be zero-padded
 
         # Test double digit day
         batch_manager.request_batch_job(
@@ -149,7 +155,9 @@ class TestBatchValidation:
         batch_manager._client.post.return_value = {"success": True}
 
         # Test async=True
-        batch_manager.request_batch_job(BatchJobCode.API_CALCULATE_USAGE_AND_PRICE, async_mode=True)
+        batch_manager.request_batch_job(
+            BatchJobCode.API_CALCULATE_USAGE_AND_PRICE, async_mode=True
+        )
         call_args = batch_manager._client.post.call_args
         posted_data = call_args[1]["json_data"]
         assert posted_data["is_async"] == "true"

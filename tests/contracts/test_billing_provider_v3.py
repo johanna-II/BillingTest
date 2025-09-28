@@ -106,7 +106,9 @@ class TestProviderVerification:
                 "description": "Monthly credit",
                 "type": "ADJUSTMENT",
             }
-            response = requests.post(f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data)
+            response = requests.post(
+                f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data
+            )
             assert response.status_code == 201
             data = response.json()
             assert "creditId" in data
@@ -174,7 +176,9 @@ class TestProviderStates:
             ]
 
             for state in states:
-                response = requests.post(f"{MOCK_SERVER_URL}/pact-states", json={"state": state})
+                response = requests.post(
+                    f"{MOCK_SERVER_URL}/pact-states", json={"state": state}
+                )
                 assert response.status_code == 200
                 data = response.json()
                 assert data["result"] == "success"

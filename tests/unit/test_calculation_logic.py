@@ -14,7 +14,9 @@ class TestCalculationLogic:
     def calc_manager(self):
         """Create CalculationManager with mocked client."""
         mock_client = Mock()
-        return CalculationManager(month="2024-01", uuid="test-uuid-123", client=mock_client)
+        return CalculationManager(
+            month="2024-01", uuid="test-uuid-123", client=mock_client
+        )
 
     def test_initialization(self):
         """Test CalculationManager initialization."""
@@ -118,7 +120,9 @@ class TestCalculationLogic:
         calc_manager._client.post.return_value = {"success": True}
 
         # Mock the _wait_for_calculation_completion method
-        with patch.object(calc_manager, "_wait_for_calculation_completion") as mock_wait:
+        with patch.object(
+            calc_manager, "_wait_for_calculation_completion"
+        ) as mock_wait:
             mock_wait.return_value = True
             calc_manager.recalculate_all(timeout=60)
 

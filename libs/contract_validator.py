@@ -40,13 +40,17 @@ class ContractValidator:
         """
         # Check regex pattern
         if not cls.MONTH_PATTERN.match(month):
-            raise ValidationException(f"Invalid month format: {month}. Expected YYYY-MM")
+            raise ValidationException(
+                f"Invalid month format: {month}. Expected YYYY-MM"
+            )
 
         # Validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
         except ValueError:
-            raise ValidationException(f"Invalid month value: {month}. Must be a valid year-month")
+            raise ValidationException(
+                f"Invalid month value: {month}. Must be a valid year-month"
+            )
 
     @classmethod
     def validate_contract_id(cls, contract_id: str) -> None:
@@ -107,7 +111,9 @@ class ContractValidator:
             discount_rate = Decimal("0")
 
         # Round to 2 decimal places
-        discount_amount = discount_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        discount_amount = discount_amount.quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
         discount_rate = discount_rate.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         return discount_amount, discount_rate
@@ -145,7 +151,9 @@ class ContractValidator:
             raise ValidationException("Discount rate cannot be negative")
 
         if discount_rate > cls.MAX_DISCOUNT_RATE:
-            raise ValidationException(f"Discount rate cannot exceed {cls.MAX_DISCOUNT_RATE}%")
+            raise ValidationException(
+                f"Discount rate cannot exceed {cls.MAX_DISCOUNT_RATE}%"
+            )
 
     @classmethod
     def calculate_total_discount(
@@ -266,7 +274,9 @@ class ContractValidator:
                 "contract1_fee": fee1,
                 "contract2_fee": fee2,
                 "difference": diff,
-                "percentage_change": ((diff / fee1 * Decimal("100")) if fee1 > 0 else Decimal("0")),
+                "percentage_change": (
+                    (diff / fee1 * Decimal("100")) if fee1 > 0 else Decimal("0")
+                ),
             }
             total_diff += diff
 

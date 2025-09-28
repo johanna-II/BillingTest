@@ -105,9 +105,13 @@ class TestProviderVerification:
         # Run mock server and verify contracts
         with mock_server_running():
             # First, set up provider states by creating test data
-            requests.post(f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"})
+            requests.post(
+                f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
+            )
 
-            verifier = Verifier(provider="BillingAPI", provider_base_url=MOCK_SERVER_URL)
+            verifier = Verifier(
+                provider="BillingAPI", provider_base_url=MOCK_SERVER_URL
+            )
 
             # Verify each pact file
             for pact_file in pact_files:
@@ -128,7 +132,9 @@ class TestProviderVerification:
         """Test that mock server responses match contract expectations."""
         with mock_server_running():
             # First set up the provider state
-            requests.post(f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"})
+            requests.post(
+                f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
+            )
 
             # Test contract endpoint
             response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/12345")
@@ -159,7 +165,9 @@ class TestProviderVerification:
                 "description": "Monthly credit",
                 "type": "ADJUSTMENT",
             }
-            response = requests.post(f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data)
+            response = requests.post(
+                f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data
+            )
             assert response.status_code == 201
             data = response.json()
             assert "id" in data

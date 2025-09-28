@@ -60,9 +60,13 @@ class AdjustmentManager:
             Tuple of (adjustment_amount, adjustment_type, adjustment_target, description, target_id)
         """
         # Handle both modern and legacy parameter names
-        adjustment_amount = float(kwargs.get("adjustment_amount") or kwargs.get("adjustment", 0))
+        adjustment_amount = float(
+            kwargs.get("adjustment_amount") or kwargs.get("adjustment", 0)
+        )
         adjustment_type = kwargs.get("adjustment_type") or kwargs.get("adjustmentType")
-        adjustment_target = kwargs.get("adjustment_target") or kwargs.get("adjustmentTarget")
+        adjustment_target = kwargs.get("adjustment_target") or kwargs.get(
+            "adjustmentTarget"
+        )
         description = str(kwargs.get("description", "QA billing automation test"))
 
         # Determine target_id based on target type
@@ -71,7 +75,9 @@ class AdjustmentManager:
             if adjustment_target in ["Project", "PROJECT"]:
                 target_id = kwargs.get("projectId") or kwargs.get("project_id")
             elif adjustment_target in ["BillingGroup", "BILLING_GROUP"]:
-                target_id = kwargs.get("billingGroupId") or kwargs.get("billing_group_id")
+                target_id = kwargs.get("billingGroupId") or kwargs.get(
+                    "billing_group_id"
+                )
 
         # Convert enum values to strings if needed
         adjustment_type_str = (
@@ -121,7 +127,9 @@ class AdjustmentManager:
             raise ValidationException(error_msg)
 
         # Validate amount using AdjustmentCalculator
-        AdjustmentCalculator.validate_adjustment_amount(adjustment_amount, adjustment_type)
+        AdjustmentCalculator.validate_adjustment_amount(
+            adjustment_amount, adjustment_type
+        )
 
     def _build_adjustment_data(
         self, adjustment_amount: float, adjustment_type: str, description: str
@@ -147,12 +155,16 @@ class AdjustmentManager:
         """Determine the endpoint and update adjustment data based on target type."""
         if adjustment_target == AdjustmentTarget.BILLING_GROUP.value:
             if target_id is None:
-                raise ValidationException("target_id is required for billing group adjustments")
+                raise ValidationException(
+                    "target_id is required for billing group adjustments"
+                )
             endpoint = BILLING_GROUP_ADJUSTMENTS_ENDPOINT
             adjustment_data["billingGroupId"] = target_id
         else:
             if target_id is None:
-                raise ValidationException("target_id is required for project adjustments")
+                raise ValidationException(
+                    "target_id is required for project adjustments"
+                )
             endpoint = PROJECT_ADJUSTMENTS_ENDPOINT
             adjustment_data["projectId"] = target_id
 
@@ -194,7 +206,9 @@ class AdjustmentManager:
         ) = self._normalize_adjustment_params(**kwargs)
 
         # Validate parameters
-        self._validate_adjustment_params(adjustment_type, adjustment_target, adjustment_amount)
+        self._validate_adjustment_params(
+            adjustment_type, adjustment_target, adjustment_amount
+        )
 
         # After validation, we know these are not None
         assert adjustment_type is not None
@@ -276,11 +290,15 @@ class AdjustmentManager:
                 "projectId": target_id,
             }
 
-        logger.info("Retrieving adjustments for %s %s", adjustment_target_str, target_id)
+        logger.info(
+            "Retrieving adjustments for %s %s", adjustment_target_str, target_id
+        )
 
         try:
             response = self._client.get(endpoint, params=params)
-            adjustment_ids = [item["adjustmentId"] for item in response.get("adjustments", [])]
+            adjustment_ids = [
+                item["adjustmentId"] for item in response.get("adjustments", [])
+            ]
             logger.info("Found %d adjustments", len(adjustment_ids))
         except APIRequestException:
             logger.exception("Failed to retrieve adjustments")
@@ -314,7 +332,9 @@ class AdjustmentManager:
 
         return temp_ids, adjustment_target
 
-    def _infer_adjustment_target(self, adjustment_dict: dict[str, Any]) -> AdjustmentTarget | None:
+    def _infer_adjustment_target(
+        self, adjustment_dict: dict[str, Any]
+    ) -> AdjustmentTarget | None:
         """Infer adjustment target from adjustment dictionary."""
         if "billingGroupId" in adjustment_dict:
             return AdjustmentTarget.BILLING_GROUP
@@ -428,7 +448,9 @@ class AdjustmentManager:
             # Return in legacy format
             return {"adjustments": adjustments}
         if billingGroupId:
-            adjustments = self.get_adjustments(AdjustmentTarget.BILLING_GROUP, billingGroupId)
+            adjustments = self.get_adjustments(
+                AdjustmentTarget.BILLING_GROUP, billingGroupId
+            )
             # Return in legacy format
             return {"adjustments": adjustments}
         # Return empty list if no target specified

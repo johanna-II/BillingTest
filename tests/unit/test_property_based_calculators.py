@@ -45,14 +45,18 @@ class TestPropertyBasedCalculators:
                 value=discount_percentage,
             )
 
-            discount_amount = BillingCalculator.calculate_discount(base_amount, discount)
+            discount_amount = BillingCalculator.calculate_discount(
+                base_amount, discount
+            )
 
             # Discount should never exceed base amount
             assert discount_amount <= base_amount
             assert discount_amount >= Decimal("0")
 
             # Percentage calculation should be correct
-            expected = BillingCalculator.round_amount(base_amount * discount_percentage / 100)
+            expected = BillingCalculator.round_amount(
+                base_amount * discount_percentage / 100
+            )
             assert discount_amount == expected
 
     def test_contract_discount_calculation_consistency(self):
@@ -119,7 +123,9 @@ class TestPropertyBasedCalculators:
 
             # Convert forward and back
             converted = MeteringCalculator.convert_units(value, from_unit, to_unit)
-            back_converted = MeteringCalculator.convert_units(converted, to_unit, from_unit)
+            back_converted = MeteringCalculator.convert_units(
+                converted, to_unit, from_unit
+            )
 
             # Should be approximately equal (accounting for floating point precision)
             assert abs(back_converted - value) < 0.0001
@@ -145,7 +151,9 @@ class TestPropertyBasedCalculators:
         for base_amount, adjustment_amount, adjustment_type in test_cases:
             # Validate amount first
             try:
-                AdjustmentCalculator.validate_adjustment_amount(adjustment_amount, adjustment_type)
+                AdjustmentCalculator.validate_adjustment_amount(
+                    adjustment_amount, adjustment_type
+                )
             except Exception:
                 # Skip invalid adjustments
                 continue
@@ -154,7 +162,9 @@ class TestPropertyBasedCalculators:
                 base_amount, adjustment_amount, adjustment_type
             )
 
-            assert final_amount >= Decimal("0"), f"Final amount {final_amount} is negative"
+            assert final_amount >= Decimal(
+                "0"
+            ), f"Final amount {final_amount} is negative"
 
     def test_billing_invoice_total_consistency(self):
         """Test that invoice totals are calculated consistently."""
@@ -238,7 +248,9 @@ class TestPropertyBasedCalculators:
 
         # Test maximum discount
         discount = Discount("Max", DiscountType.PERCENTAGE, Decimal("100"))
-        assert BillingCalculator.calculate_discount(Decimal("1000"), discount) == Decimal("1000.00")
+        assert BillingCalculator.calculate_discount(
+            Decimal("1000"), discount
+        ) == Decimal("1000.00")
 
         # Test zero original price in contract
         amount, rate = ContractValidator.calculate_discount(0, 0)

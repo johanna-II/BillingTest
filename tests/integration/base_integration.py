@@ -47,7 +47,9 @@ class BaseIntegrationTest:
             "month": month,
             "member": member,
             "clients": api_clients,
-            "managers": self._create_managers(api_clients, month, uuid, billing_group_id),
+            "managers": self._create_managers(
+                api_clients, month, uuid, billing_group_id
+            ),
         }
 
     def _create_managers(
@@ -62,7 +64,9 @@ class BaseIntegrationTest:
             "contract": ContractManager(
                 month=month, billing_group_id=billing_group_id, client=billing_client
             ),
-            "calculation": CalculationManager(month=month, uuid=uuid, client=billing_client),
+            "calculation": CalculationManager(
+                month=month, uuid=uuid, client=billing_client
+            ),
             "metering": MeteringManager(month=month, client=billing_client),
             "payment": PaymentManager(month=month, uuid=uuid, client=billing_client),
             "credit": CreditManager(uuid=uuid, client=billing_client),

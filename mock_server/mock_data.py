@@ -32,7 +32,9 @@ COMPUTE_METERING_TEMPLATE = {
 
 
 # Billing detail templates
-def generate_billing_detail(uuid: str, month: str, has_discount: bool = False) -> dict[str, Any]:
+def generate_billing_detail(
+    uuid: str, month: str, has_discount: bool = False
+) -> dict[str, Any]:
     """Generate realistic billing detail data."""
     # Calculate base amounts
     compute_amount = 120000  # 720 hours * 166.67
@@ -183,7 +185,9 @@ def generate_batch_progress(job_code: str, current_progress: int = 0) -> dict[st
 
 
 # Payment data templates
-def generate_payment_data(uuid: str, amount: int, status: str = "PAID") -> dict[str, Any]:
+def generate_payment_data(
+    uuid: str, amount: int, status: str = "PAID"
+) -> dict[str, Any]:
     """Generate payment data."""
     return {
         "paymentId": f"PAY-{uuid[:8]}",
@@ -198,7 +202,9 @@ def generate_payment_data(uuid: str, amount: int, status: str = "PAID") -> dict[
 
 
 # Adjustment data templates
-def generate_adjustment_data(uuid: str, adjustment_type: str, amount: int) -> dict[str, Any]:
+def generate_adjustment_data(
+    uuid: str, adjustment_type: str, amount: int
+) -> dict[str, Any]:
     """Generate adjustment data."""
     return {
         "adjustmentId": f"ADJ-{uuid[:8]}",

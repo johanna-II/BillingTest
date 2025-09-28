@@ -64,7 +64,9 @@ class BatchManager:
             APIRequestException: If batch request fails
         """
         # Normalize job code
-        job_code_str = job_code.value if isinstance(job_code, BatchJobCode) else job_code
+        job_code_str = (
+            job_code.value if isinstance(job_code, BatchJobCode) else job_code
+        )
 
         # Validate job code
         BatchValidator.validate_job_code(job_code_str)
@@ -92,7 +94,9 @@ class BatchManager:
         logger.info("Requesting batch job {job_code_str} for %s", self.month)
 
         try:
-            response = self._client.post(endpoint, headers=headers, json_data=batch_data)
+            response = self._client.post(
+                endpoint, headers=headers, json_data=batch_data
+            )
             logger.info("Successfully requested batch job %s", job_code_str)
             return response
         except APIRequestException as e:

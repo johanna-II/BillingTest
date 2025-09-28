@@ -22,7 +22,9 @@ class TestContractManagerExtended:
     def contract_manager(self, mock_client):
         """Create ContractManager with mocked dependencies."""
         with patch("libs.Contract.BillingAPIClient", return_value=mock_client):
-            manager = ContractManager(month="2024-01", billing_group_id="billing-group-123")
+            manager = ContractManager(
+                month="2024-01", billing_group_id="billing-group-123"
+            )
             manager._client = mock_client
             return manager
 
@@ -49,7 +51,9 @@ class TestContractManagerExtended:
             headers={"Accept": "application/json", "Content-Type": "application/json"},
         )
 
-    def test_get_contract_details_api_error(self, contract_manager, mock_client) -> None:
+    def test_get_contract_details_api_error(
+        self, contract_manager, mock_client
+    ) -> None:
         """Test get_contract_details with API error."""
         mock_client.get.side_effect = APIRequestException("API error")
 
@@ -94,16 +98,22 @@ class TestContractManagerExtended:
         assert result["discount_rate"] == approx(0.0)
         assert mock_client.get.call_count == 3
 
-    def test_get_counter_price_all_retries_fail(self, contract_manager, mock_client) -> None:
+    def test_get_counter_price_all_retries_fail(
+        self, contract_manager, mock_client
+    ) -> None:
         """Test get_counter_price when all retries fail."""
         mock_client.get.side_effect = APIRequestException("Persistent error")
 
         with pytest.raises(APIRequestException, match="Persistent error"):
-            contract_manager.get_counter_price(contract_id="contract-123", counter_name="Network")
+            contract_manager.get_counter_price(
+                contract_id="contract-123", counter_name="Network"
+            )
 
         assert mock_client.get.call_count == 3
 
-    def test_get_multiple_counter_prices_success(self, contract_manager, mock_client) -> None:
+    def test_get_multiple_counter_prices_success(
+        self, contract_manager, mock_client
+    ) -> None:
         """Test successful get_multiple_counter_prices."""
         # Mock different responses for different counters
         mock_client.get.side_effect = [
@@ -167,7 +177,10 @@ class TestContractManagerExtended:
     def test_repr(self, contract_manager) -> None:
         """Test string representation."""
         repr_str = repr(contract_manager)
-        assert repr_str == "ContractManager(month=2024-01, billing_group_id=billing-group-123)"
+        assert (
+            repr_str
+            == "ContractManager(month=2024-01, billing_group_id=billing-group-123)"
+        )
 
     def test_apply_contract_api_error(self, contract_manager, mock_client) -> None:
         """Test apply_contract with API error."""
@@ -183,7 +196,9 @@ class TestContractManagerExtended:
         with pytest.raises(APIRequestException, match="Contract deletion failed"):
             contract_manager.delete_contract()
 
-    def test_get_counter_price_zero_original_price(self, contract_manager, mock_client) -> None:
+    def test_get_counter_price_zero_original_price(
+        self, contract_manager, mock_client
+    ) -> None:
         """Test get_counter_price when original price is zero."""
         mock_response = {"prices": {"price": 0, "originalPrice": 0}}
         mock_client.get.return_value = mock_response

@@ -7,7 +7,11 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 try:
-    from libs.observability.telemetry import TelemetryManager, configure_telemetry, get_telemetry
+    from libs.observability.telemetry import (
+        TelemetryManager,
+        configure_telemetry,
+        get_telemetry,
+    )
 
     TELEMETRY_AVAILABLE = True
 except ImportError:

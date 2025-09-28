@@ -12,7 +12,11 @@ from flask import Flask, jsonify, make_response, request
 from flask_caching import Cache
 from flask_cors import CORS
 
-from .mock_data import generate_batch_progress, generate_billing_detail, generate_credit_data
+from .mock_data import (
+    generate_batch_progress,
+    generate_billing_detail,
+    generate_credit_data,
+)
 from .test_data_manager import get_data_manager
 
 # Log file constants
@@ -25,9 +29,8 @@ OPENAPI_NOT_AVAILABLE_ERROR = "OpenAPI not available"
 COMPUTE_C2_C8M8_COUNTER = "compute.c2.c8m8"
 
 try:
-    from .openapi_handler import OpenAPIHandler
+    from .openapi_handler import OpenAPIHandler, setup_openapi_handler
     from .openapi_handler import get_openapi_handler as _get_openapi_handler
-    from .openapi_handler import setup_openapi_handler
 
     OPENAPI_AVAILABLE = True
     get_openapi_handler = _get_openapi_handler
@@ -106,7 +109,9 @@ credit_data: dict[str, Any] = {}
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
-    spec_path = os.path.join(os.path.dirname(__file__), "..", "docs", "openapi", "billing-api.yaml")
+    spec_path = os.path.join(
+        os.path.dirname(__file__), "..", "docs", "openapi", "billing-api.yaml"
+    )
     if os.path.exists(spec_path):
         try:
             setup_openapi_handler(spec_path)
@@ -126,7 +131,9 @@ def create_success_response(data: dict[str, Any] | None = None) -> dict[str, Any
 
 def create_error_response(message: str, code: int = -1) -> tuple[dict[str, Any], int]:
     """Create standard error response."""
-    return {"header": {"isSuccessful": False, "resultCode": code, "resultMessage": message}}, 400
+    return {
+        "header": {"isSuccessful": False, "resultCode": code, "resultMessage": message}
+    }, 400
 
 
 # Welcome page with links
@@ -266,7 +273,9 @@ def reset_test_data():
         for key in billing_keys_to_delete:
             del billing_data[key]
 
-    return jsonify(create_success_response({"message": f"Reset data for UUID: {uuid_param}"}))
+    return jsonify(
+        create_success_response({"message": f"Reset data for UUID: {uuid_param}"})
+    )
 
 
 @app.route("/test/reset/<uuid>", methods=["DELETE"])
@@ -671,7 +680,9 @@ def cancel_campaign_credit_old3(campaign_id):
     reason = request.args.get("reason", "test")
 
     # For mock purposes, just return success
-    return jsonify(create_success_response({"campaignId": campaign_id, "reason": reason}))
+    return jsonify(
+        create_success_response({"campaignId": campaign_id, "reason": reason})
+    )
 
 
 @app.route("/billing/admin/campaign/<campaign_id>/give", methods=["POST"])
@@ -737,7 +748,9 @@ def get_remaining_credits():
 
     # Default response if no data exists
     return jsonify(
-        create_success_response({"remainingCredits": 0, "totalCredit": 0, "usedCredit": 0})
+        create_success_response(
+            {"remainingCredits": 0, "totalCredit": 0, "usedCredit": 0}
+        )
     )
 
 
@@ -878,7 +891,9 @@ def get_billing_detail():
     billing_data[billing_key] = billing_detail
 
     # Apply credits to billing
-    billing_detail, credit_to_use = _apply_credits_to_billing(billing_detail, uuid_param)
+    billing_detail, credit_to_use = _apply_credits_to_billing(
+        billing_detail, uuid_param
+    )
 
     # Prepare response data
     final_total = billing_detail.get("totalAmount", 0)
@@ -1034,7 +1049,9 @@ def _apply_credits(uuid_param, adjusted_charge):
     return adjusted_charge - credit_to_use, credit_to_use
 
 
-def _write_debug_log(uuid_param, month, metering_store, has_contract, contract_discount_rate):
+def _write_debug_log(
+    uuid_param, month, metering_store, has_contract, contract_discount_rate
+):
     """Write debug information to log file."""
     with open(METERING_LOG_FILE, "a") as f:
         f.write(
@@ -1069,7 +1086,9 @@ def get_statements():
         contract_discount_rate = higher_discount
 
     # Write debug information
-    _write_debug_log(uuid_param, month, metering_store, has_contract, contract_discount_rate)
+    _write_debug_log(
+        uuid_param, month, metering_store, has_contract, contract_discount_rate
+    )
 
     # Calculate billing amounts from metering
     compute_amount, storage_amount, network_amount = _calculate_metering_amounts(
@@ -1361,7 +1380,10 @@ def get_payment_statements_console(month):
 
     # Basic security check for malicious UUIDs
     if (
-        any(char in uuid_param for char in ["'", '"', ";", "--", "/*", "*/", "<", ">", ".."])
+        any(
+            char in uuid_param
+            for char in ["'", '"', ";", "--", "/*", "*/", "<", ">", ".."]
+        )
         or len(uuid_param) > 100
     ):
         return create_error_response("Invalid UUID format", 400)
@@ -1436,32 +1458,42 @@ def update_billing_group(billing_group_id):
         }
 
         with open(METERING_LOG_FILE, "a") as f:
-            f.write(f"Contract applied: {contract_id} to billing group {billing_group_id}\n")
+            f.write(
+                f"Contract applied: {contract_id} to billing group {billing_group_id}\n"
+            )
             f.write(f"  Contract data: {contracts[contract_id]}\n")
     elif "contracts" in data:
         # Alternative format with contracts array
         contract_list = data["contracts"]
         if contract_list:
             contract_data = contract_list[0]  # Get first contract
-            contract_id = contract_data.get("contractId", f"contract_{billing_group_id}")
+            contract_id = contract_data.get(
+                "contractId", f"contract_{billing_group_id}"
+            )
 
             # Store the contract
             contracts[contract_id] = {
                 "contractId": contract_id,
                 "billingGroupId": billing_group_id,
-                "uuid": request.headers.get("uuid", "<kr_UUID>"),  # Get UUID from header
+                "uuid": request.headers.get(
+                    "uuid", "<kr_UUID>"
+                ),  # Get UUID from header
                 "discountRate": 0.3,  # 30% discount
                 **contract_data,
             }
 
             with open(METERING_LOG_FILE, "a") as f:
-                f.write(f"Contract applied: {contract_id} to billing group {billing_group_id}\n")
+                f.write(
+                    f"Contract applied: {contract_id} to billing group {billing_group_id}\n"
+                )
                 f.write(f"  Contract data: {contracts[contract_id]}\n")
 
     return jsonify(create_success_response({"billingGroupId": billing_group_id}))
 
 
-@app.route("/billing/admin/billing-groups/<billing_group_id>/contracts", methods=["DELETE"])
+@app.route(
+    "/billing/admin/billing-groups/<billing_group_id>/contracts", methods=["DELETE"]
+)
 def delete_billing_group_contracts(billing_group_id):
     """Delete contracts from billing group."""
     # Find and delete contracts for this billing group
@@ -1477,7 +1509,9 @@ def delete_billing_group_contracts(billing_group_id):
         deleted_count += 1
 
     with open(METERING_LOG_FILE, "a") as f:
-        f.write(f"Deleted {deleted_count} contracts for billing group {billing_group_id}\n")
+        f.write(
+            f"Deleted {deleted_count} contracts for billing group {billing_group_id}\n"
+        )
 
     return jsonify(create_success_response({"deletedCount": deleted_count}))
 
@@ -1563,17 +1597,23 @@ def manage_campaign_credits(campaign_id):
     if uuid_param:
         with data_lock:
             if uuid_param not in credit_data:
-                credit_data[uuid_param] = generate_credit_data(uuid_param, 0, credit_type)
+                credit_data[uuid_param] = generate_credit_data(
+                    uuid_param, 0, credit_type
+                )
 
             current_total = credit_data[uuid_param]["totalAmount"]
             new_total = current_total + amount
-            credit_data[uuid_param] = generate_credit_data(uuid_param, new_total, credit_type)
+            credit_data[uuid_param] = generate_credit_data(
+                uuid_param, new_total, credit_type
+            )
             # Debug log
             with open("mock_credit.log", "a") as f:
                 f.write(
                     f"manage_campaign_credits - UUID: {uuid_param}, amount: {amount}, new_total: {new_total}\n"
                 )
-                f.write(f"  Credit data after grant: {credit_data.get(uuid_param, {})}\n")
+                f.write(
+                    f"  Credit data after grant: {credit_data.get(uuid_param, {})}\n"
+                )
 
     return jsonify(create_success_response({"creditId": str(uuid.uuid4())}))
 
@@ -1623,7 +1663,9 @@ def create_project_adjustment():
 
     # Store adjustment
     descriptions = data.get("descriptions", [])
-    description = descriptions[0]["message"] if descriptions else data.get("description", "")
+    description = (
+        descriptions[0]["message"] if descriptions else data.get("description", "")
+    )
 
     adjustments[adj_id] = {
         "adjustmentId": adj_id,
@@ -1650,7 +1692,8 @@ def get_billing_group_adjustments():
     filtered = []
     for adj_id, adj in adjustments.items():
         if (
-            adj.get("target") == "BillingGroup" and adj.get("billingGroupId") == billing_group_id
+            adj.get("target") == "BillingGroup"
+            and adj.get("billingGroupId") == billing_group_id
         ) and (not month or adj.get("month") == month):
             filtered.append(adj)
 
@@ -1666,7 +1709,9 @@ def create_billing_group_adjustment():
 
     # Store adjustment
     descriptions = data.get("descriptions", [])
-    description = descriptions[0]["message"] if descriptions else data.get("description", "")
+    description = (
+        descriptions[0]["message"] if descriptions else data.get("description", "")
+    )
 
     adjustments[adj_id] = {
         "adjustmentId": adj_id,
@@ -1750,7 +1795,9 @@ def reset_all_test_data():
         cache.delete_many(f"*{uuid_param}*")
 
         return jsonify(
-            create_success_response({"message": f"Test data reset for UUID: {uuid_param}"})
+            create_success_response(
+                {"message": f"Test data reset for UUID: {uuid_param}"}
+            )
         )
     # Reset all data if no UUID specified
     credit_data.clear()
@@ -1836,7 +1883,9 @@ def get_contract_v1(contract_id):
     """Get contract details (v1 API for contract compliance)."""
     if contract_id not in contracts:
         return (
-            jsonify({"error": "NOT_FOUND", "message": "Contract not found", "code": 404}),
+            jsonify(
+                {"error": "NOT_FOUND", "message": "Contract not found", "code": 404}
+            ),
             404,
         )
 
@@ -2013,8 +2062,12 @@ def update_payment_v1(payment_id):
 
     payment = billing_data[payment_id]
     payment["status"] = data.get("status", payment.get("status", "PENDING"))
-    payment["transaction_id"] = data.get("transaction_id", payment.get("transaction_id"))
-    payment["updated_at"] = data.get("completed_at", datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+    payment["transaction_id"] = data.get(
+        "transaction_id", payment.get("transaction_id")
+    )
+    payment["updated_at"] = data.get(
+        "completed_at", datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    )
 
     return jsonify(payment), 200
 

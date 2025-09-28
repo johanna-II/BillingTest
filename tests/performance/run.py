@@ -15,7 +15,9 @@ from test.test_runner import TestRunner, create_argument_parser
 def main():
     """Run performance tests."""
     parser = create_argument_parser("performance")
-    parser.add_argument("--mock-verbose", action="store_true", help="Show mock server output")
+    parser.add_argument(
+        "--mock-verbose", action="store_true", help="Show mock server output"
+    )
 
     args = parser.parse_args()
 

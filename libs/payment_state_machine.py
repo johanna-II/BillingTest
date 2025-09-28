@@ -37,7 +37,9 @@ class PaymentStateMachine:
     }
 
     @classmethod
-    def can_transition(cls, from_status: PaymentStatus, to_status: PaymentStatus) -> bool:
+    def can_transition(
+        cls, from_status: PaymentStatus, to_status: PaymentStatus
+    ) -> bool:
         """Check if a transition from one status to another is valid.
 
         Args:
@@ -50,7 +52,9 @@ class PaymentStateMachine:
         return to_status in cls.TRANSITIONS.get(from_status, [])
 
     @classmethod
-    def validate_transition(cls, from_status: PaymentStatus, to_status: PaymentStatus) -> None:
+    def validate_transition(
+        cls, from_status: PaymentStatus, to_status: PaymentStatus
+    ) -> None:
         """Validate a status transition, raising exception if invalid.
 
         Args:
@@ -147,7 +151,9 @@ class PaymentStateMachine:
         return []  # No path exists
 
     @classmethod
-    def validate_payment_action(cls, current_status: PaymentStatus, action: str) -> None:
+    def validate_payment_action(
+        cls, current_status: PaymentStatus, action: str
+    ) -> None:
         """Validate if a payment action is valid for current status.
 
         Args:
@@ -168,4 +174,6 @@ class PaymentStateMachine:
             raise ValidationException(f"Unknown payment action: {action}")
 
         if not validator(current_status):
-            raise ValidationException(f"Action '{action}' is not valid for status {current_status}")
+            raise ValidationException(
+                f"Action '{action}' is not valid for status {current_status}"
+            )

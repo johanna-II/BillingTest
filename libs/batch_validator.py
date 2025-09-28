@@ -46,13 +46,17 @@ class BatchValidator:
         """
         # Check regex pattern
         if not cls.MONTH_PATTERN.match(month):
-            raise ValidationException(f"Invalid month format: {month}. Expected YYYY-MM")
+            raise ValidationException(
+                f"Invalid month format: {month}. Expected YYYY-MM"
+            )
 
         # Validate it's a real date
         try:
             datetime.strptime(month, "%Y-%m")
         except ValueError:
-            raise ValidationException(f"Invalid month value: {month}. Must be a valid year-month")
+            raise ValidationException(
+                f"Invalid month value: {month}. Must be a valid year-month"
+            )
 
     @classmethod
     def validate_job_code(cls, job_code: str) -> None:
@@ -67,7 +71,8 @@ class BatchValidator:
         valid_codes = [code.value for code in BatchJobCode]
         if job_code not in valid_codes:
             raise ValidationException(
-                f"Invalid batch job code: {job_code}. " f"Valid codes are: {', '.join(valid_codes)}"
+                f"Invalid batch job code: {job_code}. "
+                f"Valid codes are: {', '.join(valid_codes)}"
             )
 
     @classmethod
@@ -97,11 +102,17 @@ class BatchValidator:
             True if sequence is valid
         """
         # Check billing sequence
-        if all(code in [job.value for job in cls.BILLING_JOB_SEQUENCE] for code in job_codes):
+        if all(
+            code in [job.value for job in cls.BILLING_JOB_SEQUENCE]
+            for code in job_codes
+        ):
             return True
 
         # Check payment sequence
-        if all(code in [job.value for job in cls.PAYMENT_JOB_SEQUENCE] for code in job_codes):
+        if all(
+            code in [job.value for job in cls.PAYMENT_JOB_SEQUENCE]
+            for code in job_codes
+        ):
             return True
 
         return False
@@ -147,7 +158,9 @@ class BatchValidator:
             return "other"
 
     @classmethod
-    def validate_job_dependencies(cls, job_code: str, completed_jobs: List[str]) -> None:
+    def validate_job_dependencies(
+        cls, job_code: str, completed_jobs: List[str]
+    ) -> None:
         """Validate if job dependencies are met.
 
         Args:
@@ -166,7 +179,9 @@ class BatchValidator:
                 BatchJobCode.API_CALCULATE_USAGE_AND_PRICE.value,
                 BatchJobCode.BATCH_GENERATE_STATEMENT.value,
             ],
-            BatchJobCode.BATCH_PAYMENT_REMINDER.value: [BatchJobCode.BATCH_SEND_INVOICE.value],
+            BatchJobCode.BATCH_PAYMENT_REMINDER.value: [
+                BatchJobCode.BATCH_SEND_INVOICE.value
+            ],
         }
 
         required_jobs = dependencies.get(job_code, [])

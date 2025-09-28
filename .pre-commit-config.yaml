@@ -4,20 +4,15 @@
 # Run: pre-commit run --all-files
 
 repos:
-  # Black - Code formatter
-  - repo: https://github.com/psf/black
-    rev: 23.12.1
-    hooks:
-      - id: black
-        language_version: python3.12
-        args: ['--line-length=100']
-
-  # Ruff - Fast Python linter
+  # Ruff - Fast Python linter and formatter (replaces black, isort, and more)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.9
     hooks:
+      # Run the linter first
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
+      # Then run the formatter
+      - id: ruff-format
 
   # MyPy - Static type checker
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -60,13 +55,6 @@ repos:
         args: ['-ll', '-r', 'libs/']
         files: ^libs/
 
-  # Import sorting
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ['--profile', 'black', '--line-length', '100']
-
   # Unit test runner (fast feedback)
   - repo: local
     hooks:
@@ -75,7 +63,7 @@ repos:
         entry: python -m pytest tests/unit/ -x --tb=short -q --disable-warnings -k "not slow"
         language: system
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
 # Configuration for specific tools
 default_language_version:

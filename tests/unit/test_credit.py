@@ -107,7 +107,9 @@ class TestCreditAPIClient:
         }
         self.mock_client.get.return_value = mock_response
 
-        result = self.credit_api.get_credit_history("uuid-123", credit_type=CreditType.FREE)
+        result = self.credit_api.get_credit_history(
+            "uuid-123", credit_type=CreditType.FREE
+        )
 
         assert result == mock_response
         self.mock_client.get.assert_called_once_with(
@@ -250,7 +252,9 @@ class TestCreditManagerBase:
     def setup(self) -> None:
         """Set up test fixtures."""
         self.mock_client = Mock()
-        self.credit_manager = CreditManager(uuid="test-uuid-123", client=self.mock_client)
+        self.credit_manager = CreditManager(
+            uuid="test-uuid-123", client=self.mock_client
+        )
         self.mock_api_client = self.credit_manager._api
 
     def test_grant_credit_to_users_success(self) -> None:
@@ -261,7 +265,9 @@ class TestCreditManagerBase:
             "totalCredit": 1000,
         }
 
-        result = self.credit_manager.bulk_grant_credit(campaign_ids=["CAMP-123"], amount=1000)
+        result = self.credit_manager.bulk_grant_credit(
+            campaign_ids=["CAMP-123"], amount=1000
+        )
 
         assert "CAMP-123" in result
         assert not isinstance(result["CAMP-123"], Exception)
@@ -397,7 +403,9 @@ class TestCreditManager:
     def setup(self) -> None:
         """Set up test fixtures."""
         self.mock_client = Mock()
-        self.credit_manager = CreditManager(uuid="test-uuid-123", client=self.mock_client)
+        self.credit_manager = CreditManager(
+            uuid="test-uuid-123", client=self.mock_client
+        )
         self.mock_api_client = self.credit_manager._api
 
     def test_credit_manager_inherits_base(self) -> None:

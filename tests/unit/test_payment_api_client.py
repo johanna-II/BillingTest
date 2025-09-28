@@ -47,7 +47,9 @@ class TestPaymentAPIClient:
 
     def test_change_status(self, client, mock_response) -> None:
         """Test change_status method."""
-        with patch.object(client, "put", return_value={"status": "changed"}) as mock_put:
+        with patch.object(
+            client, "put", return_value={"status": "changed"}
+        ) as mock_put:
             result = client.change_status("2024-01", "pg-123", "PAID")
 
             assert result == {"status": "changed"}
@@ -58,7 +60,9 @@ class TestPaymentAPIClient:
 
     def test_cancel_payment(self, client, mock_response) -> None:
         """Test cancel_payment method."""
-        with patch.object(client, "delete", return_value={"status": "cancelled"}) as mock_delete:
+        with patch.object(
+            client, "delete", return_value={"status": "cancelled"}
+        ) as mock_delete:
             result = client.cancel_payment("2024-01", "pg-123")
 
             assert result == {"status": "cancelled"}
@@ -68,7 +72,9 @@ class TestPaymentAPIClient:
 
     def test_make_payment(self, client, mock_response) -> None:
         """Test make_payment method."""
-        with patch.object(client, "post", return_value={"paymentId": "pay-123"}) as mock_post:
+        with patch.object(
+            client, "post", return_value={"paymentId": "pay-123"}
+        ) as mock_post:
             result = client.make_payment("2024-01", "pg-123", "test-uuid")
 
             assert result == {"paymentId": "pay-123"}
@@ -93,7 +99,9 @@ class TestPaymentAPIClient:
 
     def test_create_payment(self, client, mock_response) -> None:
         """Test create_payment method."""
-        with patch.object(client, "post", return_value={"paymentId": "new-123"}) as mock_post:
+        with patch.object(
+            client, "post", return_value={"paymentId": "new-123"}
+        ) as mock_post:
             result = client.create_payment("pg-123", 1000.0, "CREDIT_CARD")
 
             assert result == {"paymentId": "new-123"}
@@ -108,7 +116,9 @@ class TestPaymentAPIClient:
 
     def test_get_payment_details(self, client, mock_response) -> None:
         """Test get_payment_details method."""
-        with patch.object(client, "get", return_value={"paymentId": "pay-123"}) as mock_get:
+        with patch.object(
+            client, "get", return_value={"paymentId": "pay-123"}
+        ) as mock_get:
             result = client.get_payment_details("pay-123")
 
             assert result == {"paymentId": "pay-123"}
@@ -116,7 +126,9 @@ class TestPaymentAPIClient:
 
     def test_process_refund(self, client, mock_response) -> None:
         """Test process_refund method."""
-        with patch.object(client, "post", return_value={"refundId": "ref-123"}) as mock_post:
+        with patch.object(
+            client, "post", return_value={"refundId": "ref-123"}
+        ) as mock_post:
             result = client.process_refund("pay-123", 500.0, "Customer request")
 
             assert result == {"refundId": "ref-123"}
@@ -131,7 +143,9 @@ class TestPaymentAPIClient:
 
     def test_get_payment_history(self, client, mock_response) -> None:
         """Test get_payment_history method."""
-        with patch.object(client, "get", return_value={"payments": [{"id": "pay-1"}]}) as mock_get:
+        with patch.object(
+            client, "get", return_value={"payments": [{"id": "pay-1"}]}
+        ) as mock_get:
             result = client.get_payment_history(
                 payment_group_id="pg-123",
                 start_date="2024-01-01",
@@ -150,7 +164,9 @@ class TestPaymentAPIClient:
 
     def test_retry_payment(self, client, mock_response) -> None:
         """Test retry_payment method."""
-        with patch.object(client, "post", return_value={"status": "retried"}) as mock_post:
+        with patch.object(
+            client, "post", return_value={"status": "retried"}
+        ) as mock_post:
             result = client.retry_payment("pay-123", 2)
 
             assert result == {"status": "retried"}
@@ -161,7 +177,9 @@ class TestPaymentAPIClient:
     def test_batch_process_payments(self, client, mock_response) -> None:
         """Test batch_process_payments method."""
         with patch.object(client, "post", return_value={"processed": 3}) as mock_post:
-            result = client.batch_process_payments(["pay-1", "pay-2", "pay-3"], "process")
+            result = client.batch_process_payments(
+                ["pay-1", "pay-2", "pay-3"], "process"
+            )
 
             assert result == {"processed": 3}
             mock_post.assert_called_once_with(

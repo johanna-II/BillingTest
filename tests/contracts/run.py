@@ -15,8 +15,12 @@ from test.test_runner import TestRunner, create_argument_parser
 def main():
     """Run contract tests."""
     parser = create_argument_parser("contracts")
-    parser.add_argument("--provider", action="store_true", help="Run provider tests only")
-    parser.add_argument("--consumer", action="store_true", help="Run consumer tests only")
+    parser.add_argument(
+        "--provider", action="store_true", help="Run provider tests only"
+    )
+    parser.add_argument(
+        "--consumer", action="store_true", help="Run consumer tests only"
+    )
 
     args = parser.parse_args()
 

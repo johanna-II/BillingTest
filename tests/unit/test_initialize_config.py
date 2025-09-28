@@ -6,7 +6,11 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from libs.exceptions import ConfigurationException
-from libs.InitializeConfig import ConfigurationManager, EnvironmentConfig, ModuleConfigLoader
+from libs.InitializeConfig import (
+    ConfigurationManager,
+    EnvironmentConfig,
+    ModuleConfigLoader,
+)
 
 
 class TestConfigurationManagerUnit:
@@ -92,7 +96,11 @@ class TestConfigurationManagerUnit:
         mock_module.config = mock_config
         # Ensure hasattr returns True for 'config' and False for 'test_config'
         mock_module.__dict__["config"] = mock_config
-        (delattr(mock_module, "test_config") if hasattr(mock_module, "test_config") else None)
+        (
+            delattr(mock_module, "test_config")
+            if hasattr(mock_module, "test_config")
+            else None
+        )
         mock_import.return_value = mock_module
 
         loader = ModuleConfigLoader()

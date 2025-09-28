@@ -22,7 +22,9 @@ class TestAdjustmentCalculator:
     def test_validate_adjustment_amount_negative(self):
         """Test validation rejects negative amounts."""
         with pytest.raises(ValidationException, match="cannot be negative"):
-            AdjustmentCalculator.validate_adjustment_amount(-100, AdjustmentType.FIXED_DISCOUNT)
+            AdjustmentCalculator.validate_adjustment_amount(
+                -100, AdjustmentType.FIXED_DISCOUNT
+            )
 
         with pytest.raises(ValidationException, match="cannot be negative"):
             AdjustmentCalculator.validate_adjustment_amount(
@@ -32,28 +34,44 @@ class TestAdjustmentCalculator:
     def test_validate_adjustment_amount_rate_discount(self):
         """Test rate discount validation."""
         # Valid rates
-        AdjustmentCalculator.validate_adjustment_amount(50, AdjustmentType.RATE_DISCOUNT)
-        AdjustmentCalculator.validate_adjustment_amount(100, AdjustmentType.RATE_DISCOUNT)
+        AdjustmentCalculator.validate_adjustment_amount(
+            50, AdjustmentType.RATE_DISCOUNT
+        )
+        AdjustmentCalculator.validate_adjustment_amount(
+            100, AdjustmentType.RATE_DISCOUNT
+        )
 
         # Invalid rate
         with pytest.raises(ValidationException, match="cannot exceed 100%"):
-            AdjustmentCalculator.validate_adjustment_amount(150, AdjustmentType.RATE_DISCOUNT)
+            AdjustmentCalculator.validate_adjustment_amount(
+                150, AdjustmentType.RATE_DISCOUNT
+            )
 
     def test_validate_adjustment_amount_rate_surcharge(self):
         """Test rate surcharge validation."""
         # Valid rates
-        AdjustmentCalculator.validate_adjustment_amount(50, AdjustmentType.RATE_SURCHARGE)
-        AdjustmentCalculator.validate_adjustment_amount(200, AdjustmentType.RATE_SURCHARGE)
+        AdjustmentCalculator.validate_adjustment_amount(
+            50, AdjustmentType.RATE_SURCHARGE
+        )
+        AdjustmentCalculator.validate_adjustment_amount(
+            200, AdjustmentType.RATE_SURCHARGE
+        )
 
         # Invalid rate
         with pytest.raises(ValidationException, match="cannot exceed 200%"):
-            AdjustmentCalculator.validate_adjustment_amount(250, AdjustmentType.RATE_SURCHARGE)
+            AdjustmentCalculator.validate_adjustment_amount(
+                250, AdjustmentType.RATE_SURCHARGE
+            )
 
     def test_validate_adjustment_amount_fixed(self):
         """Test fixed adjustment validation."""
         # Valid amounts
-        AdjustmentCalculator.validate_adjustment_amount(1000, AdjustmentType.FIXED_DISCOUNT)
-        AdjustmentCalculator.validate_adjustment_amount(999999999, AdjustmentType.FIXED_SURCHARGE)
+        AdjustmentCalculator.validate_adjustment_amount(
+            1000, AdjustmentType.FIXED_DISCOUNT
+        )
+        AdjustmentCalculator.validate_adjustment_amount(
+            999999999, AdjustmentType.FIXED_SURCHARGE
+        )
 
         # Invalid amount
         with pytest.raises(ValidationException, match="cannot exceed"):
@@ -148,15 +166,21 @@ class TestAdjustmentCalculator:
     def test_calculate_effective_rate(self):
         """Test effective rate calculation."""
         # 20% discount
-        rate = AdjustmentCalculator.calculate_effective_rate(Decimal("1000"), Decimal("800"))
+        rate = AdjustmentCalculator.calculate_effective_rate(
+            Decimal("1000"), Decimal("800")
+        )
         assert rate == Decimal("20.00")
 
         # 10% surcharge
-        rate = AdjustmentCalculator.calculate_effective_rate(Decimal("1000"), Decimal("1100"))
+        rate = AdjustmentCalculator.calculate_effective_rate(
+            Decimal("1000"), Decimal("1100")
+        )
         assert rate == Decimal("10.00")
 
         # Zero original amount
-        rate = AdjustmentCalculator.calculate_effective_rate(Decimal("0"), Decimal("100"))
+        rate = AdjustmentCalculator.calculate_effective_rate(
+            Decimal("0"), Decimal("100")
+        )
         assert rate == Decimal("0.00")
 
     def test_estimate_impact(self):

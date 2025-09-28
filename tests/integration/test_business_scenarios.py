@@ -91,7 +91,9 @@ class TestComplexBillingScenarios(BaseIntegrationTest):
             final_amount = max(0, charge_after_discount - credit_amount)
             logger.info(f"Expected final amount after credit: {final_amount}")
 
-    def test_multiple_adjustments_with_unpaid_handling(self, test_context, test_app_keys):
+    def test_multiple_adjustments_with_unpaid_handling(
+        self, test_context, test_app_keys
+    ):
         """Test handling of multiple adjustments with unpaid amounts.
 
         Scenario:
@@ -315,7 +317,9 @@ class TestComplexBillingScenarios(BaseIntegrationTest):
 
             # The actual charge should reflect tiered pricing and discount
             actual_charge = statement.get("charge", 0)
-            logger.info(f"Expected charge: {expected_after_discount}, Actual: {actual_charge}")
+            logger.info(
+                f"Expected charge: {expected_after_discount}, Actual: {actual_charge}"
+            )
 
     def test_end_to_end_billing_cycle(self, test_context, test_app_keys):
         """Test complete billing cycle from metering to payment.
@@ -404,5 +408,7 @@ class TestComplexBillingScenarios(BaseIntegrationTest):
                 payment_group_id = statement.get("paymentGroupId")
                 if payment_group_id:
                     # Change status to simulate payment
-                    status_result = managers["payment"].change_payment_status(payment_group_id)
+                    status_result = managers["payment"].change_payment_status(
+                        payment_group_id
+                    )
                     logger.info(f"Payment status changed: {status_result}")

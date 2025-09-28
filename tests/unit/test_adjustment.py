@@ -19,7 +19,9 @@ class TestAdjustmentManager:
     def setup(self) -> None:
         """Set up test fixtures."""
         self.mock_client = Mock()
-        self.adjustment_manager = AdjustmentManager(month="2024-01", client=self.mock_client)
+        self.adjustment_manager = AdjustmentManager(
+            month="2024-01", client=self.mock_client
+        )
 
     def test_initialization(self) -> None:
         """Test AdjustmentManager initialization."""
@@ -77,7 +79,9 @@ class TestAdjustmentManager:
         expected_data = {
             "adjustment": 50.0,
             "adjustmentTypeCode": "RATE_DISCOUNT",
-            "descriptions": [{"locale": "ko_KR", "message": "QA billing automation test"}],
+            "descriptions": [
+                {"locale": "ko_KR", "message": "QA billing automation test"}
+            ],
             "monthFrom": "2024-01",
             "monthTo": "2024-01",
             "adjustmentId": None,
@@ -180,7 +184,9 @@ class TestAdjustmentManager:
         self.mock_client.get.side_effect = APIRequestException("API error")
 
         with pytest.raises(APIRequestException):
-            self.adjustment_manager.get_adjustments(AdjustmentTarget.PROJECT, "proj-123")
+            self.adjustment_manager.get_adjustments(
+                AdjustmentTarget.PROJECT, "proj-123"
+            )
 
     # Delete adjustments tests
     def test_delete_adjustments_success(self) -> None:
@@ -188,7 +194,9 @@ class TestAdjustmentManager:
         self.mock_client.delete.return_value = None
 
         adjustment_ids = ["adj-001", "adj-002"]
-        self.adjustment_manager.delete_adjustment(adjustment_ids, AdjustmentTarget.PROJECT)
+        self.adjustment_manager.delete_adjustment(
+            adjustment_ids, AdjustmentTarget.PROJECT
+        )
 
         assert self.mock_client.delete.call_count == 2  # Called twice for 2 IDs
 
@@ -197,7 +205,9 @@ class TestAdjustmentManager:
         self.mock_client.delete.side_effect = APIRequestException("API error")
 
         with pytest.raises(APIRequestException):
-            self.adjustment_manager.delete_adjustment(["adj-001"], AdjustmentTarget.PROJECT)
+            self.adjustment_manager.delete_adjustment(
+                ["adj-001"], AdjustmentTarget.PROJECT
+            )
 
     # Edge cases
     def test_apply_adjustment_percentage_bounds(self) -> None:
@@ -264,7 +274,9 @@ class TestAdjustmentManagerIntegration:
     def setup(self) -> None:
         """Set up test fixtures."""
         self.mock_client = Mock()
-        self.adjustment_manager = AdjustmentManager(month="2024-01", client=self.mock_client)
+        self.adjustment_manager = AdjustmentManager(
+            month="2024-01", client=self.mock_client
+        )
 
     def test_multiple_adjustments_workflow(self) -> None:
         """Test workflow with multiple adjustments."""

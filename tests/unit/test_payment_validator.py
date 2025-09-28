@@ -45,19 +45,27 @@ class TestPaymentValidator:
 
     def test_validate_payment_group_id_invalid(self):
         """Test invalid payment group IDs."""
-        with pytest.raises(ValidationException, match="Payment group ID cannot be empty"):
+        with pytest.raises(
+            ValidationException, match="Payment group ID cannot be empty"
+        ):
             PaymentValidator.validate_payment_group_id("")
 
-        with pytest.raises(ValidationException, match="Payment group ID cannot be empty"):
+        with pytest.raises(
+            ValidationException, match="Payment group ID cannot be empty"
+        ):
             PaymentValidator.validate_payment_group_id(None)
 
     def test_status_transition_valid(self):
         """Test valid payment status transitions."""
         # PENDING -> REGISTERED
-        assert PaymentValidator.is_valid_transition(PaymentStatus.PENDING, PaymentStatus.REGISTERED)
+        assert PaymentValidator.is_valid_transition(
+            PaymentStatus.PENDING, PaymentStatus.REGISTERED
+        )
 
         # REGISTERED -> PAID
-        assert PaymentValidator.is_valid_transition(PaymentStatus.REGISTERED, PaymentStatus.PAID)
+        assert PaymentValidator.is_valid_transition(
+            PaymentStatus.REGISTERED, PaymentStatus.PAID
+        )
 
         # REGISTERED -> CANCELLED
         assert PaymentValidator.is_valid_transition(
@@ -67,13 +75,19 @@ class TestPaymentValidator:
     def test_status_transition_invalid(self):
         """Test invalid payment status transitions."""
         # Cannot go backwards
-        assert not PaymentValidator.is_valid_transition(PaymentStatus.PAID, PaymentStatus.PENDING)
+        assert not PaymentValidator.is_valid_transition(
+            PaymentStatus.PAID, PaymentStatus.PENDING
+        )
 
         # Cannot skip states
-        assert not PaymentValidator.is_valid_transition(PaymentStatus.PENDING, PaymentStatus.PAID)
+        assert not PaymentValidator.is_valid_transition(
+            PaymentStatus.PENDING, PaymentStatus.PAID
+        )
 
         # Cannot change from final states
-        assert not PaymentValidator.is_valid_transition(PaymentStatus.PAID, PaymentStatus.CANCELLED)
+        assert not PaymentValidator.is_valid_transition(
+            PaymentStatus.PAID, PaymentStatus.CANCELLED
+        )
 
     def test_validate_amount_valid(self):
         """Test valid payment amounts."""

@@ -126,7 +126,9 @@ class Payment:
             status=PaymentStatus(kwargs["status"]),
             method=str(kwargs.get("method", "CREDIT_CARD")),
             transaction_id=(
-                kwargs.get("transaction_id") if kwargs.get("transaction_id") is not None else None
+                kwargs.get("transaction_id")
+                if kwargs.get("transaction_id") is not None
+                else None
             ),
             created_at=kwargs.get("created_at", datetime.now()),
             paid_at=kwargs.get("paid_at"),

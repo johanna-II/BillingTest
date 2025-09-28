@@ -108,7 +108,9 @@ class BillingCalculator:
         Returns:
             Rounded amount
         """
-        return amount.quantize(Decimal(f"0.{'0' * cls.DECIMAL_PLACES}"), rounding=ROUND_HALF_UP)
+        return amount.quantize(
+            Decimal(f"0.{'0' * cls.DECIMAL_PLACES}"), rounding=ROUND_HALF_UP
+        )
 
     @classmethod
     def calculate_discount(cls, base_amount: Decimal, discount: Discount) -> Decimal:
@@ -179,7 +181,9 @@ class BillingCalculator:
         return cls.round_amount(current_amount), cls.round_amount(total_discount)
 
     @classmethod
-    def calculate_tiered_pricing(cls, quantity: Decimal, tier_rules: List[TierRule]) -> Decimal:
+    def calculate_tiered_pricing(
+        cls, quantity: Decimal, tier_rules: List[TierRule]
+    ) -> Decimal:
         """Calculate price using tiered pricing rules.
 
         Args:
@@ -201,7 +205,9 @@ class BillingCalculator:
 
             # Determine the quantity for this tier
             if rule.max_quantity:
-                tier_quantity = min(remaining_quantity, rule.max_quantity - rule.min_quantity + 1)
+                tier_quantity = min(
+                    remaining_quantity, rule.max_quantity - rule.min_quantity + 1
+                )
             else:
                 # Last tier - use all remaining
                 tier_quantity = remaining_quantity
@@ -273,7 +279,9 @@ class BillingCalculator:
         invoice_discounts = Decimal("0")
         if discounts:
             discountable_amount = subtotal - item_discounts
-            _, invoice_discounts = cls.apply_multiple_discounts(discountable_amount, discounts)
+            _, invoice_discounts = cls.apply_multiple_discounts(
+                discountable_amount, discounts
+            )
 
         # Calculate taxable amount
         total_discounts = item_discounts + invoice_discounts
@@ -364,7 +372,9 @@ class BillingCalculator:
         return cls.round_amount(interest)
 
     @classmethod
-    def distribute_amount(cls, total_amount: Decimal, weights: List[Decimal]) -> List[Decimal]:
+    def distribute_amount(
+        cls, total_amount: Decimal, weights: List[Decimal]
+    ) -> List[Decimal]:
         """Distribute an amount according to weights.
 
         Ensures the sum equals the total amount exactly (handles rounding).

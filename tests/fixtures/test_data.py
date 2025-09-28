@@ -9,7 +9,15 @@ import uuid
 
 import pytest
 
-from libs import Batch, Calculation, Contract, Credit, InitializeConfig, Metering, Payments
+from libs import (
+    Batch,
+    Calculation,
+    Contract,
+    Credit,
+    InitializeConfig,
+    Metering,
+    Payments,
+)
 
 
 @pytest.fixture
@@ -161,7 +169,9 @@ def _reset_mock_server_data(uuid_param: str) -> None:
     try:
         # Get mock server URL from environment or use default
         mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
-        response = requests.post(f"{mock_url}/test/reset", json={"uuid": uuid_param}, timeout=1)
+        response = requests.post(
+            f"{mock_url}/test/reset", json={"uuid": uuid_param}, timeout=1
+        )
         # Status code check removed - no action needed regardless of status
     except Exception:
         pass

@@ -66,9 +66,13 @@ def run_integration_tests(args):
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Run integration tests with optimizations")
+    parser = argparse.ArgumentParser(
+        description="Run integration tests with optimizations"
+    )
 
-    parser.add_argument("--parallel", "-n", action="store_true", help="Run tests in parallel")
+    parser.add_argument(
+        "--parallel", "-n", action="store_true", help="Run tests in parallel"
+    )
 
     parser.add_argument(
         "--workers",
@@ -86,7 +90,9 @@ def main():
 
     parser.add_argument("--test-function", "-k", help="Specific test function to run")
 
-    parser.add_argument("--coverage", "-c", action="store_true", help="Run with coverage report")
+    parser.add_argument(
+        "--coverage", "-c", action="store_true", help="Run with coverage report"
+    )
 
     parser.add_argument("--slow", action="store_false", help="Skip slow tests")
 

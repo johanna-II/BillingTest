@@ -41,9 +41,13 @@ class TelemetryPlugin:
                 attributes={
                     TEST_NAME_ATTR: item.name,
                     "test.file": str(item.fspath),
-                    "test.class": (item.cls.__name__ if hasattr(item, "cls") and item.cls else ""),
+                    "test.class": (
+                        item.cls.__name__ if hasattr(item, "cls") and item.cls else ""
+                    ),
                     "test.module": (
-                        item.module.__name__ if hasattr(item, "module") and item.module else ""
+                        item.module.__name__
+                        if hasattr(item, "module") and item.module
+                        else ""
                     ),
                     "test.markers": [marker.name for marker in item.iter_markers()],
                 },
@@ -51,7 +55,9 @@ class TelemetryPlugin:
             self.test_spans[test_name] = span
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_makereport(self, item: Item, call: CallInfo) -> Generator[None, None, None]:
+    def pytest_runtest_makereport(
+        self, item: Item, call: CallInfo
+    ) -> Generator[None, None, None]:
         """Called after test execution."""
         outcome = yield
         if outcome is None:
@@ -124,7 +130,9 @@ class TelemetryPlugin:
         """Called at test session end."""
         if hasattr(self, "session_span"):
             self.session_span.set_attribute("session.exitstatus", exitstatus)
-            self.session_span.set_attribute("session.testscollected", session.testscollected)
+            self.session_span.set_attribute(
+                "session.testscollected", session.testscollected
+            )
             self.session_span.set_attribute("session.testsfailed", session.testsfailed)
             self.session_span.end()
 

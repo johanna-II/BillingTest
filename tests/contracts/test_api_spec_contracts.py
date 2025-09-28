@@ -75,7 +75,9 @@ class TestOpenAPIContracts:
                 }
             ),
             "total_amount": Like(100.0),
-            "created_at": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:00Z"),
+            "created_at": Term(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:00Z"
+            ),
             "billing_period": {
                 "start": Term(r"\d{4}-\d{2}-\d{2}", "2024-01-01"),
                 "end": Term(r"\d{4}-\d{2}-\d{2}", "2024-01-31"),
@@ -119,7 +121,9 @@ class TestOpenAPIContracts:
             "currency": Like(credit_request["currency"]),
             "type": Like(credit_request["type"]),
             "status": Term(r"(PENDING|APPROVED|REJECTED)", "APPROVED"),
-            "created_at": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:00Z"),
+            "created_at": Term(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:00Z"
+            ),
             "expires_at": Like(credit_request["expires_at"]),
         }
 
@@ -156,7 +160,9 @@ class TestOpenAPIContracts:
             "app_key": Like(metering_data["app_key"]),
             "status": Like("ACCEPTED"),
             "message": Like("Metering data recorded successfully"),
-            "timestamp": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:01Z"),
+            "timestamp": Term(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:01Z"
+            ),
         }
 
         (
@@ -214,7 +220,9 @@ class TestOpenAPIContracts:
         with pact:
             PaymentManager("2024-01", "USER001", client=api_client)
             # Test getting statements through the API
-            response = api_client.get("/api/v1/payments/statements", params=query_params)
+            response = api_client.get(
+                "/api/v1/payments/statements", params=query_params
+            )
 
             assert "statements" in response
             assert len(response["statements"]) > 0
@@ -238,7 +246,9 @@ class TestOpenAPIContracts:
             "job_id": Term(r"[0-9a-f-]+", "job-123456"),
             "job_type": Like(batch_request["job_type"]),
             "status": Term(r"(PENDING|RUNNING|COMPLETED|FAILED)", "PENDING"),
-            "created_at": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:00Z"),
+            "created_at": Term(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "2024-01-15T10:00:00Z"
+            ),
             "scheduled_at": Like(batch_request["scheduled_at"]),
             "parameters": Like(batch_request["parameters"]),
         }

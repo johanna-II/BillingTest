@@ -43,7 +43,9 @@ class TestRunner:
             if python_dir not in process_env["PATH"]:
                 process_env["PATH"] = f"{python_dir}{os.pathsep}{process_env['PATH']}"
 
-        result = subprocess.run(cmd, env=process_env, check=False, cwd=str(self.project_root))
+        result = subprocess.run(
+            cmd, env=process_env, check=False, cwd=str(self.project_root)
+        )
         return result.returncode
 
     def run_unit_tests(self, parallel: bool = True) -> int:
@@ -64,7 +66,9 @@ class TestRunner:
 
         return self.run_command(cmd)
 
-    def run_integration_tests(self, use_mock: bool = True, parallel: bool = True) -> int:
+    def run_integration_tests(
+        self, use_mock: bool = True, parallel: bool = True
+    ) -> int:
         """Run integration tests."""
         cmd = ["pytest", "tests/integration/", "-v", TB_SHORT]
 
@@ -240,7 +244,9 @@ def main():
         # 2. Integration tests (medium speed, may use mock)
         print("\n📋 Phase 2/3: INTEGRATION TESTS")
         int_start = datetime.now()
-        int_code = runner.run_integration_tests(use_mock_for_integration, not args.no_parallel)
+        int_code = runner.run_integration_tests(
+            use_mock_for_integration, not args.no_parallel
+        )
         int_duration = (datetime.now() - int_start).total_seconds()
         exit_codes.append(int_code)
 

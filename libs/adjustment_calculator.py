@@ -35,7 +35,9 @@ class AdjustmentCalculator:
         Returns:
             Rounded amount
         """
-        return amount.quantize(Decimal(f"0.{'0' * cls.DECIMAL_PLACES}"), rounding=ROUND_HALF_UP)
+        return amount.quantize(
+            Decimal(f"0.{'0' * cls.DECIMAL_PLACES}"), rounding=ROUND_HALF_UP
+        )
 
     @classmethod
     def validate_adjustment_amount(
@@ -68,9 +70,13 @@ class AdjustmentCalculator:
         if "RATE" in type_str:
             # Rate-based adjustments
             if "DISCOUNT" in type_str and decimal_amount > cls.MAX_DISCOUNT_RATE:
-                raise ValidationException(f"Rate discount cannot exceed {cls.MAX_DISCOUNT_RATE}%")
+                raise ValidationException(
+                    f"Rate discount cannot exceed {cls.MAX_DISCOUNT_RATE}%"
+                )
             elif "SURCHARGE" in type_str and decimal_amount > cls.MAX_SURCHARGE_RATE:
-                raise ValidationException(f"Rate surcharge cannot exceed {cls.MAX_SURCHARGE_RATE}%")
+                raise ValidationException(
+                    f"Rate surcharge cannot exceed {cls.MAX_SURCHARGE_RATE}%"
+                )
         else:
             # Fixed adjustments
             if decimal_amount > cls.MAX_FIXED_ADJUSTMENT:
@@ -137,7 +143,9 @@ class AdjustmentCalculator:
         Returns:
             Tuple of (final_amount, adjustment_value)
         """
-        adjustment_value = cls.calculate_adjustment(base_amount, adjustment_amount, adjustment_type)
+        adjustment_value = cls.calculate_adjustment(
+            base_amount, adjustment_amount, adjustment_type
+        )
 
         # Calculate final amount
         final_amount = base_amount - adjustment_value

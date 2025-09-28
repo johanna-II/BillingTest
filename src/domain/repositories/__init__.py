@@ -61,7 +61,9 @@ class AdjustmentRepository(ABC):
         """Find adjustments for a billing group."""
 
     @abstractmethod
-    def find_by_project(self, project_id: str, effective_date: datetime) -> list[Adjustment]:
+    def find_by_project(
+        self, project_id: str, effective_date: datetime
+    ) -> list[Adjustment]:
         """Find adjustments for a project."""
 
     @abstractmethod
@@ -97,7 +99,9 @@ class ContractRepository(ABC):
     """Repository interface for contracts."""
 
     @abstractmethod
-    def find_active_contract(self, billing_group_id: str, as_of_date: datetime) -> Contract | None:
+    def find_active_contract(
+        self, billing_group_id: str, as_of_date: datetime
+    ) -> Contract | None:
         """Find active contract for a billing group."""
 
     @abstractmethod
