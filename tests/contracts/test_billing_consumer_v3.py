@@ -1,10 +1,11 @@
 """Consumer contract tests for Billing API interactions using Pact Python v3."""
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from pact import EachLike, Format, Like, Pact, Term
+from pytest import approx
 
 # Pact configuration
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
@@ -127,7 +128,7 @@ class TestContractBilling:
             data = response.json()
             assert data["status"] == "ACTIVE"
             assert data["customer_id"] == "CUST001"
-            assert data["amount"] == 500.0
+            assert data["amount"] == approx(500.0)
 
     def test_meter_submission(self, pact):
         """Test meter data submission."""
@@ -169,7 +170,7 @@ class TestContractBilling:
                     "meter_name": "cpu.usage",
                     "value": 85.5,
                     "unit": "percent",
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "metadata": {"region": "us-east-1", "instance_type": "t2.micro"},
                 },
             )

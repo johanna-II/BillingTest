@@ -3,11 +3,14 @@ import os
 
 USE_MOCK_SERVER = os.environ.get("USE_MOCK_SERVER", "false").lower() == "true"
 
+# Define base mock server URL constant
+MOCK_SERVER_BASE_URL = "http://localhost:5000"
+
 if USE_MOCK_SERVER:
     # Use mock server URLs
-    BASE_BILLING_URL = "http://localhost:5000"
-    BASE_METERING_URL = "http://localhost:5000"
-    BASE_CAP_URL = "http://localhost:5000"
+    BASE_BILLING_URL = MOCK_SERVER_BASE_URL
+    BASE_METERING_URL = MOCK_SERVER_BASE_URL
+    BASE_CAP_URL = MOCK_SERVER_BASE_URL
 else:
     # Default production URLs
     BASE_BILLING_URL = "https://billingtest.internal.com"

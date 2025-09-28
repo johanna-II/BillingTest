@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import threading
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from flask import Flask, jsonify, make_response, request
@@ -18,6 +18,12 @@ from .mock_data import (
     generate_credit_data,
 )
 from .test_data_manager import get_data_manager
+
+# Log file constants
+METERING_LOG_FILE = "mock_metering.log"
+
+# Error messages
+OPENAPI_NOT_AVAILABLE_ERROR = "OpenAPI not available"
 
 try:
     from .openapi_handler import OpenAPIHandler, setup_openapi_handler
@@ -229,7 +235,7 @@ def welcome() -> str:
 def health():
     """Health check endpoint."""
     return create_success_response(
-        {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+        {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
     )
 
 
@@ -282,7 +288,7 @@ def reset_test_data_by_uuid(uuid):
     for contract_id in contracts_to_delete:
         del contracts[contract_id]
 
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(f"Reset test data for UUID: {uuid}\n")
 
     return create_success_response({"message": f"Test data reset for UUID: {uuid}"})
@@ -327,7 +333,7 @@ def create_metering():
             }
             meter_ids.append(meter_id)
 
-        with open("mock_metering.log", "a") as f:
+        with open(METERING_LOG_FILE, "a") as f:
             f.write(
                 f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n"
             )
@@ -779,7 +785,7 @@ def get_billing_detail():
             compute_amount += int(volume)
 
     # Debug logging
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(
             f"Billing calculation - UUID: {uuid_param}, metering_store_size: {len(metering_store)}, "
             f"metering_count: {metering_count}, compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
@@ -920,7 +926,7 @@ def get_statements():
             contract_discount_rate = 0.4
 
     # Debug logging
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(
             f"get_statements - UUID: {uuid_param}, month: {month}, metering_store_size: {len(metering_store)}\n"
         )
@@ -979,7 +985,7 @@ def get_statements():
             network_amount += int(volume * 25)
 
     # Debug logging - final amounts
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(
             f"  Final amounts - compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
         )
@@ -1365,20 +1371,20 @@ def update_billing_group(billing_group_id):
     """Update billing group (for applying contracts)."""
     data = request.json or {}
 
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(f"update_billing_group called - billing_group_id: {billing_group_id}\n")
         f.write(f"  Request data: {data}\n")
         f.write(f"  Headers: {dict(request.headers)}\n")
 
     # Store contract data
     # Check if this is a contract update (has contractId)
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(f"Checking for contractId in data: {'contractId' in data}\n")
 
     if "contractId" in data:
         contract_id = data["contractId"]
 
-        with open("mock_metering.log", "a") as f:
+        with open(METERING_LOG_FILE, "a") as f:
             f.write(f"Found contractId: {contract_id}\n")
 
         # Store the contract
@@ -1391,7 +1397,7 @@ def update_billing_group(billing_group_id):
             **data,
         }
 
-        with open("mock_metering.log", "a") as f:
+        with open(METERING_LOG_FILE, "a") as f:
             f.write(
                 f"Contract applied: {contract_id} to billing group {billing_group_id}\n"
             )
@@ -1416,7 +1422,7 @@ def update_billing_group(billing_group_id):
                 **contract_data,
             }
 
-            with open("mock_metering.log", "a") as f:
+            with open(METERING_LOG_FILE, "a") as f:
                 f.write(
                     f"Contract applied: {contract_id} to billing group {billing_group_id}\n"
                 )
@@ -1442,7 +1448,7 @@ def delete_billing_group_contracts(billing_group_id):
         del contracts[contract_id]
         deleted_count += 1
 
-    with open("mock_metering.log", "a") as f:
+    with open(METERING_LOG_FILE, "a") as f:
         f.write(
             f"Deleted {deleted_count} contracts for billing group {billing_group_id}\n"
         )
@@ -1712,7 +1718,7 @@ def reset_all_test_data():
         # Cleared all test data for UUID
 
         # Log the action
-        with open("mock_metering.log", "a") as f:
+        with open(METERING_LOG_FILE, "a") as f:
             f.write(f"Cleared all data for UUID: {uuid_param}\n")
 
         # Clear cache for this UUID
@@ -2001,7 +2007,7 @@ def get_openapi_spec():
     """Get OpenAPI specification."""
     handler = get_openapi_handler()
     if not handler:
-        return jsonify({"error": "OpenAPI not available"}), 404
+        return jsonify({"error": OPENAPI_NOT_AVAILABLE_ERROR}), 404
 
     spec = handler.spec_dict
 
@@ -2020,7 +2026,7 @@ def validate_openapi_request():
     """Validate request against OpenAPI spec."""
     handler = get_openapi_handler()
     if not handler:
-        return jsonify({"error": "OpenAPI not available"}), 404
+        return jsonify({"error": OPENAPI_NOT_AVAILABLE_ERROR}), 404
 
     data = request.json or {}
     method = data.get("method", "GET")
@@ -2045,7 +2051,7 @@ def generate_openapi_response(api_path):
     handler = get_openapi_handler()
     if not handler:
         # Fallback to default behavior
-        return jsonify({"error": "OpenAPI not available"}), 404
+        return jsonify({"error": OPENAPI_NOT_AVAILABLE_ERROR}), 404
 
     # Construct full path
     full_path = f"/api/v1/{api_path}"

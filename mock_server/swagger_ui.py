@@ -7,6 +7,10 @@ from flask import Blueprint, render_template_string
 
 swagger_bp = Blueprint("swagger", __name__)
 
+# Constants
+OPENAPI_SPEC_FILE = "billing-api.yaml"
+OPENAPI_SPEC_NOT_FOUND = "OpenAPI specification not found"
+
 
 SWAGGER_UI_TEMPLATE = """
 <!DOCTYPE html>
@@ -71,10 +75,10 @@ SWAGGER_UI_TEMPLATE = """
 def swagger_ui():
     """Serve Swagger UI."""
     # Load OpenAPI spec
-    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / "billing-api.yaml"
+    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / OPENAPI_SPEC_FILE
 
     if not spec_path.exists():
-        return "OpenAPI specification not found", 404
+        return OPENAPI_SPEC_NOT_FOUND, 404
 
     # Load and parse YAML
     with open(spec_path, encoding="utf-8") as f:
@@ -87,10 +91,10 @@ def swagger_ui():
 @swagger_bp.route("/openapi.json")
 def openapi_json():
     """Serve OpenAPI spec as JSON."""
-    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / "billing-api.yaml"
+    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / OPENAPI_SPEC_FILE
 
     if not spec_path.exists():
-        return {"error": "OpenAPI specification not found"}, 404
+        return {"error": OPENAPI_SPEC_NOT_FOUND}, 404
 
     with open(spec_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -99,10 +103,10 @@ def openapi_json():
 @swagger_bp.route("/openapi.yaml")
 def openapi_yaml():
     """Serve OpenAPI spec as YAML."""
-    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / "billing-api.yaml"
+    spec_path = Path(__file__).parent.parent / "docs" / "openapi" / OPENAPI_SPEC_FILE
 
     if not spec_path.exists():
-        return "OpenAPI specification not found", 404
+        return OPENAPI_SPEC_NOT_FOUND, 404
 
     with open(spec_path, encoding="utf-8") as f:
         content = f.read()

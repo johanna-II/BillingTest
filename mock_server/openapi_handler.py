@@ -10,6 +10,9 @@ from typing import Any, cast
 import yaml  # type: ignore[import-untyped]
 from jsonschema import ValidationError, validate
 
+# Type aliases
+OpenAPIDict = dict[str, Any]
+
 
 class OpenAPIHandler:
     """Handler for OpenAPI specification-based mock responses."""
@@ -20,12 +23,12 @@ class OpenAPIHandler:
         self.spec_dict = self._load_spec()
         self._example_generators = self._setup_generators()
 
-    def _load_spec(self) -> dict[str, Any]:
+    def _load_spec(self) -> OpenAPIDict:
         """Load OpenAPI specification from file."""
         with open(self.spec_path) as f:
             if self.spec_path.endswith(".yaml") or self.spec_path.endswith(".yml"):
-                return cast("dict[str, Any]", yaml.safe_load(f))
-            return cast("dict[str, Any]", json.load(f))
+                return cast(OpenAPIDict, yaml.safe_load(f))
+            return cast(OpenAPIDict, json.load(f))
 
     def _setup_generators(self) -> dict[str, Callable[[], Any]]:
         """Set up value generators for different formats."""
@@ -47,7 +50,7 @@ class OpenAPIHandler:
 
         return str(uuid.uuid4())
 
-    def find_operation(self, method: str, path: str) -> dict[str, Any] | None:
+    def find_operation(self, method: str, path: str) -> OpenAPIDict | None:
         """Find operation definition for given method and path."""
         # Normalize method to lowercase
         method = method.lower()
@@ -56,7 +59,7 @@ class OpenAPIHandler:
         if path in self.spec_dict["paths"]:
             path_item = self.spec_dict["paths"][path]
             if method in path_item:
-                return cast("dict[str, Any]", path_item[method])
+                return cast(OpenAPIDict, path_item[method])
 
         # Try pattern matching for path parameters
         for spec_path, path_item in self.spec_dict["paths"].items():
@@ -67,13 +70,13 @@ class OpenAPIHandler:
                 pattern = f"^{pattern}$"
 
                 if re.match(pattern, path):
-                    return cast("dict[str, Any]", path_item[method])
+                    return cast(OpenAPIDict, path_item[method])
 
         return None
 
     def generate_response(
-        self, operation: dict[str, Any], status_code: int = 200
-    ) -> dict[str, Any]:
+        self, operation: OpenAPIDict, status_code: int = 200
+    ) -> OpenAPIDict:
         """Generate response based on OpenAPI schema."""
         responses = operation.get("responses", {})
         response_spec = responses.get(str(status_code))
@@ -97,9 +100,9 @@ class OpenAPIHandler:
             schema = self._resolve_ref(schema["$ref"])
 
         # Generate response based on schema
-        return cast("dict[str, Any]", self._generate_from_schema(schema))
+        return cast(OpenAPIDict, self._generate_from_schema(schema))
 
-    def _resolve_ref(self, ref: str) -> dict[str, Any]:
+    def _resolve_ref(self, ref: str) -> OpenAPIDict:
         """Resolve a JSON reference."""
         # Remove the '#/' prefix
         ref_path = ref.replace("#/", "").split("/")
@@ -110,7 +113,7 @@ class OpenAPIHandler:
 
         return result
 
-    def _generate_from_schema(self, schema: dict[str, Any]) -> Any:
+    def _generate_from_schema(self, schema: OpenAPIDict) -> Any:
         """Generate data based on JSON schema."""
         # Handle references
         if "$ref" in schema:
@@ -156,7 +159,7 @@ class OpenAPIHandler:
 
         return None
 
-    def _generate_object(self, schema: dict[str, Any]) -> dict[str, Any]:
+    def _generate_object(self, schema: OpenAPIDict) -> OpenAPIDict:
         """Generate object based on schema."""
         result = {}
         properties = schema.get("properties", {})
@@ -171,7 +174,7 @@ class OpenAPIHandler:
 
         return result
 
-    def _generate_array(self, schema: dict[str, Any]) -> list[Any]:
+    def _generate_array(self, schema: OpenAPIDict) -> list[Any]:
         """Generate array based on schema."""
         items_schema = schema.get("items", {})
         min_items = schema.get("minItems", 0)
@@ -182,7 +185,7 @@ class OpenAPIHandler:
 
         return [self._generate_from_schema(items_schema) for _ in range(num_items)]
 
-    def _generate_string(self, schema: dict[str, Any]) -> str:
+    def _generate_string(self, schema: OpenAPIDict) -> str:
         """Generate string based on schema."""
         # Check for enum
         if "enum" in schema:
@@ -211,7 +214,7 @@ class OpenAPIHandler:
 
         return f"string_{random.randint(1, 1000)}"[:length]
 
-    def _generate_number(self, schema: dict[str, Any]) -> int | float:
+    def _generate_number(self, schema: OpenAPIDict) -> int | float:
         """Generate number based on schema."""
         minimum = schema.get("minimum", 0)
         maximum = schema.get("maximum", 1000)
@@ -269,13 +272,13 @@ class OpenAPIHandler:
 
         return None  # Validation passed
 
-    def get_operation_examples(self, method: str, path: str) -> dict[str, Any]:
+    def get_operation_examples(self, method: str, path: str) -> OpenAPIDict:
         """Get all examples for an operation."""
         operation = self.find_operation(method, path)
         if not operation:
             return {}
 
-        examples: dict[str, Any] = {"request": {}, "responses": {}}
+        examples: OpenAPIDict = {"request": {}, "responses": {}}
 
         # Extract request examples
         if "requestBody" in operation:

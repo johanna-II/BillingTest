@@ -10,6 +10,15 @@ import sys
 import time
 from pathlib import Path
 
+import requests
+
+# Constants
+DOCKER_COMPOSE_TEST_FILE = "docker-compose.test.yml"
+
+# Coverage options
+COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
+COV_OMIT_OBSERVABILITY = "--cov-omit=libs/observability/*"
+
 
 class TestRunner:
     """Simple test runner that works in both Docker and local environments."""
@@ -29,7 +38,7 @@ class TestRunner:
                 ["docker", "compose", "version"], capture_output=True, check=True
             )
             return ["docker", "compose"]
-        except:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
         # Try 'docker-compose' (legacy)
@@ -38,7 +47,7 @@ class TestRunner:
                 ["docker-compose", "--version"], capture_output=True, check=True
             )
             return ["docker-compose"]
-        except:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
         print("❌ Docker Compose not found. Please install Docker.")
@@ -60,7 +69,7 @@ class TestRunner:
                 if response.status == 200:
                     print("✓ Mock server is ready!")
                     return True
-            except:
+            except (requests.RequestException, ConnectionError):
                 time.sleep(1)
 
         print("❌ Mock server failed to start")
@@ -78,7 +87,7 @@ class TestRunner:
                     [
                         *self.docker_compose_cmd,
                         "-f",
-                        "docker-compose.test.yml",
+                        DOCKER_COMPOSE_TEST_FILE,
                         "build",
                         "--no-cache",
                         "mock-server",
@@ -92,7 +101,7 @@ class TestRunner:
                 [
                     *self.docker_compose_cmd,
                     "-f",
-                    "docker-compose.test.yml",
+                    DOCKER_COMPOSE_TEST_FILE,
                     "up",
                     "-d",
                     "mock-server",
@@ -108,7 +117,7 @@ class TestRunner:
                     [
                         *self.docker_compose_cmd,
                         "-f",
-                        "docker-compose.test.yml",
+                        DOCKER_COMPOSE_TEST_FILE,
                         "ps",
                     ],
                     check=False,
@@ -118,7 +127,7 @@ class TestRunner:
                     [
                         *self.docker_compose_cmd,
                         "-f",
-                        "docker-compose.test.yml",
+                        DOCKER_COMPOSE_TEST_FILE,
                         "logs",
                         "mock-server",
                     ],
@@ -153,7 +162,7 @@ class TestRunner:
                         cmd.extend(
                             [
                                 "--cov=libs",
-                                "--cov-report=term-missing",
+                                COV_REPORT_TERM_MISSING,
                                 "--cov-report=xml",
                                 "--cov-omit=libs/observability/*",
                             ]
@@ -164,7 +173,7 @@ class TestRunner:
                     cmd = ["run", "--rm", "test-contracts"]
 
                 result = subprocess.run(
-                    [*self.docker_compose_cmd, "-f", "docker-compose.test.yml", *cmd],
+                    [*self.docker_compose_cmd, "-f", DOCKER_COMPOSE_TEST_FILE, *cmd],
                     capture_output=False,
                     check=False,
                 )
@@ -182,7 +191,7 @@ class TestRunner:
                 [
                     *self.docker_compose_cmd,
                     "-f",
-                    "docker-compose.test.yml",
+                    DOCKER_COMPOSE_TEST_FILE,
                     "down",
                     "-v",
                 ],

@@ -23,6 +23,9 @@ CreditAmount = int | float
 CreditData = dict[str, Any]
 CreditList = list[dict[str, Any]]
 
+# Common headers
+DEFAULT_ACCEPT_HEADER = "application/json;charset=UTF-8"
+
 
 class CreditOperation(str, Enum):
     """Credit operation types."""
@@ -116,7 +119,7 @@ class CreditAPIClient:
 
     def grant_coupon(self, coupon_code: str, uuid: str) -> CreditData:
         """Grant coupon-based credit."""
-        headers = {"Accept": "application/json;charset=UTF-8", "uuid": uuid}
+        headers = {"Accept": DEFAULT_ACCEPT_HEADER, "uuid": uuid}
 
         endpoint = self.COUPON_ENDPOINT.format(coupon_code=coupon_code)
 
@@ -128,7 +131,7 @@ class CreditAPIClient:
     ) -> CreditData:
         """Grant campaign-based credit."""
         headers = {
-            "Accept": "application/json;charset=UTF-8",
+            "Accept": DEFAULT_ACCEPT_HEADER,
             "Content-Type": "application/json",
             "uuid": uuid,
         }
@@ -156,7 +159,7 @@ class CreditAPIClient:
             "itemsPerPage": items_per_page,
         }
 
-        headers = {"Accept": "application/json;charset=UTF-8"}
+        headers = {"Accept": DEFAULT_ACCEPT_HEADER}
 
         logger.debug(f"Fetching credit history: type={credit_type.value}, page={page}")
         return self._client.get(
@@ -166,7 +169,7 @@ class CreditAPIClient:
     def cancel_credit(self, campaign_id: str, reason: str = "test") -> CreditData:
         """Cancel credit for a campaign."""
         headers = {
-            "Accept": "application/json;charset=UTF-8",
+            "Accept": DEFAULT_ACCEPT_HEADER,
             "Content-Type": "application/json",
         }
 

@@ -13,6 +13,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Common headers
+JSON_HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
+
 
 class ContractManager:
     """Manages billing contracts for billing groups."""
@@ -78,7 +81,7 @@ class ContractManager:
         Raises:
             APIRequestException: If contract application fails
         """
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        headers = JSON_HEADERS
 
         contract_data: ContractData = {
             "contractId": contract_id,
@@ -113,7 +116,7 @@ class ContractManager:
         Raises:
             APIRequestException: If contract deletion fails
         """
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        headers = JSON_HEADERS
 
         endpoint = f"billing/admin/billing-groups/{self.billing_group_id}/contracts"
 
@@ -139,7 +142,7 @@ class ContractManager:
         Raises:
             APIRequestException: If query fails
         """
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        headers = JSON_HEADERS
 
         endpoint = f"billing/admin/contracts/{contract_id}"
 
@@ -175,7 +178,7 @@ class ContractManager:
         Raises:
             APIRequestException: If query fails
         """
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        headers = JSON_HEADERS
 
         params = {"counterNames": counter_name}
 

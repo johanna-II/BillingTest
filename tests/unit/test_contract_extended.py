@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from pytest import approx
 
 from libs.Contract import ContractManager
 from libs.exceptions import APIRequestException, ValidationException
@@ -71,7 +72,7 @@ class TestContractManagerExtended:
         assert result["price"] == 8000
         assert result["original_price"] == 10000
         assert result["discount_amount"] == 2000
-        assert result["discount_rate"] == 20.0
+        assert result["discount_rate"] == approx(20.0)
 
         mock_client.get.assert_called_once_with(
             "billing/admin/contracts/contract-123/products/prices",
@@ -93,7 +94,7 @@ class TestContractManagerExtended:
         )
 
         assert result["price"] == 5000
-        assert result["discount_rate"] == 0.0
+        assert result["discount_rate"] == approx(0.0)
         assert mock_client.get.call_count == 3
 
     def test_get_counter_price_all_retries_fail(
@@ -129,7 +130,7 @@ class TestContractManagerExtended:
         assert result["Instances"]["price"] == 8000
         assert result["Storage"]["price"] == 5000
         assert result["Network"]["price"] == 3000
-        assert result["Network"]["discount_rate"] == 0.0
+        assert result["Network"]["discount_rate"] == approx(0.0)
 
     def test_get_multiple_counter_prices_partial_failure(
         self, contract_manager, mock_client
@@ -208,4 +209,4 @@ class TestContractManagerExtended:
         assert result["price"] == 0
         assert result["original_price"] == 0
         assert result["discount_amount"] == 0
-        assert result["discount_rate"] == 0.0  # Should handle division by zero
+        assert result["discount_rate"] == approx(0.0)  # Should handle division by zero

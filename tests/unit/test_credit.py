@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
+from pytest import approx
 
 from libs.constants import CreditType
 from libs.Credit import CreditAPIClient, CreditHistory, CreditManager, CreditRequest
@@ -220,8 +221,8 @@ class TestCreditHistory:
         history = CreditHistory.from_api_response(api_data)
 
         assert history.credit_type == CreditType.FREE
-        assert history.amount == 1000.0
-        assert history.balance == 800.0
+        assert history.amount == approx(1000.0)
+        assert history.balance == approx(800.0)
         assert history.transaction_date == "2024-01-15T10:00:00Z"
         assert history.description == "Credit granted"
         assert history.campaign_id == "CAMP-123"
@@ -237,8 +238,8 @@ class TestCreditHistory:
         history = CreditHistory.from_api_response(api_data)
 
         assert history.credit_type == CreditType.PAID
-        assert history.amount == 500.0
-        assert history.balance == 0.0  # Default value
+        assert history.amount == approx(500.0)
+        assert history.balance == approx(0.0)  # Default value
         assert history.transaction_date == ""  # Default value
         assert history.description == ""  # Default value
         assert history.campaign_id is None  # Default value

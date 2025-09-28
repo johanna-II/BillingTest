@@ -14,6 +14,10 @@ from .http_client import BillingAPIClient
 if TYPE_CHECKING:
     from .billing_types import AdjustmentData
 
+# API Endpoints
+BILLING_GROUP_ADJUSTMENTS_ENDPOINT = "billing/admin/billing-groups/adjustments"
+PROJECT_ADJUSTMENTS_ENDPOINT = "billing/admin/projects/adjustments"
+
 
 class LegacyAdjustmentParams(TypedDict, total=False):
     """Legacy parameters for adjustment operations."""
@@ -23,7 +27,7 @@ class LegacyAdjustmentParams(TypedDict, total=False):
     adjustmentTarget: str
     billingGroupId: str
     projectId: str
-    billingGroupid: str  # Note: lowercase 'id' for backward compatibility
+    billingGroupIdLegacy: str  # Legacy field name for backward compatibility
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +49,101 @@ class AdjustmentManager:
     def __repr__(self) -> str:
         """Return string representation of AdjustmentManager."""
         return f"AdjustmentManager(month={self.month})"
+
+    def _normalize_adjustment_params(
+        self, **kwargs: Any
+    ) -> tuple[float, str, str, str, str | None]:
+        """Normalize adjustment parameters from both modern and legacy formats.
+
+        Returns:
+            Tuple of (adjustment_amount, adjustment_type, adjustment_target, description, target_id)
+        """
+        # Handle both modern and legacy parameter names
+        adjustment_amount = kwargs.get("adjustment_amount") or kwargs.get(
+            "adjustment", 0
+        )
+        adjustment_type = kwargs.get("adjustment_type") or kwargs.get("adjustmentType")
+        adjustment_target = kwargs.get("adjustment_target") or kwargs.get(
+            "adjustmentTarget"
+        )
+        description = kwargs.get("description", "QA billing automation test")
+
+        # Determine target_id based on target type
+        target_id = kwargs.get("target_id")
+        if not target_id:
+            if adjustment_target in ["Project", "PROJECT"]:
+                target_id = kwargs.get("projectId") or kwargs.get("project_id")
+            elif adjustment_target in ["BillingGroup", "BILLING_GROUP"]:
+                target_id = kwargs.get("billingGroupId") or kwargs.get(
+                    "billing_group_id"
+                )
+
+        # Convert enum values to strings if needed
+        adjustment_type_str = (
+            adjustment_type.value
+            if isinstance(adjustment_type, AdjustmentType)
+            else adjustment_type
+        )
+        adjustment_target_str = (
+            adjustment_target.value
+            if isinstance(adjustment_target, AdjustmentTarget)
+            else adjustment_target
+        )
+
+        return (
+            adjustment_amount,
+            adjustment_type_str,
+            adjustment_target_str,
+            description,
+            target_id,
+        )
+
+    def _validate_adjustment_params(
+        self, adjustment_type: str | None, adjustment_target: str
+    ) -> None:
+        """Validate adjustment parameters.
+
+        Raises:
+            ValidationException: If parameters are invalid
+        """
+        if adjustment_type is None:
+            error_msg = "adjustment_type is required"
+            raise ValidationException(error_msg)
+
+        if adjustment_target not in [t.value for t in AdjustmentTarget]:
+            error_msg = f"Invalid adjustment target: {adjustment_target}"
+            raise ValidationException(error_msg)
+
+    def _build_adjustment_data(
+        self, adjustment_amount: float, adjustment_type: str, description: str
+    ) -> AdjustmentData:
+        """Build the base adjustment data structure."""
+        return {
+            "adjustment": adjustment_amount,
+            "adjustmentTypeCode": adjustment_type,
+            "descriptions": [{"locale": DEFAULT_LOCALE, "message": description}],
+            "monthFrom": self.month,
+            "monthTo": self.month,
+            "adjustmentId": None,
+            "billingGroupId": None,
+            "projectId": None,
+        }
+
+    def _get_adjustment_endpoint_and_data(
+        self,
+        adjustment_target: str,
+        target_id: str | None,
+        adjustment_data: AdjustmentData,
+    ) -> tuple[str, AdjustmentData]:
+        """Determine the endpoint and update adjustment data based on target type."""
+        if adjustment_target == AdjustmentTarget.BILLING_GROUP.value:
+            endpoint = BILLING_GROUP_ADJUSTMENTS_ENDPOINT
+            adjustment_data["billingGroupId"] = target_id
+        else:
+            endpoint = PROJECT_ADJUSTMENTS_ENDPOINT
+            adjustment_data["projectId"] = target_id
+
+        return endpoint, adjustment_data
 
     def apply_adjustment(self, **kwargs: Any) -> dict[str, Any]:
         """Apply discount or surcharge to billing group or project.
@@ -72,71 +171,33 @@ class AdjustmentManager:
             ValidationException: If parameters are invalid
             APIRequestException: If API request fails
         """
-        # Handle both modern and legacy parameter names
-        adjustment_amount = kwargs.get("adjustment_amount") or kwargs.get(
-            "adjustment", 0
-        )
-        adjustment_type = kwargs.get("adjustment_type") or kwargs.get("adjustmentType")
-        adjustment_target = kwargs.get("adjustment_target") or kwargs.get(
-            "adjustmentTarget"
-        )
-        description = kwargs.get("description", "QA billing automation test")
+        # Normalize parameters
+        (
+            adjustment_amount,
+            adjustment_type,
+            adjustment_target,
+            description,
+            target_id,
+        ) = self._normalize_adjustment_params(**kwargs)
 
-        # Determine target_id based on target type
-        target_id = kwargs.get("target_id")
-        if not target_id:
-            if adjustment_target in ["Project", "PROJECT"]:
-                target_id = kwargs.get("projectId") or kwargs.get("project_id")
-            elif adjustment_target in ["BillingGroup", "BILLING_GROUP"]:
-                target_id = kwargs.get("billingGroupId") or kwargs.get(
-                    "billing_group_id"
-                )
+        # Validate parameters
+        self._validate_adjustment_params(adjustment_type, adjustment_target)
 
-        # Validate and normalize parameters
-        if adjustment_type is None:
-            error_msg = "adjustment_type is required"
-            raise ValidationException(error_msg)
-
-        adjustment_type_str = (
-            adjustment_type.value
-            if isinstance(adjustment_type, AdjustmentType)
-            else adjustment_type
-        )
-        adjustment_target_str = (
-            adjustment_target.value
-            if isinstance(adjustment_target, AdjustmentTarget)
-            else adjustment_target
+        # Build adjustment data
+        adjustment_data = self._build_adjustment_data(
+            adjustment_amount, adjustment_type, description
         )
 
-        if adjustment_target_str not in [t.value for t in AdjustmentTarget]:
-            error_msg = f"Invalid adjustment target: {adjustment_target_str}"
-            raise ValidationException(error_msg)
-
-        # Build request data
-        adjustment_data: AdjustmentData = {
-            "adjustment": adjustment_amount,
-            "adjustmentTypeCode": adjustment_type_str,
-            "descriptions": [{"locale": DEFAULT_LOCALE, "message": description}],
-            "monthFrom": self.month,
-            "monthTo": self.month,
-            "adjustmentId": None,
-            "billingGroupId": None,
-            "projectId": None,
-        }
-
-        # Set target-specific fields and endpoint
-        if adjustment_target_str == AdjustmentTarget.BILLING_GROUP.value:
-            endpoint = "billing/admin/billing-groups/adjustments"
-            adjustment_data["billingGroupId"] = target_id
-        else:
-            endpoint = "billing/admin/projects/adjustments"
-            adjustment_data["projectId"] = target_id
+        # Get endpoint and update data with target-specific fields
+        endpoint, adjustment_data = self._get_adjustment_endpoint_and_data(
+            adjustment_target, target_id, adjustment_data
+        )
 
         logger.info(
             "Applying %s adjustment of %s to %s %s for month %s",
-            adjustment_type_str,
+            adjustment_type,
             adjustment_amount,
-            adjustment_target_str,
+            adjustment_target,
             target_id,
             self.month,
         )
@@ -145,7 +206,7 @@ class AdjustmentManager:
             response = self._client.post(endpoint, json_data=adjustment_data)
             logger.info(
                 "Successfully applied adjustment to %s %s",
-                adjustment_target_str,
+                adjustment_target,
                 target_id,
             )
         except APIRequestException:
@@ -184,14 +245,14 @@ class AdjustmentManager:
 
         # Build endpoint and params
         if adjustment_target_str == AdjustmentTarget.BILLING_GROUP.value:
-            endpoint = "billing/admin/billing-groups/adjustments"
+            endpoint = BILLING_GROUP_ADJUSTMENTS_ENDPOINT
             params = {
                 "page": page,
                 "itemsPerPage": items_per_page,
                 "billingGroupId": target_id,
             }
         else:
-            endpoint = "billing/admin/projects/adjustments"
+            endpoint = PROJECT_ADJUSTMENTS_ENDPOINT
             params = {
                 "page": page,
                 "itemsPerPage": items_per_page,
@@ -214,6 +275,77 @@ class AdjustmentManager:
         else:
             return adjustment_ids
 
+    def _extract_adjustment_ids_from_dict(
+        self,
+        adjustment_dict: dict[str, Any],
+        adjustment_target: AdjustmentTarget | str | None,
+    ) -> tuple[list[str], AdjustmentTarget | str | None]:
+        """Extract adjustment IDs from legacy dict format.
+
+        Returns:
+            Tuple of (adjustment_ids, adjustment_target)
+        """
+        actual_adjustments = adjustment_dict.get("adjustments", [])
+        if not actual_adjustments:
+            return [], adjustment_target
+
+        temp_ids = []
+        for adj in actual_adjustments:
+            if isinstance(adj, str):
+                temp_ids.append(adj)
+            elif isinstance(adj, dict) and "adjustmentId" in adj:
+                temp_ids.append(adj["adjustmentId"])
+                # Try to infer target if not provided
+                if not adjustment_target:
+                    adjustment_target = self._infer_adjustment_target(adj)
+
+        return temp_ids, adjustment_target
+
+    def _infer_adjustment_target(
+        self, adjustment_dict: dict[str, Any]
+    ) -> AdjustmentTarget | None:
+        """Infer adjustment target from adjustment dictionary."""
+        if "billingGroupId" in adjustment_dict:
+            return AdjustmentTarget.BILLING_GROUP
+        elif "projectId" in adjustment_dict:
+            return AdjustmentTarget.PROJECT
+        return None
+
+    def _prepare_adjustment_ids(
+        self,
+        adjustment_ids: str | list[str] | dict[str, Any],
+        adjustment_target: AdjustmentTarget | str | None,
+    ) -> tuple[list[str], AdjustmentTarget | str | None]:
+        """Prepare adjustment IDs for deletion.
+
+        Returns:
+            Tuple of (normalized_ids, adjustment_target)
+        """
+        if isinstance(adjustment_ids, dict):
+            adjustment_ids, adjustment_target = self._extract_adjustment_ids_from_dict(
+                adjustment_ids, adjustment_target
+            )
+        elif isinstance(adjustment_ids, str):
+            adjustment_ids = [adjustment_ids]
+
+        return adjustment_ids, adjustment_target
+
+    def _get_delete_endpoint(self, adjustment_target: str) -> str:
+        """Get the delete endpoint based on adjustment target."""
+        if adjustment_target == AdjustmentTarget.BILLING_GROUP.value:
+            return BILLING_GROUP_ADJUSTMENTS_ENDPOINT
+        return PROJECT_ADJUSTMENTS_ENDPOINT
+
+    def _delete_single_adjustment(self, endpoint: str, adj_id: str) -> None:
+        """Delete a single adjustment."""
+        logger.info("Deleting adjustment %s", adj_id)
+        try:
+            self._client.delete(endpoint, params={"adjustmentIds": adj_id})
+            logger.info("Successfully deleted adjustment %s", adj_id)
+        except APIRequestException:
+            logger.exception("Failed to delete adjustment %s", adj_id)
+            raise
+
     def delete_adjustment(
         self,
         adjustment_ids: str | list[str] | dict[str, Any],
@@ -228,63 +360,31 @@ class AdjustmentManager:
         Raises:
             APIRequestException: If any deletion fails
         """
-        # Handle legacy dict format from inquiry_adjustment
-        if isinstance(adjustment_ids, dict):
-            actual_adjustments = adjustment_ids.get("adjustments", [])
-            if not actual_adjustments:
-                logger.info("No adjustments to delete")
-                return
-            # Extract IDs from adjustment objects
-            temp_ids = []
-            for adj in actual_adjustments:
-                if isinstance(adj, str):
-                    # Simple string ID
-                    temp_ids.append(adj)
-                elif isinstance(adj, dict) and "adjustmentId" in adj:
-                    temp_ids.append(adj["adjustmentId"])
-                    # Try to infer target if not provided
-                    if not adjustment_target:
-                        if "billingGroupId" in adj:
-                            adjustment_target = AdjustmentTarget.BILLING_GROUP
-                        elif "projectId" in adj:
-                            adjustment_target = AdjustmentTarget.PROJECT
-            adjustment_ids = temp_ids
+        # Prepare adjustment IDs
+        adjustment_ids, adjustment_target = self._prepare_adjustment_ids(
+            adjustment_ids, adjustment_target
+        )
 
         if not adjustment_ids:
             logger.info("No adjustment IDs to delete")
             return
 
-        # If target still not determined, raise error
+        # Validate target
         if not adjustment_target:
             msg = "adjustment_target is required"
             raise ValidationException(msg)
 
+        # Normalize target to string
         adjustment_target_str = (
             adjustment_target.value
             if isinstance(adjustment_target, AdjustmentTarget)
             else adjustment_target
         )
 
-        # Normalize to list
-        if isinstance(adjustment_ids, str):
-            adjustment_ids = [adjustment_ids]
-
-        # Determine endpoint base
-        if adjustment_target_str == AdjustmentTarget.BILLING_GROUP.value:
-            endpoint_base = "billing/admin/billing-groups/adjustments"
-        else:
-            endpoint_base = "billing/admin/projects/adjustments"
-
-        # Delete each adjustment
+        # Get endpoint and delete each adjustment
+        endpoint = self._get_delete_endpoint(adjustment_target_str)
         for adj_id in adjustment_ids:
-            logger.info("Deleting adjustment %s", adj_id)
-
-            try:
-                self._client.delete(endpoint_base, params={"adjustmentIds": adj_id})
-                logger.info("Successfully deleted adjustment %s", adj_id)
-            except APIRequestException:
-                logger.exception("Failed to delete adjustment %s", adj_id)
-                raise
+            self._delete_single_adjustment(endpoint, adj_id)
 
     def delete_all_adjustments(
         self, adjustment_target: AdjustmentTarget | str, target_id: str

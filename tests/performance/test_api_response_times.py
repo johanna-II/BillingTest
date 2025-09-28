@@ -170,8 +170,12 @@ class TestAPIResponseTimes:
         assert elapsed_time < 15.0  # Should complete within 15 seconds
 
         # Calculate metrics
-        successful_requests / elapsed_time
-        elapsed_time / 100 * 1000  # ms
+        requests_per_second = successful_requests / elapsed_time
+        elapsed_time_ms = elapsed_time * 1000  # Convert to milliseconds
+
+        # Verify performance metrics
+        assert requests_per_second > 6.0  # At least 6 requests per second
+        assert elapsed_time_ms < 15000  # Less than 15 seconds in milliseconds
 
     @pytest.mark.performance
     def test_memory_usage_under_load(self, api_client, test_uuid) -> None:
