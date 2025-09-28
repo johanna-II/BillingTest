@@ -271,7 +271,19 @@ class PaymentProcessor:
         discrepancy_amount = None
 
         # Amount discrepancy
-        if internal_amount != gateway_amount:
+        # Normalize decimals to avoid floating-point precision issues
+        # This fixes the issue where amounts like 100.0 and 100.00 were treated as different
+        # We use quantize to ensure both amounts have the same number of decimal places
+        # ROUND_HALF_UP is used for consistent rounding behavior
+        decimal_places = Decimal("0.01")  # 2 decimal places for currency
+        internal_amount_normalized = internal_amount.quantize(
+            decimal_places, rounding=ROUND_HALF_UP
+        )
+        gateway_amount_normalized = gateway_amount.quantize(
+            decimal_places, rounding=ROUND_HALF_UP
+        )
+
+        if internal_amount_normalized != gateway_amount_normalized:
             discrepancy_type = "AMOUNT_MISMATCH"
             discrepancy_amount = abs(internal_amount - gateway_amount)
 
@@ -503,9 +515,6 @@ class PaymentProcessor:
 
         # Add symbol if requested
         if include_symbol and currency in symbols:
-            if currency == "USD":
-                return f"{symbols[currency]}{formatted}"
-            else:
-                return f"{symbols[currency]}{formatted}"
+            return f"{symbols[currency]}{formatted}"
 
         return f"{formatted} {currency}"

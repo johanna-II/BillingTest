@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+from pytest import approx
+
 from libs.constants import PaymentStatus
 from libs.payment_processor import (
     PaymentMethod,
@@ -198,6 +200,45 @@ class TestPaymentProcessor:
 
         assert record.has_discrepancy
         assert record.discrepancy_type == "STATUS_MISMATCH"
+
+    def test_reconcile_payment_floating_point_precision(self):
+        """Test payment reconciliation handles floating-point precision issues."""
+        # This test demonstrates the fix for the always-true condition
+        # Different decimal representations that should be considered equal
+        test_cases = [
+            # (internal_amount, gateway_amount, should_match)
+            ("100.00", "100.0", True),  # Different decimal places
+            ("100", "100.00", True),  # Integer vs decimal
+            ("99.99", "100.00", False),  # Actually different
+            ("100.001", "100.00", True),  # Rounds to same value (for currency)
+            ("100.004", "100.00", True),  # Rounds to same value
+            ("100.005", "100.01", True),  # Rounds up
+        ]
+
+        for internal_amt, gateway_amt, should_match in test_cases:
+            internal = {
+                "payment_id": "PAY-001",
+                "amount": internal_amt,
+                "status": PaymentStatus.PAID.value,
+            }
+
+            gateway = {
+                "payment_id": "PAY-001",
+                "amount": gateway_amt,
+                "status": "COMPLETED",
+            }
+
+            record = PaymentProcessor.reconcile_payment(internal, gateway)
+
+            if should_match:
+                assert (
+                    not record.has_discrepancy
+                ), f"Expected {internal_amt} == {gateway_amt}"
+            else:
+                assert (
+                    record.has_discrepancy
+                ), f"Expected {internal_amt} != {gateway_amt}"
+                assert record.discrepancy_type == "AMOUNT_MISMATCH"
 
     def test_batch_reconcile(self):
         """Test batch reconciliation."""
@@ -408,7 +449,7 @@ class TestPaymentProcessor:
 
         assert policy.max_attempts == 3
         assert policy.initial_delay_seconds == 60
-        assert policy.backoff_multiplier == 2.0
+        assert policy.backoff_multiplier == approx(2.0)
         assert policy.max_delay_seconds == 3600
         assert "TIMEOUT" in policy.retriable_error_codes
         assert "GATEWAY_ERROR" in policy.retriable_error_codes

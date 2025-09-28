@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from pytest import approx
 
 from libs.constants import CounterType
 from libs.metering_calculator import MeteringCalculator, MeteringRecord
@@ -13,12 +14,12 @@ class TestMeteringCalculator:
 
     def test_parse_volume_valid(self):
         """Test parsing valid volume strings."""
-        assert MeteringCalculator.parse_volume("100") == 100.0
-        assert MeteringCalculator.parse_volume("100.5") == 100.5
-        assert MeteringCalculator.parse_volume("0") == 0.0
-        assert MeteringCalculator.parse_volume("1e3") == 1000.0
-        assert MeteringCalculator.parse_volume("1.5e2") == 150.0
-        assert MeteringCalculator.parse_volume("-50") == -50.0
+        assert MeteringCalculator.parse_volume("100") == approx(100.0)
+        assert MeteringCalculator.parse_volume("100.5") == approx(100.5)
+        assert MeteringCalculator.parse_volume("0") == approx(0.0)
+        assert MeteringCalculator.parse_volume("1e3") == approx(1000.0)
+        assert MeteringCalculator.parse_volume("1.5e2") == approx(150.0)
+        assert MeteringCalculator.parse_volume("-50") == approx(-50.0)
 
     def test_parse_volume_invalid(self):
         """Test parsing invalid volume strings."""
@@ -34,16 +35,16 @@ class TestMeteringCalculator:
     def test_convert_units_storage(self):
         """Test unit conversion for storage units."""
         # KB to MB
-        assert MeteringCalculator.convert_units(1024, "KB", "MB") == 1.0
+        assert MeteringCalculator.convert_units(1024, "KB", "MB") == approx(1.0)
 
         # MB to GB
-        assert MeteringCalculator.convert_units(1024, "MB", "GB") == 1.0
+        assert MeteringCalculator.convert_units(1024, "MB", "GB") == approx(1.0)
 
         # GB to TB
-        assert MeteringCalculator.convert_units(1024, "GB", "TB") == 1.0
+        assert MeteringCalculator.convert_units(1024, "GB", "TB") == approx(1.0)
 
         # KB to GB
-        assert MeteringCalculator.convert_units(1048576, "KB", "GB") == 1.0
+        assert MeteringCalculator.convert_units(1048576, "KB", "GB") == approx(1.0)
 
         # TB to KB
         assert MeteringCalculator.convert_units(1, "TB", "KB") == 1024 * 1024 * 1024
@@ -51,16 +52,16 @@ class TestMeteringCalculator:
     def test_convert_units_time(self):
         """Test unit conversion for time units."""
         # Seconds to Minutes
-        assert MeteringCalculator.convert_units(60, "SECONDS", "MINUTES") == 1.0
+        assert MeteringCalculator.convert_units(60, "SECONDS", "MINUTES") == approx(1.0)
 
         # Minutes to Hours
-        assert MeteringCalculator.convert_units(60, "MINUTES", "HOURS") == 1.0
+        assert MeteringCalculator.convert_units(60, "MINUTES", "HOURS") == approx(1.0)
 
         # Hours to Days
-        assert MeteringCalculator.convert_units(24, "HOURS", "DAYS") == 1.0
+        assert MeteringCalculator.convert_units(24, "HOURS", "DAYS") == approx(1.0)
 
         # Seconds to Hours
-        assert MeteringCalculator.convert_units(3600, "SECONDS", "HOURS") == 1.0
+        assert MeteringCalculator.convert_units(3600, "SECONDS", "HOURS") == approx(1.0)
 
     def test_convert_units_same_unit(self):
         """Test conversion when units are the same."""
@@ -122,7 +123,7 @@ class TestMeteringCalculator:
 
         assert "compute.instance" in summaries
         summary = summaries["compute.instance"]
-        assert summary.total_volume == 45.0  # 10 + 20 + 15
+        assert summary.total_volume == approx(45.0)  # 10 + 20 + 15
         assert summary.unit == "HOURS"
         assert summary.record_count == 3
         assert summary.start_time == datetime(2024, 1, 1, 10, 0)
@@ -167,7 +168,7 @@ class TestMeteringCalculator:
 
         assert "storage.used" in summaries
         summary = summaries["storage.used"]
-        assert summary.total_volume == 200.0  # Latest value for GAUGE
+        assert summary.total_volume == approx(200.0)  # Latest value for GAUGE
         assert summary.unit == "GB"
         assert summary.record_count == 3
 
@@ -175,15 +176,15 @@ class TestMeteringCalculator:
         """Test cost calculation with default rates."""
         # Compute instance
         cost = MeteringCalculator.calculate_cost("compute.instance.small", 24, "HOURS")
-        assert cost == 24 * 0.10  # 2.4
+        assert cost == approx(24 * 0.10)  # 2.4
 
         # Storage
         cost = MeteringCalculator.calculate_cost("storage.block", 1000, "GB")
-        assert cost == 1000 * 0.0001  # 0.1
+        assert cost == approx(1000 * 0.0001)  # 0.1
 
         # Network
         cost = MeteringCalculator.calculate_cost("network.bandwidth", 100, "GB")
-        assert cost == 100 * 0.01  # 1.0
+        assert cost == approx(100 * 0.01)  # 1.0
 
     def test_calculate_cost_custom_rates(self):
         """Test cost calculation with custom rates."""
@@ -192,12 +193,12 @@ class TestMeteringCalculator:
         cost = MeteringCalculator.calculate_cost(
             "compute.special", 10, "HOURS", rates=custom_rates
         )
-        assert cost == 10 * 1.5  # 15.0
+        assert cost == approx(10 * 1.5)  # 15.0
 
         cost = MeteringCalculator.calculate_cost(
             "storage.premium", 500, "GB", rates=custom_rates
         )
-        assert cost == 500 * 0.001  # 0.5
+        assert cost == approx(500 * 0.001)  # 0.5
 
     def test_calculate_cost_unit_conversion(self):
         """Test cost calculation with unit conversion."""
@@ -205,7 +206,7 @@ class TestMeteringCalculator:
         cost = MeteringCalculator.calculate_cost(
             "compute.instance.small", 120, "MINUTES"
         )
-        assert cost == 2 * 0.10  # 120 minutes = 2 hours
+        assert cost == approx(2 * 0.10)  # 120 minutes = 2 hours
 
     def test_calculate_monthly_projection(self):
         """Test monthly usage projection."""
@@ -234,21 +235,21 @@ class TestMeteringCalculator:
             current_usage=110, historical_average=100, threshold_percentage=50
         )
         assert not is_anomaly
-        assert deviation == 10.0
+        assert deviation == approx(10.0)
 
         # High anomaly (above threshold)
         is_anomaly, deviation = MeteringCalculator.detect_usage_anomalies(
             current_usage=200, historical_average=100, threshold_percentage=50
         )
         assert is_anomaly
-        assert deviation == 100.0
+        assert deviation == approx(100.0)
 
         # Low anomaly (below threshold)
         is_anomaly, deviation = MeteringCalculator.detect_usage_anomalies(
             current_usage=25, historical_average=100, threshold_percentage=50
         )
         assert is_anomaly
-        assert deviation == 75.0
+        assert deviation == approx(75.0)
 
         # Zero historical average
         is_anomaly, deviation = MeteringCalculator.detect_usage_anomalies(

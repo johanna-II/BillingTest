@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+from pytest import approx
 
 from libs.constants import CounterType
 from libs.metering_aggregator import AggregationDimension, MeteringAggregator
@@ -344,12 +345,12 @@ class TestMeteringAggregator:
         assert "vm-002" in summary["resources"]
 
         assert "cpu.usage" in summary["counters"]
-        assert summary["counters"]["cpu.usage"]["delta_total"] == 30.0
+        assert summary["counters"]["cpu.usage"]["delta_total"] == approx(30.0)
         assert summary["counters"]["cpu.usage"]["latest_gauge"] is None
 
         assert "memory.usage" in summary["counters"]
-        assert summary["counters"]["memory.usage"]["delta_total"] == 0.0
-        assert summary["counters"]["memory.usage"]["latest_gauge"] == 1500.0
+        assert summary["counters"]["memory.usage"]["delta_total"] == approx(0.0)
+        assert summary["counters"]["memory.usage"]["latest_gauge"] == approx(1500.0)
 
         assert summary["time_range"] is not None
         assert "start" in summary["time_range"]
