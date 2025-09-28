@@ -15,6 +15,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
 COV_LIBS = "--cov=libs"
 
+# Test options
+TB_SHORT = "--tb=short"
+
 
 def run_integration_tests(args):
     """Run integration tests with optimizations."""
@@ -30,7 +33,7 @@ def run_integration_tests(args):
         "pytest",
         "tests/integration/",
         "-v",
-        "--tb=short",
+        TB_SHORT,
         "--use-mock",  # Always use mock for integration tests
     ]
 

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, cast
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from jsonschema import ValidationError, validate
 
 # Type aliases

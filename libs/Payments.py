@@ -25,13 +25,17 @@ logger = logging.getLogger(__name__)
 PaymentInfo = tuple[str, PaymentStatus]
 PaymentData = dict[str, Any]
 
+# Header constants
+APPLICATION_JSON = "application/json"
+APPLICATION_JSON_UTF8 = "application/json;charset=UTF-8"
+
 # Common headers
-JSON_HEADERS = {"Accept": "application/json"}
+JSON_HEADERS = {"Accept": APPLICATION_JSON}
 JSON_CONTENT_HEADERS = {
-    "Accept": "application/json",
-    "Content-type": "application/json",
+    "Accept": APPLICATION_JSON,
+    "Content-type": APPLICATION_JSON,
 }
-JSON_UTF8_HEADERS = {"Accept": "application/json;charset=UTF-8"}
+JSON_UTF8_HEADERS = {"Accept": APPLICATION_JSON_UTF8}
 
 
 @dataclass

@@ -15,6 +15,10 @@ from pathlib import Path
 COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
 COV_LIBS = "--cov=libs"
 
+# Test options
+TB_SHORT = "--tb=short"
+COV_CONFIG = "--cov-config=.coveragerc"
+
 
 class TestRunner:
     """Manages test execution across different test suites."""
@@ -46,7 +50,7 @@ class TestRunner:
 
     def run_unit_tests(self, parallel: bool = True) -> int:
         """Run unit tests."""
-        cmd = ["pytest", "tests/unit/", "-v", "--tb=short"]
+        cmd = ["pytest", "tests/unit/", "-v", TB_SHORT]
 
         if parallel:
             cmd.extend(["-n", "auto"])
@@ -54,7 +58,7 @@ class TestRunner:
         cmd.extend(
             [
                 COV_LIBS,
-                "--cov-config=.coveragerc",
+                COV_CONFIG,
                 COV_REPORT_TERM_MISSING,
                 "--cov-report=html:htmlcov/unit",
             ]
@@ -66,7 +70,7 @@ class TestRunner:
         self, use_mock: bool = True, parallel: bool = True
     ) -> int:
         """Run integration tests."""
-        cmd = ["pytest", "tests/integration/", "-v", "--tb=short"]
+        cmd = ["pytest", "tests/integration/", "-v", TB_SHORT]
 
         if use_mock:
             cmd.append("--use-mock")
@@ -77,7 +81,7 @@ class TestRunner:
         cmd.extend(
             [
                 COV_LIBS,
-                "--cov-config=.coveragerc",
+                COV_CONFIG,
                 "--cov-append",
                 COV_REPORT_TERM_MISSING,
                 "--cov-report=html:htmlcov/integration",
@@ -108,7 +112,7 @@ class TestRunner:
             "pytest",
             "tests/contracts/",
             "-v",
-            "--tb=short",
+            TB_SHORT,
             "--cov=libs",
             "--cov-config=.coveragerc",
             "--cov-append",

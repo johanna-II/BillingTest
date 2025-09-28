@@ -755,38 +755,13 @@ def get_remaining_credits():
     )
 
 
-# Billing endpoints
-@app.route("/billing/v5.0/bills/detail", methods=["GET"])
-def get_billing_detail():
-    """Get billing details."""
-    uuid_param = request.args.get("uuid", "default")
-    month = request.args.get("month", "")
-
-    # Check if user has any contracts
-    has_contract = False
-    contract_discount_rate = 0.0
-
-    # Find applicable contract for this UUID
-    for contract_data in contracts.values():
-        # Check if contract applies to this UUID (either directly or through billing group)
-        if contract_data.get("uuid") == uuid_param or contract_data.get("contractId"):
-            has_contract = True
-            # Default contract discount is 30%
-            contract_discount_rate = 0.3
-            break
-
-    # For backward compatibility
-    has_discount = has_contract
-
-    # Calculate billing based on actual metering data
+def _calculate_billing_amounts_from_metering(metering_store):
+    """Calculate billing amounts from metering data."""
     compute_amount = 0
     storage_amount = 0
     network_amount = 0
-
-    # Calculate amounts based on metering data
     metering_count = 0
-    # Get UUID-specific metering data
-    metering_store = data_manager.get_metering_data(uuid_param)
+
     for meter_data in metering_store.values():
         metering_count += 1
         counter_name = meter_data.get("counterName", "")
@@ -797,22 +772,100 @@ def get_billing_detail():
             # GPU instance: 166.67 per hour
             compute_amount += int(volume * 166.67)
         elif counter_name == COMPUTE_C2_C8M8_COUNTER:
-            # Regular compute: 397 per hour (to match test expectations)
-            # Test expects 110,000 for 360 hours with 30% contract discount
-            # 110,000 / 1.1 (VAT) = 100,000
-            # 100,000 / 0.7 (30% discount) = 142,857
-            # 142,857 / 360 hours = 396.825 ≈ 397
+            # Regular compute: 397 per hour
             compute_amount += int(volume * 397)
         elif counter_name == "storage.volume.ssd":
             # Storage: 100 per GB (monthly)
-            # 524288000 KB = 500 GB
             storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
         elif counter_name == "network.floating_ip":
-            # Floating IP: 25 per hour (adjusted to match test expectations)
+            # Floating IP: 25 per hour
             network_amount += int(volume * 25)
         elif counter_name.startswith("test."):
             # Test metering data - use volume directly as the amount
             compute_amount += int(volume)
+
+    return compute_amount, storage_amount, network_amount, metering_count
+
+
+def _generate_billing_from_metering(
+    uuid_param, month, subtotal, has_contract, contract_discount_rate
+):
+    """Generate billing detail from metering data."""
+    # Apply contract discount
+    discount = int(subtotal * contract_discount_rate) if has_contract else 0
+
+    charge = subtotal - discount
+    vat = int(charge * 0.1)
+    total = charge + vat
+
+    return {
+        "uuid": uuid_param,
+        "month": month,
+        "currency": "KRW",
+        "totalAmount": total,
+        "charge": charge,
+        "vat": vat,
+        "discount": discount,
+        "totalCredit": 0,
+        "statements": [],
+    }
+
+
+def _apply_credits_to_billing(billing_detail, uuid_param):
+    """Apply available credits to billing detail."""
+    # Check if user has credits
+    if uuid_param not in credit_data:
+        return billing_detail, 0
+
+    rest_credits = credit_data[uuid_param].get("restAmount", 0)
+    if rest_credits <= 0:
+        return billing_detail, 0
+
+    charge = billing_detail.get("charge", 0)
+
+    # Apply credit to charge amount (before VAT)
+    credit_to_use = min(rest_credits, charge)
+
+    # Update credit data to reflect usage
+    with data_lock:
+        total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
+        already_used = credit_data[uuid_param].get("usedAmount", 0)
+        credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
+        credit_data[uuid_param]["restAmount"] = max(
+            0, total_credit_amount - (already_used + credit_to_use)
+        )
+
+    # Recalculate VAT after credit application
+    new_charge = charge - credit_to_use
+    new_vat = int(new_charge * 0.1)
+    new_total = new_charge + new_vat
+
+    # Update billing detail with recalculated values
+    billing_detail["vat"] = new_vat
+    billing_detail["totalAmount"] = new_total
+    billing_detail["totalCredit"] = credit_to_use
+
+    return billing_detail, credit_to_use
+
+
+# Billing endpoints
+@app.route("/billing/v5.0/bills/detail", methods=["GET"])
+def get_billing_detail():
+    """Get billing details."""
+    uuid_param = request.args.get("uuid", "default")
+    month = request.args.get("month", "")
+
+    # Find applicable contract
+    has_contract, contract_discount_rate = _find_applicable_contract(uuid_param)
+    has_discount = has_contract  # For backward compatibility
+
+    # Get UUID-specific metering data
+    metering_store = data_manager.get_metering_data(uuid_param)
+
+    # Calculate amounts from metering
+    compute_amount, storage_amount, network_amount, metering_count = (
+        _calculate_billing_amounts_from_metering(metering_store)
+    )
 
     # Debug logging
     with open(METERING_LOG_FILE, "a") as f:
@@ -821,82 +874,27 @@ def get_billing_detail():
             f"metering_count: {metering_count}, compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
         )
 
+    # Generate billing detail
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
         billing_detail = generate_billing_detail(uuid_param, month, has_discount)
     else:
         # Generate billing based on actual metering
         subtotal = compute_amount + storage_amount + network_amount
-
-        # Apply contract discount (30% for contracts)
-        discount = int(subtotal * contract_discount_rate) if has_contract else 0
-
-        charge = subtotal - discount
-        vat = int(charge * 0.1)
-        total = charge + vat
-
-        billing_detail = {
-            "uuid": uuid_param,
-            "month": month,
-            "currency": "KRW",
-            "totalAmount": total,
-            "charge": charge,
-            "vat": vat,
-            "discount": discount,
-            "totalCredit": 0,
-            "statements": [],
-        }
+        billing_detail = _generate_billing_from_metering(
+            uuid_param, month, subtotal, has_contract, contract_discount_rate
+        )
 
     # Store for future reference
     billing_key = f"{uuid_param}:{month}"
     billing_data[billing_key] = billing_detail
 
-    # Check if user has credits
-    user_credits = 0
-    if uuid_param in credit_data:
-        user_credits = credit_data[uuid_param].get("totalAmount", 0)
-        rest_credits = credit_data[uuid_param].get("restAmount", user_credits)
-    else:
-        rest_credits = 0
+    # Apply credits to billing
+    billing_detail, credit_to_use = _apply_credits_to_billing(
+        billing_detail, uuid_param
+    )
 
-    # Apply credits to the bill (consume credits)
-    billing_detail.get("totalAmount", 0)
-    charge = billing_detail.get("charge", 0)
-    billing_detail.get("vat", 0)
-
-    # Calculate how much credit to use (use available rest credits)
-    if rest_credits > 0:
-        # Apply credit to charge amount (before VAT)
-        credit_to_use = min(rest_credits, charge)
-
-        # Update credit data to reflect usage
-        with data_lock:
-            if uuid_param in credit_data:
-                total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
-                already_used = credit_data[uuid_param].get("usedAmount", 0)
-                credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
-                credit_data[uuid_param]["restAmount"] = max(
-                    0, total_credit_amount - (already_used + credit_to_use)
-                )
-    else:
-        credit_to_use = 0
-
-    # Add credit information to billing detail
-    billing_detail["totalCredit"] = credit_to_use
-
-    # Recalculate VAT after credit application (as tests expect)
-    if credit_to_use > 0:
-        new_charge = charge - credit_to_use
-        new_vat = int(new_charge * 0.1)
-        new_total = new_charge + new_vat
-
-        # Update billing detail with recalculated values
-        billing_detail["vat"] = new_vat
-        billing_detail["totalAmount"] = new_total
-
-    # Add top-level fields that tests expect
-    # Get the final total amount (after credit application)
+    # Prepare response data
     final_total = billing_detail.get("totalAmount", 0)
-
     response_data = {
         **billing_detail,
         "charge": billing_detail.get("charge", 0),
@@ -2085,7 +2083,7 @@ def get_openapi_spec():
     spec = handler.spec_dict
 
     if request.path.endswith(".yaml"):
-        import yaml  # type: ignore[import-untyped]
+        import yaml
 
         response = make_response(yaml.dump(spec))
         response.headers["Content-Type"] = "application/x-yaml"

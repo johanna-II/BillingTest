@@ -17,6 +17,7 @@ DOCKER_COMPOSE_TEST_FILE = "docker-compose.test.yml"
 
 # Coverage options
 COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
+COV_REPORT_XML = "--cov-report=xml"
 COV_OMIT_OBSERVABILITY = "--cov-omit=libs/observability/*"
 COV_LIBS = "--cov=libs"
 
@@ -164,7 +165,7 @@ class TestRunner:
                             [
                                 COV_LIBS,
                                 COV_REPORT_TERM_MISSING,
-                                "--cov-report=xml",
+                                COV_REPORT_XML,
                                 COV_OMIT_OBSERVABILITY,
                             ]
                         )

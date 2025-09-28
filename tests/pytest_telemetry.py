@@ -15,6 +15,10 @@ from libs.observability.telemetry import TelemetryManager as TestTelemetry
 if TYPE_CHECKING:
     from _pytest.reports import TestReport
 
+# Test attribute constants
+TEST_NAME_ATTR = "test.name"
+TEST_OUTCOME_ATTR = "test.outcome"
+
 
 class TelemetryPlugin:
     """Pytest plugin for collecting test execution telemetry."""
@@ -35,7 +39,7 @@ class TelemetryPlugin:
             span = self.telemetry.tracer.start_span(
                 name=f"test.{test_name}",
                 attributes={
-                    "test.name": item.name,
+                    TEST_NAME_ATTR: item.name,
                     "test.file": str(item.fspath),
                     "test.class": (
                         item.cls.__name__ if hasattr(item, "cls") and item.cls else ""
@@ -70,7 +74,7 @@ class TelemetryPlugin:
             span = self.test_spans.get(test_name)
             if span:
                 # Update span with results
-                span.set_attribute("test.outcome", report.outcome)
+                span.set_attribute(TEST_OUTCOME_ATTR, report.outcome)
                 span.set_attribute("test.duration_seconds", duration)
 
                 if report.failed:
@@ -84,8 +88,8 @@ class TelemetryPlugin:
                 self.telemetry.test_counter.add(
                     1,
                     attributes={
-                        "test.name": item.name,
-                        "test.outcome": report.outcome,
+                        TEST_NAME_ATTR: item.name,
+                        TEST_OUTCOME_ATTR: report.outcome,
                         "test.file": str(item.fspath),
                     },
                 )
