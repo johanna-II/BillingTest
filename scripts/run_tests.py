@@ -164,7 +164,7 @@ class TestRunner:
                                 "--cov=libs",
                                 COV_REPORT_TERM_MISSING,
                                 "--cov-report=xml",
-                                "--cov-omit=libs/observability/*",
+                                COV_OMIT_OBSERVABILITY,
                             ]
                         )
                 elif test == "integration":
@@ -237,7 +237,7 @@ class TestRunner:
                     test_commands["unit"].extend(
                         [
                             "--cov=libs",
-                            "--cov-report=term-missing",
+                            COV_REPORT_TERM_MISSING,
                             "--cov-report=xml",
                             "--cov-omit=libs/observability/*",
                         ]
@@ -250,7 +250,7 @@ class TestRunner:
                     test_commands[test_type].extend(
                         [
                             "--cov=libs",
-                            "--cov-report=term-missing",
+                            COV_REPORT_TERM_MISSING,
                             "--cov-report=xml",
                             "--cov-omit=libs/observability/*",
                         ]

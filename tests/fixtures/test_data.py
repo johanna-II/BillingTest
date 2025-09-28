@@ -172,10 +172,7 @@ def _reset_mock_server_data(uuid_param: str) -> None:
         response = requests.post(
             f"{mock_url}/test/reset", json={"uuid": uuid_param}, timeout=1
         )
-        if response.status_code == 200:
-            pass
-        else:
-            pass
+        # Status code check removed - no action needed regardless of status
     except Exception:
         pass
 

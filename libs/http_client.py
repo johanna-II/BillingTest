@@ -39,6 +39,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
+# Common headers
+DEFAULT_ACCEPT_HEADER = "application/json;charset=UTF-8"
+
 
 class HTTPMethod(str, Enum):
     """HTTP methods enum for type safety."""
@@ -211,7 +214,7 @@ class BillingAPIClient:
         # Set default headers
         self._session.headers.update(
             {
-                "Accept": "application/json;charset=UTF-8",
+                "Accept": DEFAULT_ACCEPT_HEADER,
                 "User-Agent": "BillingAPIClient/1.0",
             }
         )

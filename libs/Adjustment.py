@@ -52,21 +52,21 @@ class AdjustmentManager:
 
     def _normalize_adjustment_params(
         self, **kwargs: Any
-    ) -> tuple[float, str, str, str, str | None]:
+    ) -> tuple[float, str | None, str | None, str, str | None]:
         """Normalize adjustment parameters from both modern and legacy formats.
 
         Returns:
             Tuple of (adjustment_amount, adjustment_type, adjustment_target, description, target_id)
         """
         # Handle both modern and legacy parameter names
-        adjustment_amount = kwargs.get("adjustment_amount") or kwargs.get(
-            "adjustment", 0
+        adjustment_amount = float(
+            kwargs.get("adjustment_amount") or kwargs.get("adjustment", 0)
         )
         adjustment_type = kwargs.get("adjustment_type") or kwargs.get("adjustmentType")
         adjustment_target = kwargs.get("adjustment_target") or kwargs.get(
             "adjustmentTarget"
         )
-        description = kwargs.get("description", "QA billing automation test")
+        description = str(kwargs.get("description", "QA billing automation test"))
 
         # Determine target_id based on target type
         target_id = kwargs.get("target_id")
@@ -82,12 +82,12 @@ class AdjustmentManager:
         adjustment_type_str = (
             adjustment_type.value
             if isinstance(adjustment_type, AdjustmentType)
-            else adjustment_type
+            else str(adjustment_type) if adjustment_type else None
         )
         adjustment_target_str = (
             adjustment_target.value
             if isinstance(adjustment_target, AdjustmentTarget)
-            else adjustment_target
+            else str(adjustment_target) if adjustment_target else None
         )
 
         return (
@@ -99,7 +99,7 @@ class AdjustmentManager:
         )
 
     def _validate_adjustment_params(
-        self, adjustment_type: str | None, adjustment_target: str
+        self, adjustment_type: str | None, adjustment_target: str | None
     ) -> None:
         """Validate adjustment parameters.
 
@@ -108,6 +108,10 @@ class AdjustmentManager:
         """
         if adjustment_type is None:
             error_msg = "adjustment_type is required"
+            raise ValidationException(error_msg)
+
+        if adjustment_target is None:
+            error_msg = "adjustment_target is required"
             raise ValidationException(error_msg)
 
         if adjustment_target not in [t.value for t in AdjustmentTarget]:
@@ -182,6 +186,10 @@ class AdjustmentManager:
 
         # Validate parameters
         self._validate_adjustment_params(adjustment_type, adjustment_target)
+
+        # After validation, we know these are not None
+        assert adjustment_type is not None
+        assert adjustment_target is not None
 
         # Build adjustment data
         adjustment_data = self._build_adjustment_data(

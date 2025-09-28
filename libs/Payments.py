@@ -25,6 +25,14 @@ logger = logging.getLogger(__name__)
 PaymentInfo = tuple[str, PaymentStatus]
 PaymentData = dict[str, Any]
 
+# Common headers
+JSON_HEADERS = {"Accept": "application/json"}
+JSON_CONTENT_HEADERS = {
+    "Accept": "application/json",
+    "Content-type": "application/json",
+}
+JSON_UTF8_HEADERS = {"Accept": "application/json;charset=UTF-8"}
+
 
 @dataclass
 class PaymentStatement:
@@ -121,7 +129,7 @@ class PaymentAPIWrapper:
             "uuid": uuid,
         }
 
-        headers = {"Accept": "application/json"}
+        headers = JSON_HEADERS
 
         logger.debug(f"Fetching admin statements for {month}, UUID: {uuid}")
         return self._client.get(self.ADMIN_API_ENDPOINT, headers=headers, params=params)
@@ -129,7 +137,7 @@ class PaymentAPIWrapper:
     def get_statements_console(self, month: str, uuid: str) -> dict[str, Any]:
         """Fetch payment statements using console API."""
         headers = {
-            "Accept": "application/json;charset=UTF-8",
+            **JSON_UTF8_HEADERS,
             "lang": "kr",
             "uuid": uuid,
         }
@@ -143,7 +151,7 @@ class PaymentAPIWrapper:
         self, month: str, payment_group_id: str, target_status: PaymentStatus
     ) -> dict[str, Any]:
         """Change payment status."""
-        headers = {"Accept": "application/json", "Content-type": "application/json"}
+        headers = JSON_CONTENT_HEADERS
 
         data = {
             "paymentGroupId": payment_group_id,
@@ -161,7 +169,7 @@ class PaymentAPIWrapper:
 
     def cancel_payment(self, month: str, payment_group_id: str) -> dict[str, Any]:
         """Cancel a payment."""
-        headers = {"Accept": "application/json;charset=UTF-8"}
+        headers = JSON_UTF8_HEADERS
         params = {"paymentGroupId": payment_group_id}
 
         endpoint = f"{self.ADMIN_API_ENDPOINT}/{month}"
@@ -173,7 +181,7 @@ class PaymentAPIWrapper:
         self, month: str, payment_group_id: str, uuid: str
     ) -> dict[str, Any]:
         """Make a payment."""
-        headers = {"Accept": "application/json;charset=UTF-8", "uuid": uuid}
+        headers = {**JSON_UTF8_HEADERS, "uuid": uuid}
 
         data = {"paymentGroupId": payment_group_id}
 
@@ -246,6 +254,50 @@ class PaymentManager:
         if hasattr(self._client, "close"):
             self._client.close()
 
+    def _get_statements_from_admin_api(self) -> dict[str, Any]:
+        """Get statements using admin API."""
+        if hasattr(self._client, "get_statements_admin"):
+            return self._client.get_statements_admin(self.month, self.uuid)
+
+        # Fallback for BillingAPIClient
+        if isinstance(self._client, BillingAPIClient):
+            wrapper = PaymentAPIWrapper(self._client)
+            return wrapper.get_statements_admin(self.month, self.uuid)
+
+        raise APIRequestException("Unsupported client type for get_statements_admin")
+
+    def _get_statements_from_console_api(self) -> dict[str, Any]:
+        """Get statements using console API."""
+        if hasattr(self._client, "get_statements_console"):
+            return self._client.get_statements_console(self.month, self.uuid)
+
+        # Fallback for BillingAPIClient
+        if isinstance(self._client, BillingAPIClient):
+            wrapper = PaymentAPIWrapper(self._client)
+            return wrapper.get_statements_console(self.month, self.uuid)
+
+        raise APIRequestException("Unsupported client type for get_statements_console")
+
+    def _parse_payment_status(
+        self, response: dict[str, Any], source: str
+    ) -> PaymentInfo:
+        """Parse payment status from API response."""
+        statements = response.get("statements", [])
+
+        if not statements:
+            logger.warning(f"No payment statements found via {source} API")
+            return "", PaymentStatus.UNKNOWN
+
+        # Parse first statement (assuming integrated payment)
+        statement = PaymentStatement.from_api_response(statements[0])
+
+        logger.info(
+            f"Payment status via {source}: {statement.payment_status.name} "
+            f"(Group ID: {statement.payment_group_id})"
+        )
+
+        return statement.payment_group_id, statement.payment_status
+
     def get_payment_status(self, use_admin_api: bool = False) -> PaymentInfo:
         """Get payment status for the month.
 
@@ -259,52 +311,16 @@ class PaymentManager:
             APIRequestException: If inquiry fails
         """
         try:
-            # Choose API based on parameter
+            # Get statements based on API type
             if use_admin_api:
-                if hasattr(self._client, "get_statements_admin"):
-                    response = self._client.get_statements_admin(self.month, self.uuid)
-                else:
-                    # Fallback for BillingAPIClient
-                    if isinstance(self._client, BillingAPIClient):
-                        wrapper = PaymentAPIWrapper(self._client)
-                        response = wrapper.get_statements_admin(self.month, self.uuid)
-                    else:
-                        raise APIRequestException(
-                            "Unsupported client type for get_statements_admin"
-                        )
+                response = self._get_statements_from_admin_api()
                 source = "admin"
             else:
-                if hasattr(self._client, "get_statements_console"):
-                    response = self._client.get_statements_console(
-                        self.month, self.uuid
-                    )
-                else:
-                    # Fallback for BillingAPIClient
-                    if isinstance(self._client, BillingAPIClient):
-                        wrapper = PaymentAPIWrapper(self._client)
-                        response = wrapper.get_statements_console(self.month, self.uuid)
-                    else:
-                        raise APIRequestException(
-                            "Unsupported client type for get_statements_console"
-                        )
+                response = self._get_statements_from_console_api()
                 source = "console"
 
-            # Extract statements
-            statements = response.get("statements", [])
-
-            if not statements:
-                logger.warning(f"No payment statements found via {source} API")
-                return "", PaymentStatus.UNKNOWN
-
-            # Parse first statement (assuming integrated payment)
-            statement = PaymentStatement.from_api_response(statements[0])
-
-            logger.info(
-                f"Payment status via {source}: {statement.payment_status.name} "
-                f"(Group ID: {statement.payment_group_id})"
-            )
-
-            return statement.payment_group_id, statement.payment_status
+            # Parse and return payment status
+            return self._parse_payment_status(response, source)
 
         except APIRequestException as e:
             logger.exception(f"Failed to get payment status: {e}")

@@ -113,13 +113,8 @@ class OpenAPIHandler:
 
         return result
 
-    def _generate_from_schema(self, schema: OpenAPIDict) -> Any:
-        """Generate data based on JSON schema."""
-        # Handle references
-        if "$ref" in schema:
-            schema = self._resolve_ref(schema["$ref"])
-
-        # Handle allOf, oneOf, anyOf
+    def _handle_schema_composition(self, schema: OpenAPIDict) -> Any | None:
+        """Handle allOf, oneOf, anyOf schema composition."""
         if "allOf" in schema:
             result = {}
             for sub_schema in schema["allOf"]:
@@ -131,33 +126,56 @@ class OpenAPIHandler:
         if "oneOf" in schema or "anyOf" in schema:
             schemas = schema.get("oneOf", schema.get("anyOf", []))
             if schemas:
-                # Pick first schema for simplicity
                 return self._generate_from_schema(schemas[0])
 
-        # Handle examples
+        return None
+
+    def _get_example_value(self, schema: OpenAPIDict) -> Any | None:
+        """Get example value from schema if available."""
         if "example" in schema:
             return schema["example"]
 
         if "examples" in schema and isinstance(schema["examples"], list):
             return random.choice(schema["examples"])
 
-        # Handle different types
-        schema_type = schema.get("type", "object")
-
-        if schema_type == "object":
-            return self._generate_object(schema)
-        if schema_type == "array":
-            return self._generate_array(schema)
-        if schema_type == "string":
-            return self._generate_string(schema)
-        if schema_type in {"number", "integer"}:
-            return self._generate_number(schema)
-        if schema_type == "boolean":
-            return random.choice([True, False])
-        if schema_type == "null":
-            return None
-
         return None
+
+    def _generate_by_type(self, schema: OpenAPIDict, schema_type: str) -> Any:
+        """Generate value based on schema type."""
+        type_generators = {
+            "object": self._generate_object,
+            "array": self._generate_array,
+            "string": self._generate_string,
+            "number": self._generate_number,
+            "integer": self._generate_number,
+            "boolean": lambda _: random.choice([True, False]),
+            "null": lambda _: None,
+        }
+
+        generator = type_generators.get(schema_type)
+        if generator:
+            return generator(schema)
+        return None
+
+    def _generate_from_schema(self, schema: OpenAPIDict) -> Any:
+        """Generate data based on JSON schema."""
+        # Handle references
+        if "$ref" in schema:
+            schema = self._resolve_ref(schema["$ref"])
+
+        # Try schema composition (allOf, oneOf, anyOf)
+        composition_result = self._handle_schema_composition(schema)
+        if composition_result is not None:
+            return composition_result
+
+        # Try to get example value
+        example_value = self._get_example_value(schema)
+        if example_value is not None:
+            return example_value
+
+        # Generate by type
+        schema_type = schema.get("type", "object")
+        return self._generate_by_type(schema, schema_type)
 
     def _generate_object(self, schema: OpenAPIDict) -> OpenAPIDict:
         """Generate object based on schema."""

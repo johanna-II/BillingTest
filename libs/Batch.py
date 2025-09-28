@@ -17,6 +17,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Common headers
+JSON_HEADERS = {"Accept": "application/json"}
+
 
 class BatchManager:
     """Manages batch job operations for billing system."""
@@ -107,7 +110,7 @@ class BatchManager:
         }
 
         headers = {
-            "Accept": "application/json",
+            **JSON_HEADERS,
             "lang": locale.split("_")[0] if "_" in locale else locale,
         }
 

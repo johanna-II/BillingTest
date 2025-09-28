@@ -11,6 +11,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Coverage options
+COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
+
 
 class TestRunner:
     """Manages test execution across different test suites."""
@@ -51,7 +54,7 @@ class TestRunner:
             [
                 "--cov=libs",
                 "--cov-config=.coveragerc",
-                "--cov-report=term-missing",
+                COV_REPORT_TERM_MISSING,
                 "--cov-report=html:htmlcov/unit",
             ]
         )
@@ -75,7 +78,7 @@ class TestRunner:
                 "--cov=libs",
                 "--cov-config=.coveragerc",
                 "--cov-append",
-                "--cov-report=term-missing",
+                COV_REPORT_TERM_MISSING,
                 "--cov-report=html:htmlcov/integration",
             ]
         )

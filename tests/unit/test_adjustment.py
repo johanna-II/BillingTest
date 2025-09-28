@@ -112,7 +112,7 @@ class TestAdjustmentManager:
         """Test apply_adjustment with invalid amount."""
         # There's no validation for negative amounts in the implementation
         # so we test for missing adjustment_target instead
-        with pytest.raises(ValidationException, match="Invalid adjustment target"):
+        with pytest.raises(ValidationException, match="adjustment_target is required"):
             self.adjustment_manager.apply_adjustment(
                 adjustment_amount=-100,
                 adjustment_type=AdjustmentType.FIXED_DISCOUNT,
@@ -224,7 +224,7 @@ class TestAdjustmentManager:
 
         # There's no validation for percentage bounds in the implementation
         # Test with invalid target instead
-        with pytest.raises(ValidationException, match="Invalid adjustment target"):
+        with pytest.raises(ValidationException, match="adjustment_target is required"):
             self.adjustment_manager.apply_adjustment(
                 adjustment_amount=101,  # 101%
                 adjustment_type=AdjustmentType.RATE_DISCOUNT,

@@ -11,6 +11,10 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
+# Coverage options
+COV_REPORT_TERM_MISSING = "--cov-report=term-missing"
+
+
 def run_integration_tests(args):
     """Run integration tests with optimizations."""
     # Set environment variables for optimization
@@ -43,7 +47,7 @@ def run_integration_tests(args):
 
     # Add coverage if requested
     if args.coverage:
-        cmd.extend(["--cov=libs", "--cov-report=html", "--cov-report=term-missing"])
+        cmd.extend(["--cov=libs", "--cov-report=html", COV_REPORT_TERM_MISSING])
 
     # Add markers
     if not args.slow:
