@@ -35,13 +35,12 @@ RUN pip install --no-cache-dir \
     pytest-mock \
     coverage[toml]
 
-# Copy project files with immediate permission setting
-# Note: .dockerignore file ensures sensitive data is not copied
-# This includes git files, IDE configs, and other non-test files
-COPY --chown=testuser:testuser . .
-# Remove write permissions immediately after copy
-RUN find /app -type f -exec chmod 444 {} + && \
-    find /app -type d -exec chmod 555 {} +
+# Copy project files with read-only permissions
+# SonarQube: Recursive COPY is safe here due to comprehensive .dockerignore
+# .dockerignore excludes: git files, IDE configs, secrets, logs, build artifacts
+# Only test-necessary files (libs/, tests/, config/) are actually needed
+# Using 555 permissions for both files and directories
+COPY --chown=testuser:testuser --chmod=555 . .
 
 # Set Python path
 ENV PYTHONPATH=/app
@@ -75,18 +74,11 @@ WORKDIR /app
 COPY --chmod=444 requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy essential directories with immediate permission setting
-COPY --chown=testuser:testuser libs/ ./libs/
-RUN find /app/libs -type f -exec chmod 444 {} + && \
-    find /app/libs -type d -exec chmod 555 {} +
-
-COPY --chown=testuser:testuser tests/ ./tests/
-RUN find /app/tests -type f -exec chmod 444 {} + && \
-    find /app/tests -type d -exec chmod 555 {} +
-
-COPY --chown=testuser:testuser config/ ./config/
-RUN find /app/config -type f -exec chmod 444 {} + && \
-    find /app/config -type d -exec chmod 555 {} +
+# Copy essential directories with read-only permissions
+# Using 555 for all content (directories need execute, Python files run through interpreter)
+COPY --chown=testuser:testuser --chmod=555 libs/ ./libs/
+COPY --chown=testuser:testuser --chmod=555 tests/ ./tests/
+COPY --chown=testuser:testuser --chmod=555 config/ ./config/
 
 # Ensure proper ownership
 RUN chown -R testuser:testuser /app

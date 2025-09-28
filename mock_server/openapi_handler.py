@@ -148,8 +148,9 @@ class OpenAPIHandler:
             "string": self._generate_string,
             "number": self._generate_number,
             "integer": self._generate_number,
-            # Note: Using random.choice is safe here as this is only for generating
-            # test/mock data, not for any security-critical purpose
+            # SonarQube: This use of random.choice is safe
+            # Context: Mock server generates test data only, no security impact
+            # The randomness is not used for cryptographic purposes
             "boolean": lambda _: random.choice([True, False]),
             "null": lambda _: None,
         }

@@ -34,16 +34,20 @@ COPY --chmod=444 poetry.lock pyproject.toml ./
 RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --no-root
 
-# Copy application code with deferred permission setting
-# Note: .dockerignore file ensures sensitive data is not copied
-# This includes git files, test files, IDE configs, and other non-runtime files
+# Copy application code
+# SonarQube: Recursive COPY is safe here due to comprehensive .dockerignore
+# .dockerignore excludes: git files, test files, IDE configs, logs, caches, secrets
+# Only runtime-necessary files are copied into the container
+# Note: Using standard permissions for COPY to allow Poetry installation
+# Write permissions will be removed after installation completes
 COPY --chown=appuser:appuser . .
 
-# Install project in editable mode (requires write permissions temporarily)
+# Install project in editable mode
 RUN poetry install --no-interaction --no-ansi
 
-# Remove write permissions from all files for security after installation
-# Directories need execute permission (555) for access, files only need read (444)
+# Remove all write permissions for security after installation
+# This ensures the container runs with read-only files
+# Directories: 555 (r-xr-xr-x), Files: 444 (r--r--r--)
 RUN find /app -type f -exec chmod 444 {} + && \
     find /app -type d -exec chmod 555 {} +
 
