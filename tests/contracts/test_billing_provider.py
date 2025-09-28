@@ -128,6 +128,10 @@ class TestProviderVerification:
                     pytest.skip(f"Pact verification not fully compatible: {e}")
 
     @pytest.mark.provider
+    @pytest.mark.skipif(
+        os.getenv("USE_MOCK_SERVER", "false").lower() != "true",
+        reason="This test requires mock server to be running separately",
+    )
     def test_mock_server_contract_compliance(self) -> None:
         """Test that mock server responses match contract expectations."""
         with mock_server_running():
