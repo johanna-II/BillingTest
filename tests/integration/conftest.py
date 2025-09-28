@@ -10,9 +10,7 @@ import pytest
 from libs.http_client import BillingAPIClient
 
 # Add project root to sys.path for imports
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +29,7 @@ def integration_test_config():
 
     return {
         "mock_server_port": int(default_port),
-        "mock_server_url": os.environ.get(
-            "MOCK_SERVER_URL", f"http://localhost:{default_port}"
-        ),
+        "mock_server_url": os.environ.get("MOCK_SERVER_URL", f"http://localhost:{default_port}"),
         "use_real_api": os.environ.get("USE_REAL_API", "false").lower() == "true",
         "test_timeout": int(os.environ.get("INTEGRATION_TEST_TIMEOUT", "300")),
         "parallel_workers": int(os.environ.get("INTEGRATION_WORKERS", "4")),
@@ -136,9 +132,5 @@ def pytest_configure(config) -> None:
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "integration: mark test as integration test")
     config.addinivalue_line("markers", "slow: mark test as slow running")
-    config.addinivalue_line(
-        "markers", "requires_mock: mark test as requiring mock server"
-    )
-    config.addinivalue_line(
-        "markers", "requires_real_api: mark test as requiring real API"
-    )
+    config.addinivalue_line("markers", "requires_mock: mark test as requiring mock server")
+    config.addinivalue_line("markers", "requires_real_api: mark test as requiring real API")

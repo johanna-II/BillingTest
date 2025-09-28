@@ -3,7 +3,8 @@
 import os
 
 import pytest
-from pact import EachLike, Format, Like, Pact, Term
+import requests
+from pact import Consumer, EachLike, Format, Like, Provider, Term
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
 os.makedirs(PACT_DIR, exist_ok=True)
@@ -12,12 +13,10 @@ os.makedirs(PACT_DIR, exist_ok=True)
 @pytest.fixture(scope="session")
 def pact():
     """Set up Pact consumer for CRUD operations."""
-    pact = Pact(
-        consumer_name="BillingCRUD",
-        provider_name="BillingAPI",
-        log_dir=os.path.join(os.path.dirname(__file__), "logs"),
-        pact_dir=PACT_DIR,
-    )
+    consumer = Consumer("BillingCRUD")
+    provider = Provider("BillingAPI")
+
+    pact = consumer.has_pact_with(provider, pact_dir=PACT_DIR)
 
     pact.start_service()
     yield pact
@@ -79,7 +78,10 @@ class TestCRUDContracts:
         # Execute the test
         with pact:
             # Make actual request
-            response = pact.session.post(f"{pact.uri}/api/v1/billing/meters", json=metering_request)
+            response = requests.post(
+                f"http://localhost:{pact.port}/api/v1/billing/meters",
+                json=metering_request,
+            )
             assert response.status_code == 200
             data = response.json()
             assert data["header"]["isSuccessful"] is True
@@ -129,8 +131,8 @@ class TestCRUDContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.get(
-                f"{pact.uri}/api/v1/billing/adjustments",
+            response = requests.get(
+                f"http://localhost:{pact.port}/api/v1/billing/adjustments",
                 params={
                     "adjustmentTarget": "PROJECT",
                     "targetId": "test-app-001",
@@ -183,7 +185,10 @@ class TestCRUDContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.post(f"{pact.uri}/api/v1/billing/credits", json=credit_request)
+            response = requests.post(
+                f"http://localhost:{pact.port}/api/v1/billing/credits",
+                json=credit_request,
+            )
             assert response.status_code == 201
             data = response.json()
             assert data["header"]["isSuccessful"] is True
@@ -225,8 +230,8 @@ class TestCRUDContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.get(
-                f"{pact.uri}/api/v1/billing/payments/2024-01",
+            response = requests.get(
+                f"http://localhost:{pact.port}/api/v1/billing/payments/2024-01",
                 headers={"uuid": "test-uuid-123"},
             )
             assert response.status_code == 200
@@ -249,7 +254,9 @@ class TestCRUDContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.delete(f"{pact.uri}/api/v1/billing/adjustments/adj-001")
+            response = requests.delete(
+                f"http://localhost:{pact.port}/api/v1/billing/adjustments/adj-001"
+            )
             assert response.status_code == 204
 
     def test_update_contract_status(self, pact):
@@ -284,8 +291,9 @@ class TestCRUDContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.patch(
-                f"{pact.uri}/api/v1/billing/contracts/contract-001", json=update_request
+            response = requests.patch(
+                f"http://localhost:{pact.port}/api/v1/billing/contracts/contract-001",
+                json=update_request,
             )
             assert response.status_code == 200
             data = response.json()
@@ -340,7 +348,10 @@ class TestCRUDErrorContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.post(f"{pact.uri}/api/v1/billing/meters", json=invalid_request)
+            response = requests.post(
+                f"http://localhost:{pact.port}/api/v1/billing/meters",
+                json=invalid_request,
+            )
             assert response.status_code == 400
             data = response.json()
             assert data["header"]["isSuccessful"] is False
@@ -365,7 +376,9 @@ class TestCRUDErrorContracts:
 
         # Execute the test
         with pact:
-            response = pact.session.get(f"{pact.uri}/api/v1/billing/adjustments/non-existent")
+            response = requests.get(
+                f"http://localhost:{pact.port}/api/v1/billing/adjustments/non-existent"
+            )
             assert response.status_code == 404
             data = response.json()
             assert data["header"]["isSuccessful"] is False

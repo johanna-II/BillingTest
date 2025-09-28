@@ -10,15 +10,11 @@ class PaymentAPIClient(BillingAPIClient):
 
     def get_statements_admin(self, month: str, uuid: str) -> dict[str, Any]:
         """Get billing statements using admin API."""
-        return self.get(
-            "billing/admin/statements", params={"uuid": uuid, "month": month}
-        )
+        return self.get("billing/admin/statements", params={"uuid": uuid, "month": month})
 
     def get_statements_console(self, month: str, uuid: str) -> dict[str, Any]:
         """Get billing statements using console API."""
-        return self.get(
-            "billing/console/statements", params={"uuid": uuid, "month": month}
-        )
+        return self.get("billing/console/statements", params={"uuid": uuid, "month": month})
 
     def change_status(
         self, month: str, payment_group_id: str, target_status: str
@@ -31,13 +27,9 @@ class PaymentAPIClient(BillingAPIClient):
 
     def cancel_payment(self, month: str, payment_group_id: str) -> dict[str, Any]:
         """Cancel a payment."""
-        return self.delete(
-            f"billing/payment/{payment_group_id}", params={"month": month}
-        )
+        return self.delete(f"billing/payment/{payment_group_id}", params={"month": month})
 
-    def make_payment(
-        self, month: str, payment_group_id: str, uuid: str
-    ) -> dict[str, Any]:
+    def make_payment(self, month: str, payment_group_id: str, uuid: str) -> dict[str, Any]:
         """Make a payment."""
         return self.post(
             "billing/payment/make",
@@ -96,9 +88,7 @@ class PaymentAPIClient(BillingAPIClient):
 
     def retry_payment(self, payment_id: str, retry_count: int = 1) -> dict[str, Any]:
         """Retry a failed payment."""
-        return self.post(
-            f"billing/payment/{payment_id}/retry", json={"retryCount": retry_count}
-        )
+        return self.post(f"billing/payment/{payment_id}/retry", json={"retryCount": retry_count})
 
     def batch_process_payments(
         self, payment_ids: list[str], action: str = "process"
@@ -108,8 +98,6 @@ class PaymentAPIClient(BillingAPIClient):
             "billing/payment/batch", json={"paymentIds": payment_ids, "action": action}
         )
 
-    def process_batch_payments(
-        self, payment_requests: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    def process_batch_payments(self, payment_requests: list[dict[str, Any]]) -> dict[str, Any]:
         """Process batch payments."""
         return self.post("billing/payment/batch", json={"requests": payment_requests})

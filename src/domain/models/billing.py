@@ -109,9 +109,7 @@ class BillingStatement:
 
         self.final_amount = amount
 
-    def _apply_credits(
-        self, amount: Decimal, credit_list: list[Credit]
-    ) -> CreditApplication:
+    def _apply_credits(self, amount: Decimal, credit_list: list[Credit]) -> CreditApplication:
         """Apply credits according to priority rules."""
         # Sort by priority (expiring soon > free > refund > paid)
         sorted_credits = sorted(credit_list, key=lambda c: (c.priority.value, c.id))

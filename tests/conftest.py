@@ -64,9 +64,7 @@ def setup_logging():
         else:
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
 
         logging.getLogger().addHandler(handler)
@@ -150,9 +148,7 @@ def pytest_addoption(parser: Parser) -> None:
     )
 
     # Test behavior options
-    parser.addoption(
-        "--skip-slow", action="store_true", default=False, help="Skip slow tests"
-    )
+    parser.addoption("--skip-slow", action="store_true", default=False, help="Skip slow tests")
 
     parser.addoption(
         "--run-destructive",
@@ -172,23 +168,17 @@ def pytest_configure(config: Config) -> None:
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "destructive: marks tests that modify/delete data"
-    )
+    config.addinivalue_line("markers", "destructive: marks tests that modify/delete data")
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
-    config.addinivalue_line(
-        "markers", "mock_required: marks tests that require mock server"
-    )
+    config.addinivalue_line("markers", "mock_required: marks tests that require mock server")
     config.addinivalue_line("markers", "performance: marks performance tests")
 
     # Set up environment
     if config.getoption("--use-mock"):
         os.environ["USE_MOCK_SERVER"] = "true"
         os.environ["MOCK_SERVER_PORT"] = config.getoption("--mock-port")
-        logger.info(
-            f"Mock server mode enabled on port {os.environ['MOCK_SERVER_PORT']}"
-        )
+        logger.info(f"Mock server mode enabled on port {os.environ['MOCK_SERVER_PORT']}")
 
     # Log test configuration
     logger.info(

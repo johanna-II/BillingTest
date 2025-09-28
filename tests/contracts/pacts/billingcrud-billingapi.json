@@ -1,0 +1,435 @@
+{
+  "consumer": {
+    "name": "BillingCRUD"
+  },
+  "provider": {
+    "name": "BillingAPI"
+  },
+  "interactions": [
+    {
+      "description": "a request to submit metering data",
+      "providerState": "System is ready to accept metering data",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/billing/meters",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "meterList": [
+            {
+              "appKey": "test-app-001",
+              "counterName": "compute.instance",
+              "counterType": "DELTA",
+              "counterUnit": "HOURS",
+              "counterVolume": "24",
+              "resourceId": "vm-001",
+              "resourceName": "Test VM",
+              "parentResourceId": "project-001",
+              "source": "qa.billing.test",
+              "timestamp": "2024-01-01T00:00:00.000+09:00"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": true,
+            "resultCode": 0,
+            "resultMessage": "SUCCESS"
+          },
+          "body": {
+            "accepted": 1,
+            "rejected": 0,
+            "total": 1
+          }
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          },
+          "$.body.body.accepted": {
+            "match": "type"
+          },
+          "$.body.body.rejected": {
+            "match": "type"
+          },
+          "$.body.body.total": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to get adjustment list",
+      "providerState": "Adjustments exist for a project",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/billing/adjustments",
+        "query": "adjustmentTarget=PROJECT&targetId=test-app-001&page=1&itemsPerPage=50"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": true,
+            "resultCode": 0,
+            "resultMessage": "SUCCESS"
+          },
+          "adjustments": [
+            {
+              "adjustmentId": "adj-001",
+              "adjustmentType": "FIXED_DISCOUNT",
+              "adjustmentAmount": 100.0,
+              "adjustmentTarget": "PROJECT",
+              "targetId": "test-app-001",
+              "description": "Test adjustment",
+              "createdAt": "1991-02-20T06:35:26+00:00"
+            }
+          ]
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          },
+          "$.body.adjustments": {
+            "min": 1
+          },
+          "$.body.adjustments[*].*": {
+            "match": "type"
+          },
+          "$.body.adjustments[*].adjustmentId": {
+            "match": "regex",
+            "regex": "adj-[0-9a-f]+"
+          },
+          "$.body.adjustments[*].adjustmentType": {
+            "match": "regex",
+            "regex": "(FIXED_DISCOUNT|RATE_DISCOUNT|FIXED_SURCHARGE|RATE_SURCHARGE)"
+          },
+          "$.body.adjustments[*].adjustmentAmount": {
+            "match": "type"
+          },
+          "$.body.adjustments[*].adjustmentTarget": {
+            "match": "regex",
+            "regex": "(PROJECT|BILLING_GROUP|ORGANIZATION)"
+          },
+          "$.body.adjustments[*].targetId": {
+            "match": "type"
+          },
+          "$.body.adjustments[*].description": {
+            "match": "type"
+          },
+          "$.body.adjustments[*].createdAt": {
+            "match": "regex",
+            "regex": "^\\d{4}-[01]\\d-[0-3]\\d\\x54[0-2]\\d:[0-6]\\d:[0-6]\\d(?:\\.\\d+)?(?:(?:[+-]\\d\\d:?\\d\\d)|\\x5A)?$"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to grant campaign credit",
+      "providerState": "System can grant credits",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/billing/credits",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "campaignId": "CAMP-2024-01",
+          "creditName": "Test Credit Grant",
+          "amount": 10000,
+          "creditType": "CAMPAIGN",
+          "startDate": "2024-01-01",
+          "endDate": "2024-12-31"
+        }
+      },
+      "response": {
+        "status": 201,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": true,
+            "resultCode": 0,
+            "resultMessage": "SUCCESS"
+          },
+          "creditId": "credit-001",
+          "campaignId": "CAMP-2024-01",
+          "amount": 10000,
+          "status": "ACTIVE"
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          },
+          "$.body.creditId": {
+            "match": "regex",
+            "regex": "credit-[0-9a-f]+"
+          },
+          "$.body.campaignId": {
+            "match": "type"
+          },
+          "$.body.amount": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to get payment status",
+      "providerState": "Payment exists for the month",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/billing/payments/2024-01",
+        "headers": {
+          "uuid": "test-uuid-123"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": true,
+            "resultCode": 0,
+            "resultMessage": "SUCCESS"
+          },
+          "statements": [
+            {
+              "paymentGroupId": "pg-001",
+              "paymentStatusCode": "REGISTERED",
+              "amount": 50000.0,
+              "currency": "KRW",
+              "dueDate": "1991-02-20T06:35:26+00:00"
+            }
+          ]
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          },
+          "$.body.statements": {
+            "min": 1
+          },
+          "$.body.statements[*].*": {
+            "match": "type"
+          },
+          "$.body.statements[*].paymentGroupId": {
+            "match": "regex",
+            "regex": "pg-[0-9a-f]+"
+          },
+          "$.body.statements[*].paymentStatusCode": {
+            "match": "regex",
+            "regex": "(PENDING|REGISTERED|PAID|CANCELLED|FAILED)"
+          },
+          "$.body.statements[*].amount": {
+            "match": "type"
+          },
+          "$.body.statements[*].currency": {
+            "match": "type"
+          },
+          "$.body.statements[*].dueDate": {
+            "match": "regex",
+            "regex": "^\\d{4}-[01]\\d-[0-3]\\d\\x54[0-2]\\d:[0-6]\\d:[0-6]\\d(?:\\.\\d+)?(?:(?:[+-]\\d\\d:?\\d\\d)|\\x5A)?$"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request to delete adjustment",
+      "providerState": "Adjustment adj-001 exists",
+      "request": {
+        "method": "DELETE",
+        "path": "/api/v1/billing/adjustments/adj-001"
+      },
+      "response": {
+        "status": 204,
+        "headers": {
+        }
+      }
+    },
+    {
+      "description": "a request to update contract status",
+      "providerState": "Contract contract-001 exists",
+      "request": {
+        "method": "PATCH",
+        "path": "/api/v1/billing/contracts/contract-001",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "status": "ACTIVE",
+          "effectiveDate": "2024-01-01"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": true,
+            "resultCode": 0,
+            "resultMessage": "SUCCESS"
+          },
+          "contractId": "contract-001",
+          "status": "ACTIVE",
+          "updatedAt": "1991-02-20T06:35:26+00:00"
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          },
+          "$.body.contractId": {
+            "match": "type"
+          },
+          "$.body.status": {
+            "match": "type"
+          },
+          "$.body.updatedAt": {
+            "match": "regex",
+            "regex": "^\\d{4}-[01]\\d-[0-3]\\d\\x54[0-2]\\d:[0-6]\\d:[0-6]\\d(?:\\.\\d+)?(?:(?:[+-]\\d\\d:?\\d\\d)|\\x5A)?$"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request with invalid metering data",
+      "providerState": "System validates input",
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/billing/meters",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "meterList": [
+            {
+              "appKey": "",
+              "counterName": "",
+              "counterType": "INVALID_TYPE"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": false,
+            "resultCode": 400,
+            "resultMessage": "Validation error"
+          },
+          "errors": [
+            {
+              "field": "appKey",
+              "message": "Required field cannot be empty"
+            }
+          ]
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          },
+          "$.body.errors": {
+            "min": 1
+          },
+          "$.body.errors[*].*": {
+            "match": "type"
+          },
+          "$.body.errors[*].field": {
+            "match": "type"
+          },
+          "$.body.errors[*].message": {
+            "match": "type"
+          }
+        }
+      }
+    },
+    {
+      "description": "a request for non-existent adjustment",
+      "providerState": "Adjustment does not exist",
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/billing/adjustments/non-existent"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+        },
+        "body": {
+          "header": {
+            "isSuccessful": false,
+            "resultCode": 404,
+            "resultMessage": "Resource not found"
+          }
+        },
+        "matchingRules": {
+          "$.body.header.isSuccessful": {
+            "match": "type"
+          },
+          "$.body.header.resultCode": {
+            "match": "type"
+          },
+          "$.body.header.resultMessage": {
+            "match": "type"
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "2.0.0"
+    }
+  }
+}

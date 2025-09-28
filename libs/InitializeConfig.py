@@ -156,9 +156,7 @@ class ManagerFactory(Protocol):
         """Create adjustment manager instance."""
         ...
 
-    def create_contract_manager(
-        self, month: str, billing_group_id: str
-    ) -> ContractManager:
+    def create_contract_manager(self, month: str, billing_group_id: str) -> ContractManager:
         """Create contract manager instance."""
         ...
 
@@ -199,9 +197,7 @@ class DefaultManagerFactory:
         """Create adjustment manager instance."""
         return AdjustmentManager(month, client=self._client)
 
-    def create_contract_manager(
-        self, month: str, billing_group_id: str
-    ) -> ContractManager:
+    def create_contract_manager(self, month: str, billing_group_id: str) -> ContractManager:
         """Create contract manager instance."""
         return ContractManager(month, billing_group_id, client=self._client)
 
@@ -230,9 +226,7 @@ class EnvironmentPreparer:
 
         try:
             # Get current payment status
-            payment_group_id, payment_status = (
-                self._payment_manager.get_payment_status()
-            )
+            payment_group_id, payment_status = self._payment_manager.get_payment_status()
 
             if not payment_group_id:
                 logger.warning("No payment found for the specified month")
@@ -312,8 +306,7 @@ class ConfigurationManager:
         try:
             config = self._config_loader.load(environment, member)
             logger.info(
-                f"Loaded configuration for {environment}_{member}: "
-                f"UUID={config.uuid[:8]}..."
+                f"Loaded configuration for {environment}_{member}: " f"UUID={config.uuid[:8]}..."
             )
             return config
 
@@ -421,18 +414,12 @@ class InitializeConfig:
         self.payment_manager = self._manager_factory.create_payment_manager(
             self.month, self._config.uuid
         )
-        self.credit_manager = self._manager_factory.create_credit_manager(
-            self._config.uuid
-        )
-        self.metering_manager = self._manager_factory.create_metering_manager(
-            self.month
-        )
+        self.credit_manager = self._manager_factory.create_credit_manager(self._config.uuid)
+        self.metering_manager = self._manager_factory.create_metering_manager(self.month)
         self.calculation_manager = self._manager_factory.create_calculation_manager(
             self.month, self._config.uuid
         )
-        self.adjustment_manager = self._manager_factory.create_adjustment_manager(
-            self.month
-        )
+        self.adjustment_manager = self._manager_factory.create_adjustment_manager(self.month)
 
         # Contract manager is optional
         if self._config.billing_group_id:
@@ -541,9 +528,7 @@ class InitializeConfig:
 
     def clean_data(self) -> None:
         """Legacy method - no longer needed, kept for compatibility."""
-        logger.info(
-            "clean_data() called - no operation needed in current implementation"
-        )
+        logger.info("clean_data() called - no operation needed in current implementation")
 
     def common_test(self) -> tuple[dict[str, Any], float]:
         """Common test method for getting payment statements.
@@ -575,9 +560,7 @@ class InitializeConfig:
 
         return statements, total_payments
 
-    def verify_assert(
-        self, statements: float, payments: float, expected_result: float
-    ) -> None:
+    def verify_assert(self, statements: float, payments: float, expected_result: float) -> None:
         """Verify assertion for test results.
 
         Args:

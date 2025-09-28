@@ -8,11 +8,7 @@ from pathlib import Path
 scripts_dir = Path(__file__).resolve().parent.parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
-from test.test_runner import (
-    TestRunner,
-    create_argument_parser,
-    get_default_workers,
-)
+from test.test_runner import TestRunner, create_argument_parser, get_default_workers
 
 
 def main():

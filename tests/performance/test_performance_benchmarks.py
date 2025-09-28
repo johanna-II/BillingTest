@@ -28,7 +28,9 @@ class TestPerformanceBenchmarks:
             return f"APP-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
 
         def _generate_campaign_id():
-            return f"CAMPAIGN-{datetime.now().strftime('%Y%m%d%H%M%S')}-{random.randint(1000, 9999)}"
+            return (
+                f"CAMPAIGN-{datetime.now().strftime('%Y%m%d%H%M%S')}-{random.randint(1000, 9999)}"
+            )
 
         return {
             "app_keys": [_generate_app_key() for _ in range(100)],
@@ -54,9 +56,7 @@ class TestPerformanceBenchmarks:
         assert result is not None
 
     @pytest.mark.benchmark(group="metering")
-    def test_batch_metering_performance(
-        self, benchmark, mock_api_client, test_data_generator
-    ):
+    def test_batch_metering_performance(self, benchmark, mock_api_client, test_data_generator):
         """Benchmark batch metering submission."""
         manager = MeteringManager(month="2024-01", client=mock_api_client)
         app_keys = test_data_generator["app_keys"][:10]
@@ -95,9 +95,7 @@ class TestPerformanceBenchmarks:
         assert result is not None
 
     @pytest.mark.benchmark(group="adjustment")
-    def test_bulk_adjustments_performance(
-        self, benchmark, mock_api_client, test_data_generator
-    ):
+    def test_bulk_adjustments_performance(self, benchmark, mock_api_client, test_data_generator):
         """Benchmark bulk adjustment operations."""
         manager = AdjustmentManager(month="2024-01", client=mock_api_client)
         app_keys = test_data_generator["app_keys"][:20]
@@ -119,9 +117,7 @@ class TestPerformanceBenchmarks:
         assert len(results) == 20
 
     @pytest.mark.benchmark(group="credit")
-    def test_credit_grant_performance(
-        self, benchmark, mock_api_client, test_data_generator
-    ):
+    def test_credit_grant_performance(self, benchmark, mock_api_client, test_data_generator):
         """Benchmark credit granting."""
         manager = CreditManager(uuid="TEST-USER-001", client=mock_api_client)
         campaign_id = test_data_generator["campaign_ids"][0]
@@ -139,9 +135,7 @@ class TestPerformanceBenchmarks:
     @pytest.mark.benchmark(group="calculation")
     def test_calculation_performance(self, benchmark, mock_api_client):
         """Benchmark calculation operations."""
-        manager = CalculationManager(
-            month="2024-01", uuid="TEST-USER-001", client=mock_api_client
-        )
+        manager = CalculationManager(month="2024-01", uuid="TEST-USER-001", client=mock_api_client)
 
         def recalculate():
             return manager.recalculate_all()
@@ -194,9 +188,7 @@ class TestPerformanceBenchmarks:
 
     @pytest.mark.benchmark(group="stress")
     @pytest.mark.parametrize("num_operations", [10, 50, 100])
-    def test_concurrent_operations_stress(
-        self, benchmark, mock_api_client, num_operations
-    ):
+    def test_concurrent_operations_stress(self, benchmark, mock_api_client, num_operations):
         """Stress test with multiple concurrent operations."""
         import concurrent.futures
 
@@ -212,9 +204,7 @@ class TestPerformanceBenchmarks:
 
         def stress_test():
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                futures = [
-                    executor.submit(single_operation, i) for i in range(num_operations)
-                ]
+                futures = [executor.submit(single_operation, i) for i in range(num_operations)]
                 return [f.result() for f in concurrent.futures.as_completed(futures)]
 
         results = benchmark(stress_test)

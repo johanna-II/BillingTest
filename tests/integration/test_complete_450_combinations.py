@@ -98,9 +98,7 @@ class TestDataFactory:
 
 
 @pytest.mark.slow
-@pytest.mark.skip(
-    reason="450 combination tests are excluded from CI - run manually as needed"
-)
+@pytest.mark.skip(reason="450 combination tests are excluded from CI - run manually as needed")
 class TestAll450Combinations(BaseIntegrationTest):
     """Systematically test all 450 business logic combinations."""
 
@@ -392,8 +390,7 @@ class TestAll450Combinations(BaseIntegrationTest):
             tolerance = expected * Decimal("0.01")
 
             assert abs(actual - expected) <= tolerance, (
-                f"Scenario {result['scenario_id']}: "
-                f"Expected {expected}, got {actual}"
+                f"Scenario {result['scenario_id']}: " f"Expected {expected}, got {actual}"
             )
 
             # Additional business rule validations
@@ -412,9 +409,7 @@ class TestAll450Combinations(BaseIntegrationTest):
             proj_disc = result["proj_adjustment"][3]
 
         total_discount = bg_disc + proj_disc
-        assert (
-            total_discount <= 90
-        ), f"Total discount {total_discount}% exceeds 90% limit"
+        assert total_discount <= 90, f"Total discount {total_discount}% exceeds 90% limit"
 
     def _validate_credit_priority(self, result: dict[str, Any]) -> None:
         """Validate credit application priority."""

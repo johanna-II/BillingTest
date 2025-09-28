@@ -86,9 +86,7 @@ class TestCalculationManagerUnit:
         """Test waiting for calculation completion."""
         self.mock_client.wait_for_completion.return_value = True
 
-        result = self.calculator._wait_for_calculation_completion(
-            timeout=60, check_interval=2
-        )
+        result = self.calculator._wait_for_calculation_completion(timeout=60, check_interval=2)
 
         assert result is True
         # Verify wait was called with correct parameters
@@ -113,9 +111,7 @@ class TestCalculationManagerUnit:
 
     def test_recalculate_all_api_error(self) -> None:
         """Test recalculation with API error."""
-        self.mock_client.post.side_effect = APIRequestException(
-            "API Error", status_code=500
-        )
+        self.mock_client.post.side_effect = APIRequestException("API Error", status_code=500)
 
         with pytest.raises(APIRequestException) as exc_info:
             self.calculator.recalculate_all()
@@ -181,9 +177,7 @@ class TestCalculationEdgeCases:
         mock_client_class.return_value = mock_client
 
         # Simulate concurrent calculation already running
-        mock_client.post.side_effect = APIRequestException(
-            "Calculation already in progress"
-        )
+        mock_client.post.side_effect = APIRequestException("Calculation already in progress")
 
         calc = CalculationManager(month="2024-01", uuid="test-uuid")
 

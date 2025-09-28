@@ -15,13 +15,7 @@ pytestmark = pytest.mark.skip(
     reason="High coverage test needs refactoring - core tests already achieve 79% coverage"
 )
 
-from libs.constants import (
-    AdjustmentTarget,
-    AdjustmentType,
-    BatchJobCode,
-    CounterType,
-    CreditType,
-)
+from libs.constants import AdjustmentTarget, AdjustmentType, BatchJobCode, CounterType, CreditType
 from libs.exceptions import APIRequestException, ValidationException
 from tests.integration.base_integration import BaseIntegrationTest
 
@@ -93,9 +87,7 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
         )
 
         # 4. Test get adjustments
-        adj_list = adj_manager.get_adjustments(
-            AdjustmentTarget.PROJECT, test_app_keys[0]
-        )
+        adj_list = adj_manager.get_adjustments(AdjustmentTarget.PROJECT, test_app_keys[0])
 
         # 5. Test delete
         del_result = adj_manager.delete_adjustments()
@@ -122,9 +114,7 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
             )
 
             # Test legacy request_batch
-            legacy_result = batch.request_batch(
-                job_code, exec_day, test_context["uuid"]
-            )
+            legacy_result = batch.request_batch(job_code, exec_day, test_context["uuid"])
 
             # Test get_batch_status if we have job_id
             if result.get("jobId"):
@@ -215,9 +205,7 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
         )
 
         # Paid credit
-        paid_result = credit.grant_paid_credit(
-            campaign_id="HC-PAID-001", paid_amount=20000
-        )
+        paid_result = credit.grant_paid_credit(campaign_id="HC-PAID-001", paid_amount=20000)
 
         # 2. Test coupon (will likely fail without valid coupon)
         try:
@@ -250,9 +238,7 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
 
         # 6. Test cancel credit
         if campaign_result.get("header", {}).get("isSuccessful"):
-            cancel_result = credit.cancel_credit(
-                "HC-CAMPAIGN-001", reason="High coverage test"
-            )
+            cancel_result = credit.cancel_credit("HC-CAMPAIGN-001", reason="High coverage test")
 
     def test_all_metering_methods(self, test_context, test_app_keys):
         """Test all metering manager methods."""
@@ -302,9 +288,7 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
                 "counter_volume": "1048576",
             },
         ]
-        batch_result = metering.send_batch_metering(
-            app_key=test_app_keys[0], meters=batch_meters
-        )
+        batch_result = metering.send_batch_metering(app_key=test_app_keys[0], meters=batch_meters)
 
         # 4. Test validation errors
         try:
@@ -355,9 +339,7 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
                 )
 
                 # 7. Change status
-                status_result = payment.change_payment_status(
-                    payment_info.payment_group_id
-                )
+                status_result = payment.change_payment_status(payment_info.payment_group_id)
 
                 # 8. Cancel payment
                 cancel_result = payment.cancel_payment(payment_info.payment_group_id)
@@ -391,17 +373,13 @@ class TestHighCoverageIntegration(BaseIntegrationTest):
         # 2. Test specific client methods
         try:
             # Test get_billing_detail
-            detail = client.get_billing_detail(
-                test_context["month"], test_context["uuid"]
-            )
+            detail = client.get_billing_detail(test_context["month"], test_context["uuid"])
         except Exception as e:
             logger.info(f"Billing detail error: {e}")
 
         try:
             # Test get_statements_console
-            statements = client.get_statements_console(
-                test_context["month"], test_context["uuid"]
-            )
+            statements = client.get_statements_console(test_context["month"], test_context["uuid"])
         except Exception as e:
             logger.info(f"Statements error: {e}")
 

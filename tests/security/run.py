@@ -9,11 +9,7 @@ scripts_dir = Path(__file__).resolve().parent.parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
 from test.mock_server import mock_server_context
-from test.test_runner import (
-    TestRunner,
-    create_argument_parser,
-    get_default_workers,
-)
+from test.test_runner import TestRunner, create_argument_parser, get_default_workers
 
 
 def main():

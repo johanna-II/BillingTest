@@ -139,9 +139,7 @@ class CreditAPIClient:
         endpoint = self.CAMPAIGN_CREDIT_ENDPOINT.format(campaign_id=campaign_id)
         data = credit_request.to_api_format()
 
-        logger.debug(
-            f"Granting campaign credit: {campaign_id}, amount: {credit_request.amount}"
-        )
+        logger.debug(f"Granting campaign credit: {campaign_id}, amount: {credit_request.amount}")
         return self._client.post(endpoint, headers=headers, json_data=data)
 
     def get_credit_history(
@@ -162,9 +160,7 @@ class CreditAPIClient:
         headers = {"Accept": DEFAULT_ACCEPT_HEADER}
 
         logger.debug(f"Fetching credit history: type={credit_type.value}, page={page}")
-        return self._client.get(
-            self.CREDIT_HISTORY_ENDPOINT, headers=headers, params=params
-        )
+        return self._client.get(self.CREDIT_HISTORY_ENDPOINT, headers=headers, params=params)
 
     def cancel_credit(self, campaign_id: str, reason: str = "test") -> CreditData:
         """Cancel credit for a campaign."""
@@ -376,9 +372,7 @@ class CreditManager:
 
         # Calculate dates if not provided
         if not expiration_date_from or not expiration_date_to:
-            calc_from, calc_to = CreditCalculator.calculate_expiration_dates(
-                expiration_months
-            )
+            calc_from, calc_to = CreditCalculator.calculate_expiration_dates(expiration_months)
             expiration_date_from = expiration_date_from or calc_from
             expiration_date_to = expiration_date_to or calc_to
 
@@ -403,9 +397,7 @@ class CreditManager:
         )
 
         try:
-            response = self._api.grant_campaign_credit(
-                campaign_id, credit_request, self.uuid
-            )
+            response = self._api.grant_campaign_credit(campaign_id, credit_request, self.uuid)
             logger.info(f"Successfully granted credit: {amount}")
             return response
 
@@ -444,9 +436,7 @@ class CreditManager:
         logger.info(f"Getting credit history: type={credit_type.value}, page={page}")
 
         try:
-            response = self._api.get_credit_history(
-                self.uuid, credit_type, page, items_per_page
-            )
+            response = self._api.get_credit_history(self.uuid, credit_type, page, items_per_page)
 
             # Parse response
             history_data = response.get("creditHistories", [])
@@ -455,9 +445,7 @@ class CreditManager:
             # Calculate total
             total_credit = CreditCalculator.calculate_total_from_history(histories)
 
-            logger.info(
-                f"Found {len(histories)} credit entries, total: {total_credit:,.2f}"
-            )
+            logger.info(f"Found {len(histories)} credit entries, total: {total_credit:,.2f}")
 
             return total_credit, histories
 
@@ -574,8 +562,7 @@ class CreditManager:
         # Summary
         success_count = sum(1 for r in results.values() if not isinstance(r, Exception))
         logger.info(
-            f"Bulk credit grant completed: "
-            f"{success_count}/{len(campaign_ids)} successful"
+            f"Bulk credit grant completed: " f"{success_count}/{len(campaign_ids)} successful"
         )
 
         return results

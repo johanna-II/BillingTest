@@ -121,9 +121,7 @@ class TestAPIResponseTimes:
 
         def get_payment_status():
             headers = {"uuid": test_uuid}
-            return api_client.get(
-                f"/billing/payments/{month}/statements", headers=headers
-            )
+            return api_client.get(f"/billing/payments/{month}/statements", headers=headers)
 
         # Run benchmark
         result = benchmark(get_payment_status)
@@ -208,9 +206,7 @@ class TestAPIResponseTimes:
         memory_growth = final_memory - initial_memory
 
         # Memory shouldn't grow by more than 50MB
-        assert (
-            memory_growth < 50
-        ), f"Memory grew by {memory_growth:.2f} MB (> 50 MB limit)"
+        assert memory_growth < 50, f"Memory grew by {memory_growth:.2f} MB (> 50 MB limit)"
 
     @pytest.mark.performance
     @pytest_benchmark(group="batch-operations")
@@ -222,9 +218,7 @@ class TestAPIResponseTimes:
             return api_client.post("/batch/jobs", json_data=data)
 
         # Run benchmark with specific settings
-        result = benchmark.pedantic(
-            submit_batch_job, rounds=10, iterations=5, warmup_rounds=2
-        )
+        result = benchmark.pedantic(submit_batch_job, rounds=10, iterations=5, warmup_rounds=2)
         assert result is not None
 
     @pytest.mark.performance
@@ -275,6 +269,4 @@ class TestAPIResponseTimes:
         # Check SLAs
         for operation, response_time in results.items():
             sla = sla_requirements[operation]
-            assert (
-                response_time < sla
-            ), f"{operation} took {response_time:.2f}ms (SLA: {sla}ms)"
+            assert response_time < sla, f"{operation} took {response_time:.2f}ms (SLA: {sla}ms)"

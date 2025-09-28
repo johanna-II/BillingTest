@@ -54,9 +54,7 @@ class TestSecurityVulnerabilities:
             except APIRequestException as e:
                 # Check that it's a client error (4xx) not server error (5xx)
                 if e.status_code is not None:
-                    assert (
-                        400 <= e.status_code < 500
-                    ), f"SQL injection caused server error: {e}"
+                    assert 400 <= e.status_code < 500, f"SQL injection caused server error: {e}"
 
     @pytest.mark.security
     def test_xss_prevention(self, api_client, test_uuid) -> None:
@@ -81,15 +79,11 @@ class TestSecurityVulnerabilities:
             }
 
             try:
-                response = api_client.post(
-                    "/billing/meters", headers=headers, json_data=data
-                )
+                response = api_client.post("/billing/meters", headers=headers, json_data=data)
                 # If successful, verify the response doesn't contain unescaped payload
                 if isinstance(response, dict):
                     response_str = json.dumps(response)
-                    assert (
-                        payload not in response_str
-                    ), f"XSS payload not sanitized: {payload}"
+                    assert payload not in response_str, f"XSS payload not sanitized: {payload}"
             except APIRequestException:
                 # API rejection is acceptable
                 pass
@@ -107,15 +101,10 @@ class TestSecurityVulnerabilities:
 
         for headers in bypass_attempts:
             try:
-                response = api_client.get(
-                    "/billing/payments/2024-01/statements", headers=headers
-                )
+                response = api_client.get("/billing/payments/2024-01/statements", headers=headers)
                 # Should not return sensitive data without proper auth
                 if isinstance(response, dict):
-                    assert (
-                        "statements" not in response
-                        or len(response.get("statements", [])) == 0
-                    )
+                    assert "statements" not in response or len(response.get("statements", [])) == 0
             except APIRequestException:
                 # Rejection is expected
                 pass
@@ -275,9 +264,7 @@ class TestSecurityVulnerabilities:
             }
 
             try:
-                response = api_client.post(
-                    "/billing/meters", headers=headers, json_data=data
-                )
+                response = api_client.post("/billing/meters", headers=headers, json_data=data)
                 # If accepted, verify it's handled correctly
                 assert isinstance(response, dict)
             except APIRequestException as e:
@@ -297,9 +284,7 @@ class TestSecurityVulnerabilities:
         }
 
         try:
-            api_client.get(
-                "/billing/payments/2024-01/statements", headers=injection_headers
-            )
+            api_client.get("/billing/payments/2024-01/statements", headers=injection_headers)
         except Exception:
             # Any exception is fine - we just don't want header injection to work
             pass

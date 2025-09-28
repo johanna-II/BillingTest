@@ -36,9 +36,7 @@ def retry_flaky_test(max_attempts: int = 3, delay: float = 1.0):
                         )
                         time.sleep(delay)
                     else:
-                        print(
-                            f"Test {func.__name__} failed after {max_attempts} attempts"
-                        )
+                        print(f"Test {func.__name__} failed after {max_attempts} attempts")
 
             if last_exception:
                 raise last_exception

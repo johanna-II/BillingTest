@@ -125,9 +125,7 @@ class TelemetryManager:
 
 
 def retry_on_exception(
-    exceptions: type[Exception] | tuple[type[Exception], ...] = (
-        requests.RequestException,
-    ),
+    exceptions: type[Exception] | tuple[type[Exception], ...] = (requests.RequestException,),
     max_retries: int = 3,
     backoff_factor: float = 1.0,
 ) -> Callable[[F], F]:
@@ -146,8 +144,7 @@ def retry_on_exception(
                     if attempt < max_retries - 1:
                         wait_time = backoff_factor * (2**attempt)
                         logger.warning(
-                            f"Attempt {attempt + 1} failed: {e}. "
-                            f"Retrying in {wait_time}s..."
+                            f"Attempt {attempt + 1} failed: {e}. " f"Retrying in {wait_time}s..."
                         )
                         time.sleep(wait_time)
                     else:
@@ -382,9 +379,7 @@ class BillingAPIClient:
 
         start_time = time.time()
 
-        with self._telemetry.span(
-            f"http.{method.value.lower()}", telemetry_attrs
-        ) as span:
+        with self._telemetry.span(f"http.{method.value.lower()}", telemetry_attrs) as span:
             try:
                 response = self.session.request(
                     method=method.value,
@@ -496,9 +491,7 @@ class BillingAPIClient:
         msg = f"Operation timed out after {timeout}s"
         raise APIRequestException(msg, response_data=last_response)
 
-    def _check_completion(
-        self, response: JsonData, status_field: str, success_value: str
-    ) -> bool:
+    def _check_completion(self, response: JsonData, status_field: str, success_value: str) -> bool:
         """Check if response indicates completion."""
         # Handle nested status fields (e.g., "result.status")
         current: Any = response
@@ -529,6 +522,4 @@ class BillingAPIClient:
         Returns:
             Billing statements response
         """
-        return self.get(
-            "billing/console/statements", params={"uuid": uuid, "month": month}
-        )
+        return self.get("billing/console/statements", params={"uuid": uuid, "month": month})

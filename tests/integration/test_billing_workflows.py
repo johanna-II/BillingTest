@@ -9,13 +9,7 @@ from typing import Any
 
 import pytest
 
-from libs.constants import (
-    AdjustmentTarget,
-    AdjustmentType,
-    CounterType,
-    CreditType,
-    PaymentStatus,
-)
+from libs.constants import AdjustmentTarget, AdjustmentType, CounterType, CreditType, PaymentStatus
 from tests.integration.base_integration import BaseIntegrationTest
 
 logger = logging.getLogger(__name__)

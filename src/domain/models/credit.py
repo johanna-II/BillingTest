@@ -118,12 +118,8 @@ class CreditApplication:
 
     def __post_init__(self) -> None:
         """Calculate derived fields."""
-        self.total_credits_applied = Decimal(
-            sum(amount for _, amount in self.credits_used)
-        )
-        self.remaining_amount = max(
-            Decimal(0), self.original_amount - self.total_credits_applied
-        )
+        self.total_credits_applied = Decimal(sum(amount for _, amount in self.credits_used))
+        self.remaining_amount = max(Decimal(0), self.original_amount - self.total_credits_applied)
 
     @property
     def is_fully_covered(self) -> bool:

@@ -108,9 +108,7 @@ class BillingCalculationService:
             user_id, period.start_date, period.end_date
         )
 
-        aggregation = UsageAggregation(
-            period_start=period.start_date, period_end=period.end_date
-        )
+        aggregation = UsageAggregation(period_start=period.start_date, period_end=period.end_date)
 
         for meter in meters:
             aggregation.add_meter(meter)
@@ -122,9 +120,7 @@ class BillingCalculationService:
     ) -> Decimal:
         """Calculate base amount using contract pricing."""
         # Get active contract for billing group
-        contract = self.contract_repo.find_active_contract(
-            billing_group_id, period.start_date
-        )
+        contract = self.contract_repo.find_active_contract(billing_group_id, period.start_date)
 
         if not contract:
             # Fallback to default pricing if no contract
@@ -141,9 +137,7 @@ class BillingCalculationService:
                 total += cost
             except ValueError:
                 # Counter not in contract, use default pricing
-                default_cost = self._calculate_default_counter_cost(
-                    counter_name, volume
-                )
+                default_cost = self._calculate_default_counter_cost(counter_name, volume)
                 total += default_cost
 
         return total
@@ -170,9 +164,7 @@ class BillingCalculationService:
 
         return total
 
-    def _calculate_default_counter_cost(
-        self, counter_name: str, volume: Decimal
-    ) -> Decimal:
+    def _calculate_default_counter_cost(self, counter_name: str, volume: Decimal) -> Decimal:
         """Calculate cost for a single counter using default pricing."""
         # Simplified - in reality would have more complex logic
         return volume * Decimal("1.0")
@@ -218,9 +210,7 @@ class BillingCalculationService:
 
         # Get project level adjustments for each app
         for app_key in usage.unique_apps:
-            proj_adjustments = self.adjustment_repo.find_by_project(
-                app_key, period.start_date
-            )
+            proj_adjustments = self.adjustment_repo.find_by_project(app_key, period.start_date)
             adjustments.extend(proj_adjustments)
 
         # Sort by priority
@@ -228,9 +218,7 @@ class BillingCalculationService:
 
         return adjustments
 
-    def _get_available_credits(
-        self, user_id: str, period: BillingPeriod
-    ) -> list[Credit]:
+    def _get_available_credits(self, user_id: str, period: BillingPeriod) -> list[Credit]:
         """Get all available credits for the user."""
         all_credits = self.credit_repo.find_by_user(user_id)
 

@@ -9,14 +9,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from libs.constants import (
-    AdjustmentTarget,
-    AdjustmentType,
-    CounterType,
-    CreditType,
-    PaymentStatus,
-)
+from libs.constants import AdjustmentTarget, AdjustmentType
 from libs.constants import BatchJobCode as JobCode
+from libs.constants import CounterType, CreditType, PaymentStatus
 from tests.integration.base_integration import BaseIntegrationTest
 
 logger = logging.getLogger(__name__)
@@ -121,9 +116,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                 elif credit_type == CreditType.REFUND:
                     # TODO: Refunds are handled through PaymentManager.process_refund
                     # For now, skip refund credits in this test
-                    logger.warning(
-                        "Skipping REFUND credit type in test - not implemented"
-                    )
+                    logger.warning("Skipping REFUND credit type in test - not implemented")
                     credit_result = None
                 else:  # PAID
                     credit_result = managers["credit"].grant_credit(
@@ -316,9 +309,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
         # Check total balance
         total_balance = managers["credit"].get_total_credit_balance()
         expected_total = 5000 + 10000 + 15000 + 20000
-        logger.info(
-            f"Total credit balance: {total_balance}, Expected: {expected_total}"
-        )
+        logger.info(f"Total credit balance: {total_balance}, Expected: {expected_total}")
 
         # Create usage to test priority
         usage_amounts = [3000, 7000, 12000]  # Different usage levels
@@ -359,9 +350,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
         job_results = []
 
         for job_code, exec_day in batch_jobs:
-            result = managers["batch"].request_batch_job(
-                job_code=job_code, execution_day=exec_day
-            )
+            result = managers["batch"].request_batch_job(job_code=job_code, execution_day=exec_day)
 
             if result.get("header", {}).get("isSuccessful", False):
                 # Get job status
@@ -536,16 +525,20 @@ class TestBusinessRuleValidation(BaseIntegrationTest):
         managers = test_context["managers"]
 
         # Test extreme discount
-        result = managers["adjustment"].apply_adjustment(
-            adjustment_name="Extreme discount test",
-            adjustment_type=AdjustmentType.RATE_DISCOUNT,
-            adjustment_amount=150,  # 150% discount (should be capped or rejected)
-            adjustment_target=AdjustmentTarget.BILLING_GROUP,
-            target_id=test_context["billing_group_id"],
-        )
-
-        # Verify system behavior with extreme values
-        logger.info(f"150% discount result: {result}")
+        try:
+            result = managers["adjustment"].apply_adjustment(
+                adjustment_name="Extreme discount test",
+                adjustment_type=AdjustmentType.RATE_DISCOUNT,
+                adjustment_amount=150,  # 150% discount (should be capped or rejected)
+                adjustment_target=AdjustmentTarget.BILLING_GROUP,
+                target_id=test_context["billing_group_id"],
+            )
+            # If we get here, the system accepted the extreme discount (might be capped)
+            logger.info(f"150% discount result: {result}")
+        except Exception as e:
+            # Expected behavior - system should reject > 100% discounts
+            logger.info(f"150% discount correctly rejected: {e}")
+            assert "cannot exceed 100%" in str(e) or "Rate discount" in str(e)
 
     def test_credit_validation_rules(self, test_context):
         """Test credit validation and business rules.

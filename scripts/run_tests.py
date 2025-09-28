@@ -28,26 +28,20 @@ class TestRunner:
     def __init__(self, use_docker=False):
         self.use_docker = use_docker
         self.project_root = Path(__file__).parent.parent
-        self.docker_compose_cmd = (
-            self._find_docker_compose_cmd() if use_docker else None
-        )
+        self.docker_compose_cmd = self._find_docker_compose_cmd() if use_docker else None
 
     def _find_docker_compose_cmd(self):
         """Find the appropriate docker compose command."""
         # Try 'docker compose' first (newer)
         try:
-            subprocess.run(
-                ["docker", "compose", "version"], capture_output=True, check=True
-            )
+            subprocess.run(["docker", "compose", "version"], capture_output=True, check=True)
             return ["docker", "compose"]
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
         # Try 'docker-compose' (legacy)
         try:
-            subprocess.run(
-                ["docker-compose", "--version"], capture_output=True, check=True
-            )
+            subprocess.run(["docker-compose", "--version"], capture_output=True, check=True)
             return ["docker-compose"]
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
@@ -65,9 +59,7 @@ class TestRunner:
 
         while time.time() - start_time < timeout:
             try:
-                response = urllib.request.urlopen(
-                    "http://localhost:5000/health", timeout=1
-                )
+                response = urllib.request.urlopen("http://localhost:5000/health", timeout=1)
                 if response.status == 200:
                     print("✓ Mock server is ready!")
                     return True
@@ -245,9 +237,7 @@ class TestRunner:
                         ]
                     )
             else:
-                test_commands = {
-                    test_type: ["pytest", f"tests/{test_type}/", "-v", "--use-mock"]
-                }
+                test_commands = {test_type: ["pytest", f"tests/{test_type}/", "-v", "--use-mock"]}
                 if coverage and test_type == "unit":
                     test_commands[test_type].extend(
                         [
@@ -264,9 +254,7 @@ class TestRunner:
                 print(f"Running {test_name} tests...")
                 print("=" * 60)
 
-                result = subprocess.run(
-                    [sys.executable, "-m", *cmd], env=env, check=False
-                )
+                result = subprocess.run([sys.executable, "-m", *cmd], env=env, check=False)
 
                 if result.returncode != 0:
                     success = False
@@ -313,13 +301,9 @@ Examples:
         help="Type of tests to run (default: all)",
     )
 
-    parser.add_argument(
-        "--local", action="store_true", help="Run tests locally without Docker"
-    )
+    parser.add_argument("--local", action="store_true", help="Run tests locally without Docker")
 
-    parser.add_argument(
-        "--coverage", action="store_true", help="Run with coverage report"
-    )
+    parser.add_argument("--coverage", action="store_true", help="Run with coverage report")
 
     args = parser.parse_args()
 

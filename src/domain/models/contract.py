@@ -102,9 +102,7 @@ class Contract:
             return tier1.min_volume >= tier2.min_volume
 
         # Check for overlap
-        return not (
-            tier1.max_volume <= tier2.min_volume or tier2.max_volume <= tier1.min_volume
-        )
+        return not (tier1.max_volume <= tier2.min_volume or tier2.max_volume <= tier1.min_volume)
 
     def calculate_cost(self, counter_name: str, volume: Decimal) -> Decimal:
         """Calculate cost for a counter based on tiered pricing."""

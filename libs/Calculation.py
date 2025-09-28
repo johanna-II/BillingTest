@@ -14,9 +14,7 @@ logger = logging.getLogger(__name__)
 class CalculationManager:
     """Manages billing calculations and resource cleanup."""
 
-    def __init__(
-        self, month: str, uuid: str, client: BillingAPIClient | None = None
-    ) -> None:
+    def __init__(self, month: str, uuid: str, client: BillingAPIClient | None = None) -> None:
         """Initialize calculation manager.
 
         Args:
@@ -31,9 +29,7 @@ class CalculationManager:
     def __repr__(self) -> str:
         return f"CalculationManager(month={self.month}, uuid={self.uuid})"
 
-    def recalculate_all(
-        self, include_usage: bool = True, timeout: int = 300
-    ) -> dict[str, Any]:
+    def recalculate_all(self, include_usage: bool = True, timeout: int = 300) -> dict[str, Any]:
         """Request full recalculation for the month.
 
         Args:
@@ -59,9 +55,7 @@ class CalculationManager:
             if self._wait_for_calculation_completion(timeout):
                 logger.info("Recalculation completed successfully")
             else:
-                logger.warning(
-                    "Recalculation did not complete within %s seconds", timeout
-                )
+                logger.warning("Recalculation did not complete within %s seconds", timeout)
 
             return response
 
@@ -69,9 +63,7 @@ class CalculationManager:
             logger.exception("Failed to request recalculation: %s", e)
             raise
 
-    def _wait_for_calculation_completion(
-        self, timeout: int = 300, check_interval: int = 3
-    ) -> bool:
+    def _wait_for_calculation_completion(self, timeout: int = 300, check_interval: int = 3) -> bool:
         """Wait for calculation to complete.
 
         Args:

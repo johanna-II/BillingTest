@@ -33,9 +33,7 @@ def test_environment():
     os.environ["USE_MOCK_SERVER"] = "true"
     os.environ["MOCK_SERVER_URL"] = "http://localhost:5000"
 
-    contract_mgr = ContractManager(
-        month="2024-01", billing_group_id="test-bg", client=client2
-    )
+    contract_mgr = ContractManager(month="2024-01", billing_group_id="test-bg", client=client2)
 
     # Check if contract manager has client initialized properly
     if hasattr(contract_mgr, "_client"):
@@ -52,9 +50,7 @@ def test_environment():
     print("\n=== Testing Actual Request ===")
     try:
         # This should fail but show us the URL
-        result = contract_mgr.apply_contract(
-            contract_id="test-contract", name="Test Contract"
-        )
+        result = contract_mgr.apply_contract(contract_id="test-contract", name="Test Contract")
         print(f"Result: {result}")
     except Exception as e:
         print(f"Error: {e}")

@@ -54,9 +54,7 @@ class TestContractBilling:
                     }
                 ]
             ),
-            "created_at": Term(
-                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-01T00:00:00"
-            ),
+            "created_at": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-01T00:00:00"),
         }
 
         # Define the interaction
@@ -70,9 +68,7 @@ class TestContractBilling:
         # Execute the test
         with pact:
             # Use requests directly to avoid BillingAPIClient's header checking
-            response = requests.get(
-                f"http://localhost:{pact.port}/api/v1/contracts/12345"
-            )
+            response = requests.get(f"http://localhost:{pact.port}/api/v1/contracts/12345")
 
             # Verify response
             assert response.status_code == 200
@@ -105,9 +101,7 @@ class TestContractBilling:
             "description": Like("Monthly credit"),
             "type": Like("ADJUSTMENT"),
             "status": Term(r"(PENDING|APPROVED|REJECTED)", "APPROVED"),
-            "created_at": Term(
-                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-01T00:00:00"
-            ),
+            "created_at": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-01T00:00:00"),
         }
 
         # Define the interaction
@@ -143,12 +137,8 @@ class TestContractBilling:
         expected = {
             "project_id": Like("PROJ001"),
             "period": {
-                "start": Term(
-                    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-01T00:00:00"
-                ),
-                "end": Term(
-                    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-31T23:59:59"
-                ),
+                "start": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-01T00:00:00"),
+                "end": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-31T23:59:59"),
             },
             "usage": Like(
                 [
@@ -209,9 +199,7 @@ class TestContractBilling:
             "transaction_id": Like("TXN123456"),
             "amount": Like(1000.0),
             "currency": Like("USD"),
-            "updated_at": Term(
-                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-15T10:30:00"
-            ),
+            "updated_at": Term(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "2025-01-15T10:30:00"),
         }
 
         # Define the interaction
@@ -267,9 +255,7 @@ class TestContractErrorHandling:
         # Execute the test
         with pact:
             # Use requests directly to avoid BillingAPIClient's header checking
-            response = requests.get(
-                f"http://localhost:{pact.port}/api/v1/contracts/99999"
-            )
+            response = requests.get(f"http://localhost:{pact.port}/api/v1/contracts/99999")
 
             # Verify response
             assert response.status_code == 404

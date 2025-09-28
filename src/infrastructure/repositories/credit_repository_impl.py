@@ -112,9 +112,7 @@ class CreditRepositoryImpl(CreditRepository):
         }
         return mapping[credit_type]
 
-    def _map_history_to_domain(
-        self, history_item: Any, credit_type: CreditType
-    ) -> Credit | None:
+    def _map_history_to_domain(self, history_item: Any, credit_type: CreditType) -> Credit | None:
         """Map credit history item to domain model."""
         try:
             # Handle both dict and CreditHistory types
@@ -128,17 +126,13 @@ class CreditRepositoryImpl(CreditRepository):
                 balance = Decimal(str(getattr(history_item, "balance", amount)))
             else:
                 # Dictionary format
-                credit_id = history_item.get(
-                    "id", f"CREDIT-{datetime.now().timestamp()}"
-                )
+                credit_id = history_item.get("id", f"CREDIT-{datetime.now().timestamp()}")
                 amount = Decimal(str(history_item.get("amount", 0)))
                 balance = Decimal(str(history_item.get("balance", amount)))
 
             # Parse dates
             if hasattr(history_item, "__dict__"):
-                created_str = getattr(
-                    history_item, "transaction_date", datetime.now().isoformat()
-                )
+                created_str = getattr(history_item, "transaction_date", datetime.now().isoformat())
                 expires_str = "2099-12-31"  # CreditHistory doesn't have expiry
             else:
                 created_str = history_item.get("createdAt", datetime.now().isoformat())

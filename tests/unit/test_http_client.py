@@ -149,9 +149,7 @@ class TestBillingAPIClientUnit:
 
     # Request method tests
     @patch("libs.http_client.TelemetryManager")
-    def test_request_success(
-        self, mock_telemetry_cls, api_client, mock_session
-    ) -> None:
+    def test_request_success(self, mock_telemetry_cls, api_client, mock_session) -> None:
         """Test successful request."""
         # Setup mocks
         mock_response = Mock()
@@ -220,9 +218,7 @@ class TestBillingAPIClientUnit:
             result = api_client.get("/test", params={"key": "value"})
 
             assert result == {"result": "success"}
-            mock_request.assert_called_once_with(
-                HTTPMethod.GET, "/test", params={"key": "value"}
-            )
+            mock_request.assert_called_once_with(HTTPMethod.GET, "/test", params={"key": "value"})
 
     def test_post_method(self, api_client) -> None:
         """Test POST convenience method."""
@@ -264,9 +260,7 @@ class TestBillingAPIClientUnit:
             mock_get.return_value = {"status": "PENDING"}
 
             with pytest.raises(APIRequestException) as exc_info:
-                api_client.wait_for_completion(
-                    "/status", timeout=0.2, check_interval=0.1
-                )
+                api_client.wait_for_completion("/status", timeout=0.2, check_interval=0.1)
 
             assert "Operation timed out" in str(exc_info.value)
 
@@ -351,9 +345,7 @@ class TestTelemetryManager:
             assert span is None
 
         # Record should not raise
-        manager.record_api_call(
-            endpoint="/test", method="GET", status_code=200, response_time=0.1
-        )
+        manager.record_api_call(endpoint="/test", method="GET", status_code=200, response_time=0.1)
 
     @patch("libs.observability.get_telemetry")
     def test_telemetry_enabled(self, mock_get_telemetry) -> None:
