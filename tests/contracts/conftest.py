@@ -30,6 +30,17 @@ def pytest_collection_modifyitems(config, items):
     # Check if we should use v3 tests (opt-in via environment variable)
     use_v3_tests = os.environ.get("USE_PACT_V3", "false").lower() == "true"
 
+    # Additional safety check for CI environments
+    is_ci = any(
+        os.environ.get(var, "false").lower() == "true"
+        for var in ["CI", "CONTINUOUS_INTEGRATION", "JENKINS", "GITHUB_ACTIONS"]
+    )
+
+    # In CI, force disable v3 tests unless explicitly enabled
+    if is_ci and not use_v3_tests:
+        use_v3_tests = False
+        print("CI environment detected: Pact v3 tests will be skipped")
+
     for item in items:
         if use_v3_tests:
             # If v3 is requested, skip v2 tests

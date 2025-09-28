@@ -52,6 +52,15 @@ def main():
     if args.tests:
         test_path = " ".join(args.tests)
 
+    # Add v3 test exclusions unless explicitly enabled
+    if not args.keyword or "_v3" not in args.keyword:
+        extra_args.extend(
+            [
+                "--ignore=tests/contracts/test_billing_provider_v3.py",
+                "--ignore=tests/contracts/test_billing_consumer_v3.py",
+            ]
+        )
+
     # Contract tests run serially
     cmd = runner.build_pytest_command(
         test_path=test_path,

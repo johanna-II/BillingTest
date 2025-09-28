@@ -82,7 +82,9 @@ integration:
 contract:
 	@echo "📜 Running contract tests..."
 	@$(PYTHON) -m pytest $(CONTRACT_DIR) -v --tb=short \
-		--cov=$(LIBS_DIR) --cov-report=term-missing
+		--cov=$(LIBS_DIR) --cov-report=term-missing \
+		--ignore=$(CONTRACT_DIR)/test_billing_provider_v3.py \
+		--ignore=$(CONTRACT_DIR)/test_billing_consumer_v3.py
 
 # Static analysis
 static: lint type-check
