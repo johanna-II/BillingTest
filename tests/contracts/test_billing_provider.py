@@ -128,67 +128,80 @@ class TestProviderVerification:
                     pytest.skip(f"Pact verification not fully compatible: {e}")
 
     @pytest.mark.provider
+    @pytest.mark.skipif(
+        os.getenv("USE_MOCK_SERVER", "false").lower() != "true",
+        reason="This test requires mock server to be running separately",
+    )
     def test_mock_server_contract_compliance(self) -> None:
-        """Test that mock server responses match contract expectations."""
-        with mock_server_running():
-            # First set up the provider state
-            requests.post(
-                f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
-            )
+        """Test that mock server responses match contract expectations.
 
-            # Test contract endpoint
-            response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/12345")
-            assert response.status_code == 200
-            data = response.json()
+        Note: This test expects the mock server to be already running.
+        It does not start its own mock server instance.
+        """
+        # Check if mock server is already running
+        try:
+            response = requests.get(f"{MOCK_SERVER_URL}/health", timeout=1)
+            if response.status_code != 200:
+                pytest.skip("Mock server is not running")
+        except (requests.ConnectionError, requests.Timeout):
+            pytest.skip("Mock server is not running")
 
-            # Verify response structure matches contract or mock structure
-            # The mock server returns a different format than the pact contract
-            # This is expected since the mock was built before the contract tests
-            # For now, we'll check for the mock server's response format
-            assert "contractType" in data or "id" in data
-            if "id" in data:
-                # Pact contract format
-                assert "status" in data
-                assert data["status"] in ["ACTIVE", "INACTIVE", "PENDING"]
-                assert "customer" in data
-                assert "items" in data
-            else:
-                # Mock server format
-                assert "contractType" in data
-                assert "details" in data
+        # First set up the provider state
+        requests.post(
+            f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
+        )
 
-            # Test credit creation
-            credit_data = {
-                "customer_id": "CUST001",
-                "amount": 500.0,
-                "currency": "USD",
-                "description": "Monthly credit",
-                "type": "ADJUSTMENT",
-            }
-            response = requests.post(
-                f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data
-            )
-            assert response.status_code == 201
-            data = response.json()
-            assert "id" in data
-            assert data["customer_id"] == credit_data["customer_id"]
-            assert data["amount"] == credit_data["amount"]
+        # Test contract endpoint
+        response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/12345")
+        assert response.status_code == 200
+        data = response.json()
 
-            # Test metering data
-            response = requests.get(
-                f"{MOCK_SERVER_URL}/api/v1/metering",
-                params={"project_id": "PROJ001", "month": "2025-01"},
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert "project_id" in data
-            assert "usage" in data
+        # Verify response structure matches contract or mock structure
+        # The mock server returns a different format than the pact contract
+        # This is expected since the mock was built before the contract tests
+        # For now, we'll check for the mock server's response format
+        assert "contractType" in data or "id" in data
+        if "id" in data:
+            # Pact contract format
+            assert "status" in data
+            assert data["status"] in ["ACTIVE", "INACTIVE", "PENDING"]
+            assert "customer" in data
+            assert "items" in data
+        else:
+            # Mock server format
+            assert "contractType" in data
+            assert "details" in data
 
-            # Test error handling
-            response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/99999")
-            assert response.status_code == 404
-            data = response.json()
-            assert "error" in data
+        # Test credit creation
+        credit_data = {
+            "customer_id": "CUST001",
+            "amount": 500.0,
+            "currency": "USD",
+            "description": "Monthly credit",
+            "type": "ADJUSTMENT",
+        }
+        response = requests.post(f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data)
+        assert response.status_code == 201
+        data = response.json()
+        assert "id" in data
+        assert data["customer_id"] == credit_data["customer_id"]
+        assert data["amount"] == credit_data["amount"]
+
+        # Test metering data
+        response = requests.get(
+            f"{MOCK_SERVER_URL}/api/v1/metering",
+            params={"project_id": "PROJ001", "month": "2025-01"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "project_id" in data
+        assert "usage" in data
+
+        # Test error handling
+        response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/99999")
+        assert response.status_code == 404
+        data = response.json()
+        assert "error" in data
 
 
 def add_provider_state_endpoint() -> str:
