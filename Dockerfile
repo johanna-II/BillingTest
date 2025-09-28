@@ -27,20 +27,25 @@ ENV POETRY_CACHE_DIR=/opt/.cache
 RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python3 - --version $POETRY_VERSION
 ENV PATH="/opt/poetry/bin:$PATH"
 
-# Copy dependency files
-COPY poetry.lock pyproject.toml ./
+# Copy dependency files (read-only)
+COPY --chmod=444 poetry.lock pyproject.toml ./
 
 # Install dependencies
 RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --no-root
 
-# Copy application code
+# Copy application code with deferred permission setting
 # Note: .dockerignore file ensures sensitive data is not copied
 # This includes git files, test files, IDE configs, and other non-runtime files
 COPY --chown=appuser:appuser . .
 
-# Install project in editable mode
+# Install project in editable mode (requires write permissions temporarily)
 RUN poetry install --no-interaction --no-ansi
+
+# Remove write permissions from all files for security after installation
+# Directories need execute permission (555) for access, files only need read (444)
+RUN find /app -type f -exec chmod 444 {} + && \
+    find /app -type d -exec chmod 555 {} +
 
 # Switch to non-root user
 USER appuser

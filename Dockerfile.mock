@@ -11,19 +11,23 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Copy and install dependencies
 # First try specific mock requirements, fallback to general requirements
-COPY requirements-mock.txt requirements.txt* ./
+COPY --chmod=444 requirements-mock.txt requirements.txt* ./
 RUN if [ -f requirements-mock.txt ]; then \
         pip install --no-cache-dir -r requirements-mock.txt; \
     else \
         pip install --no-cache-dir flask==3.1.0 flask-cors==6.0.0 flask-caching==2.3.0 waitress==3.0.2 requests==2.32.3; \
     fi
 
-# Copy mock server code
+# Copy mock server code with immediate permission setting
 # Note: Selectively copying only required directories instead of entire project
 COPY --chown=mockuser:mockuser mock_server /app/mock_server
+RUN find /app/mock_server -type f -exec chmod 444 {} + && \
+    find /app/mock_server -type d -exec chmod 555 {} +
 
-# Copy OpenAPI spec (optional, will be mounted in docker-compose)
+# Copy OpenAPI spec with immediate permission setting (optional, will be mounted in docker-compose)
 COPY --chown=mockuser:mockuser docs/openapi /app/docs/openapi
+RUN find /app/docs -type f -exec chmod 444 {} + && \
+    find /app/docs -type d -exec chmod 555 {} +
 
 # Ensure proper ownership of the working directory
 RUN chown -R mockuser:mockuser /app

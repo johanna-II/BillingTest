@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
+# Copy requirements (read-only)
+COPY --chmod=444 requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -35,10 +35,13 @@ RUN pip install --no-cache-dir \
     pytest-mock \
     coverage[toml]
 
-# Copy project files
+# Copy project files with immediate permission setting
 # Note: .dockerignore file ensures sensitive data is not copied
 # This includes git files, IDE configs, and other non-test files
 COPY --chown=testuser:testuser . .
+# Remove write permissions immediately after copy
+RUN find /app -type f -exec chmod 444 {} + && \
+    find /app -type d -exec chmod 555 {} +
 
 # Set Python path
 ENV PYTHONPATH=/app
@@ -69,12 +72,21 @@ RUN groupadd -r testuser && useradd -r -g testuser testuser
 WORKDIR /app
 
 # Copy only essential files
-COPY requirements.txt .
+COPY --chmod=444 requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy essential directories with immediate permission setting
 COPY --chown=testuser:testuser libs/ ./libs/
+RUN find /app/libs -type f -exec chmod 444 {} + && \
+    find /app/libs -type d -exec chmod 555 {} +
+
 COPY --chown=testuser:testuser tests/ ./tests/
+RUN find /app/tests -type f -exec chmod 444 {} + && \
+    find /app/tests -type d -exec chmod 555 {} +
+
 COPY --chown=testuser:testuser config/ ./config/
+RUN find /app/config -type f -exec chmod 444 {} + && \
+    find /app/config -type d -exec chmod 555 {} +
 
 # Ensure proper ownership
 RUN chown -R testuser:testuser /app
