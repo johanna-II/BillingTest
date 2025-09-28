@@ -1,6 +1,7 @@
 """Standalone script to run the mock server."""
 
 import os
+import signal
 import sys
 from pathlib import Path
 
@@ -9,9 +10,27 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mock_server.app import app
 
+# Global flag for graceful shutdown
+shutdown_requested = False
+
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    global shutdown_requested
+    shutdown_requested = True
+    print(f"\nReceived signal {signum}, shutting down gracefully...")
+    sys.exit(0)
+
+
 if __name__ == "__main__":
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Get port from environment variable or use default
     port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
+
+    print(f"Starting mock server on port {port}...")
 
     # Use waitress for production-grade performance
     from waitress import serve

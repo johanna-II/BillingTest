@@ -17,6 +17,16 @@ MOCK_SERVER_URL = "http://localhost:5000"
 @contextmanager
 def mock_server_running():
     """Context manager to ensure mock server is running."""
+    # Check if mock server is already running
+    try:
+        response = requests.get(f"{MOCK_SERVER_URL}/health", timeout=1)
+        if response.status_code == 200:
+            # Server already running
+            yield
+            return
+    except (requests.ConnectionError, requests.Timeout):
+        pass
+
     # Start mock server
     server_process = subprocess.Popen(
         ["python", "-m", "mock_server.run_server"],
@@ -28,7 +38,7 @@ def mock_server_running():
     max_retries = 30
     for i in range(max_retries):
         try:
-            response = requests.get(f"{MOCK_SERVER_URL}/health")
+            response = requests.get(f"{MOCK_SERVER_URL}/health", timeout=1)
             if response.status_code == 200:
                 print("Mock server is ready")
                 break
@@ -43,8 +53,14 @@ def mock_server_running():
     try:
         yield
     finally:
-        server_process.terminate()
-        server_process.wait()
+        # Gracefully shutdown the server
+        try:
+            server_process.terminate()
+            server_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Force kill if graceful shutdown fails
+            server_process.kill()
+            server_process.wait(timeout=2)
 
 
 @pytest.mark.contract
