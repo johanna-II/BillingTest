@@ -52,10 +52,9 @@ class TestAPIResponseTimes:
         return SimpleBenchmark()
 
     @pytest.fixture
-    def api_client(self):
-        """Create API client."""
-        mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
-        return BillingAPIClient(mock_url)
+    def api_client(self, mock_server_url):
+        """Create API client using mock server."""
+        return BillingAPIClient(mock_server_url)
 
     @pytest.fixture
     def test_uuid(self) -> str:
@@ -180,7 +179,6 @@ class TestAPIResponseTimes:
     @pytest.mark.performance
     def test_memory_usage_under_load(self, api_client, test_uuid) -> None:
         """Test memory usage doesn't grow excessively under load."""
-        import os
 
         import psutil
 

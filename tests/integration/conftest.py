@@ -18,6 +18,27 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session")
+def use_mock(request) -> bool:
+    """Override global use_mock fixture for integration tests.
+
+    In CI environment, automatically enable mock mode.
+    Otherwise, use the command-line option.
+    """
+    is_ci = (
+        os.environ.get("CI", "false").lower() == "true"
+        or os.environ.get("GITHUB_ACTIONS", "false").lower() == "true"
+    )
+
+    if is_ci:
+        # Always use mock in CI
+        logger.info("CI environment detected - forcing use_mock=True")
+        return True
+
+    # Use command-line option
+    return request.config.getoption("--use-mock", default=False)
+
+
+@pytest.fixture(scope="session")
 def integration_test_config():
     """Configuration specific to integration tests."""
     from tests.fixtures.mock_server import find_free_port

@@ -14,10 +14,9 @@ class TestSecurityVulnerabilities:
     """Test for common security vulnerabilities."""
 
     @pytest.fixture
-    def api_client(self):
-        """Create API client."""
-        mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
-        return BillingAPIClient(mock_url)
+    def api_client(self, mock_server_url):
+        """Create API client using mock server."""
+        return BillingAPIClient(mock_server_url)
 
     @pytest.fixture
     def test_uuid(self) -> str:
@@ -341,8 +340,6 @@ class TestSecurityVulnerabilities:
         # Create a malicious pickle payload
         class MaliciousClass:
             def __reduce__(self):
-                import os
-
                 return (os.system, ("echo pwned",))
 
         malicious_object = MaliciousClass()
