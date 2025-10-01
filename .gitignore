@@ -170,6 +170,8 @@ coverage.xml
 .coverage
 .coverage.*
 security_scan_report.json
+.benchmarks/
+performance-results.json
 
 # Cache directories
 __pycache__/
