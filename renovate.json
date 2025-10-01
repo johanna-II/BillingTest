@@ -7,9 +7,6 @@
     "group:allNonMajor",
     "schedule:weekly"
   ],
-  "python": {
-    "ignorePythonConstraints": false
-  },
   "pip_requirements": {
     "fileMatch": ["(^|/)requirements[\\w-]*\\.txt$"]
   },
