@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="session")
 def mock_server():
     """Start mock server for security tests if needed."""
+    # Set low rate limit for security tests (50 req/sec)
+    os.environ["MOCK_SERVER_RATE_LIMIT"] = "50"
+
     # Check if in CI environment
     is_ci = (
         os.environ.get("CI", "false").lower() == "true"
@@ -20,7 +23,7 @@ def mock_server():
     # In CI, mock server should be started by workflow
     if is_ci:
         mock_url = f"http://localhost:{os.environ.get('MOCK_SERVER_PORT', '5000')}"
-        logger.info(f"Using CI mock server at {mock_url}")
+        logger.info(f"Using CI mock server at {mock_url} with rate limit 50 req/sec")
         yield mock_url
         return
 

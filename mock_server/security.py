@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from collections import defaultdict
 from functools import wraps
@@ -61,7 +62,10 @@ class RateLimiter:
 
 
 # Global rate limiter instance
-rate_limiter = RateLimiter(max_requests=50, window_seconds=1)
+# For integration tests, use higher limit (500 req/sec)
+# For security tests, use lower limit (50 req/sec)
+_max_requests = int(os.environ.get("MOCK_SERVER_RATE_LIMIT", "500"))
+rate_limiter = RateLimiter(max_requests=_max_requests, window_seconds=1)
 
 
 def rate_limit_middleware(app: Any) -> None:
