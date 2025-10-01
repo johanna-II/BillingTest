@@ -217,7 +217,7 @@ jobs:
     
     - name: Create issue for flaky tests
       if: failure()
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const fs = require('fs');
