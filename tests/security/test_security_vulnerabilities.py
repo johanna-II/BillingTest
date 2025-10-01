@@ -97,48 +97,70 @@ class TestSecurityVulnerabilities:
     def test_authentication_bypass_attempts(self, api_client) -> None:
         """Test that authentication bypass attempts fail."""
         bypass_attempts = [
-            {"uuid": ""},  # Empty UUID
-            {"uuid": None},  # Null UUID
-            {},  # No UUID header
-            {"uuid": "' OR '1'='1"},  # SQL injection in UUID
-            {"uuid": "../../../etc/passwd"},  # Path traversal
+            ({"uuid": ""}, [400, 401]),  # Empty UUID - should be rejected
+            ({"uuid": None}, [400, 401]),  # Null UUID - should be rejected
+            ({}, [400, 401]),  # No UUID header - should be rejected
+            ({"uuid": "' OR '1'='1"}, [400]),  # SQL injection in UUID
+            ({"uuid": "../../../etc/passwd"}, [400]),  # Path traversal
         ]
 
-        for headers in bypass_attempts:
+        for headers, expected_codes in bypass_attempts:
             try:
                 response = api_client.get(
                     "/billing/payments/2024-01/statements", headers=headers
                 )
-                # Should not return sensitive data without proper auth
+                # If response is returned (not exception), it should not contain sensitive data
                 if isinstance(response, dict):
-                    assert (
-                        "statements" not in response
-                        or len(response.get("statements", [])) == 0
-                    )
-            except APIRequestException:
-                # Rejection is expected
-                pass
+                    # Check if it's an error response
+                    if "header" in response:
+                        # Should be marked as unsuccessful
+                        assert not response["header"].get(
+                            "isSuccessful", True
+                        ), f"Authentication bypass succeeded with headers: {headers}"
+                    else:
+                        # Should not return statements
+                        assert (
+                            "statements" not in response
+                            or len(response.get("statements", [])) == 0
+                        ), f"Authentication bypass returned data with headers: {headers}"
+            except APIRequestException as e:
+                # Exception is expected - should be 400 or 401
+                assert (
+                    e.status_code in expected_codes
+                ), f"Expected status codes {expected_codes}, got {e.status_code} for headers: {headers}"
 
     @pytest.mark.security
     def test_rate_limiting(self, api_client, test_uuid) -> None:
-        """Test that rate limiting is in place."""
-        headers = {"uuid": test_uuid}
-        data = {"counterName": "rate.test", "counterVolume": 1}
+        """Test that rate limiting is in place.
 
-        # Make 100 rapid requests
-        error_count = 0
-        for _i in range(100):
+        Mock server has rate limit of 50 requests per second.
+        """
+        headers = {"uuid": test_uuid}
+        data = {"meterList": [{"counterName": "rate.test", "counterVolume": 1}]}
+
+        # Make rapid requests to trigger rate limit (mock server: 50 req/sec)
+        success_count = 0
+        rate_limited_count = 0
+
+        # Make 60 requests quickly to exceed the 50 req/sec limit
+        for _i in range(60):
             try:
                 api_client.post("/billing/meters", headers=headers, json_data=data)
+                success_count += 1
             except APIRequestException as e:
                 if e.status_code == 429:  # Too Many Requests
-                    error_count += 1
+                    rate_limited_count += 1
 
-        # Some requests should be rate limited
-        # (This assumes rate limiting is implemented)
-        # If not implemented, this serves as a reminder
-        if error_count == 0:
-            pytest.skip("Rate limiting not implemented - security risk")
+        # At least some requests should be rate limited
+        assert rate_limited_count > 0, (
+            f"Expected rate limiting after 60 requests, but all succeeded. "
+            f"Success: {success_count}, Rate limited: {rate_limited_count}"
+        )
+
+        # Should have some successful requests before rate limit kicks in
+        assert (
+            success_count > 0
+        ), "All requests were rate limited, expected some to succeed"
 
     @pytest.mark.security
     def test_path_traversal_prevention(self, api_client, test_uuid) -> None:

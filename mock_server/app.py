@@ -17,6 +17,7 @@ from .mock_data import (
     generate_billing_detail,
     generate_credit_data,
 )
+from .security import setup_security
 from .test_data_manager import get_data_manager
 
 # Log file constants
@@ -84,6 +85,9 @@ app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 
 # Get data manager instance
 data_manager = get_data_manager()
+
+# Setup security features (rate limiting, authentication)
+setup_security(app)
 
 # In-memory storage for batch jobs
 batch_jobs: dict[str, Any] = {}
@@ -1376,7 +1380,11 @@ def make_payment_console(month):
 @app.route("/billing/payments/<month>/statements", methods=["GET"])
 def get_payment_statements_console(month):
     """Get payment statements for console API."""
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", "")
+
+    # Strict authentication check - UUID is required
+    if not uuid_param or uuid_param in ["", "None", "null"]:
+        return create_error_response("Authentication required: UUID is missing", 401)
 
     # Basic security check for malicious UUIDs
     if (
@@ -1387,6 +1395,15 @@ def get_payment_statements_console(month):
         or len(uuid_param) > 100
     ):
         return create_error_response("Invalid UUID format", 400)
+
+    # Path traversal check
+    if ".." in uuid_param or "/" in uuid_param or "\\" in uuid_param:
+        return create_error_response("Invalid UUID: path traversal detected", 400)
+
+    # SQL injection check
+    sql_patterns = ["'", '"', "OR", "AND", "SELECT", "DROP", "DELETE", "--", ";"]
+    if any(pattern.lower() in uuid_param.lower() for pattern in sql_patterns):
+        return create_error_response("Invalid UUID: suspicious pattern detected", 400)
 
     # Return mock payment status
     return jsonify(

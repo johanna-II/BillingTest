@@ -152,42 +152,19 @@ jobs:
     
     - name: Run Performance Tests
       run: |
-        pytest tests/performance/ \
-          --benchmark-only \
-          --benchmark-json=benchmark.json \
-          --benchmark-autosave
+        pytest tests/performance/ -v --tb=short \
+          --junit-xml=test-results-performance.xml
+      env:
+        CI: true
+        MOCK_SERVER_PORT: 5000
     
-    - name: Store benchmark result as artifact
+    - name: Upload test results
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: benchmark-results
-        path: benchmark.json
-        retention-days: 30
-    
-    - name: Comment benchmark result
-      if: github.event_name == 'pull_request'
-      uses: benchmark-action/github-action-benchmark@v1
-      with:
-        tool: 'pytest'
-        output-file-path: benchmark.json
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        # PR 코멘트로만 결과 표시 (gh-pages 사용 안 함)
-        comment-always: true
-        save-data-file: false
-        alert-threshold: '150%'
-        comment-on-alert: true
-        fail-on-alert: false
-    
-    - name: Add benchmark to job summary
-      if: always()
-      run: |
-        echo "## 📊 Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -f benchmark.json ]; then
-          python -c "import json; f = open('benchmark.json'); data = json.load(f); f.close(); [print(f\"- **{benchmark['name']}**: {benchmark['stats']['mean']:.4f}s ± {benchmark['stats']['stddev']:.4f}s\") for benchmark in data.get('benchmarks', [])]" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "No benchmark results found." >> $GITHUB_STEP_SUMMARY
-        fi
+        name: test-results-performance
+        path: |
+          test-results-performance.xml
 
   security:
     name: Security Tests
@@ -220,7 +197,11 @@ jobs:
     
     - name: Run Security Tests
       run: |
-        pytest tests/security/ -v --tb=short
+        pytest tests/security/ -v --tb=short \
+          --junit-xml=test-results-security.xml
+      env:
+        CI: true
+        MOCK_SERVER_PORT: 5000
     
     - name: Upload test results
       if: always()
