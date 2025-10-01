@@ -459,6 +459,26 @@ def performance_monitor():
         logger.info(f"Performance summary: {monitor.measurements}")
 
 
+# Mock API client for performance tests
+@pytest.fixture
+def mock_api_client():
+    """Create a mock API client for performance tests.
+
+    Returns:
+        Mock API client with standard responses
+    """
+    from unittest.mock import Mock
+
+    client = Mock()
+    # Mock responses for performance testing
+    client.post.return_value = {"status": "SUCCESS", "id": "TEST-001"}
+    client.get.return_value = {"status": "SUCCESS", "data": []}
+    client.put.return_value = {"status": "SUCCESS"}
+    client.delete.return_value = {"status": "SUCCESS"}
+
+    return client
+
+
 # Shared test utilities
 @pytest.fixture
 def assert_api_response():

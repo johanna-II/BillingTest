@@ -219,18 +219,3 @@ class TestPerformanceBenchmarks:
 
         results = benchmark(stress_test)
         assert len(results) == num_operations
-
-
-@pytest.fixture
-def mock_api_client():
-    """Create a mock API client for performance tests."""
-    from unittest.mock import Mock
-
-    client = Mock()
-    # Mock responses for performance testing
-    client.post.return_value = {"status": "SUCCESS", "id": "TEST-001"}
-    client.get.return_value = {"status": "SUCCESS", "data": []}
-    client.put.return_value = {"status": "SUCCESS"}
-    client.delete.return_value = {"status": "SUCCESS"}
-
-    return client
