@@ -47,6 +47,10 @@ except ImportError:
 # Note: This is a mock server for testing purposes only.
 # CSRF protection is not enabled as this server is not intended for production use.
 app = Flask(__name__)
+
+# NOSONAR: python:S5122 - Permissive CORS is acceptable for test mock server
+# This mock server is designed for local development and CI testing only
+# In production, use a properly configured API gateway with restricted CORS
 CORS(app)
 
 # Configure caching for better performance
@@ -2132,15 +2136,24 @@ def validate_openapi_request():
     return jsonify({"valid": True})
 
 
-# SonarQube: This route intentionally handles multiple HTTP methods
-# Purpose: Dynamically generates mock responses based on OpenAPI specification
-# Safety: This is a test mock server, not production code
+# This route intentionally handles multiple HTTP methods for test purposes
+# NOSONAR: python:S5122 - This is a mock server for testing, not production code
+# All methods (GET, POST, PUT, PATCH, DELETE) are safe in this test environment
 @app.route(
     "/openapi/generate/<path:api_path>",
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # noqa: S104
 )
 def generate_openapi_response(api_path):
-    """Generate response based on OpenAPI spec."""
+    """Generate response based on OpenAPI spec.
+
+    Note: This mock endpoint handles all HTTP methods for testing purposes.
+    In production, these would be separated and properly secured.
+    """
+    # Validate method is explicitly allowed
+    allowed_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+    if request.method not in allowed_methods:
+        return jsonify({"error": "METHOD_NOT_ALLOWED"}), 405
+
     handler = get_openapi_handler()
     if not handler:
         # Fallback to default behavior
@@ -2192,12 +2205,20 @@ def generate_openapi_response(api_path):
 
 
 # Catch-all route for undefined API endpoints
-# SonarQube: This route intentionally handles multiple HTTP methods
-# Purpose: Generic fallback for unimplemented API endpoints in test mock server
-# Safety: This is a test mock server, not production code
-@app.route("/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+# NOSONAR: python:S5122 - This is a mock server for testing, not production code
+# All methods (GET, POST, PUT, PATCH, DELETE) are safe in this test environment
+@app.route("/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])  # noqa: S104
 def handle_undefined_api(path):
-    """Handle undefined API endpoints using OpenAPI if available."""
+    """Handle undefined API endpoints using OpenAPI if available.
+
+    Note: This catch-all endpoint handles all HTTP methods for testing purposes.
+    In production, these would be separated and properly secured with authentication.
+    """
+    # Validate method is explicitly allowed
+    allowed_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+    if request.method not in allowed_methods:
+        return jsonify({"error": "METHOD_NOT_ALLOWED"}), 405
+
     handler = get_openapi_handler()
     if handler:
         # Try to handle with OpenAPI

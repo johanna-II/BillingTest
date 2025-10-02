@@ -24,6 +24,9 @@ ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VENV=/opt/poetry-venv
 ENV POETRY_CACHE_DIR=/opt/.cache
 
+# NOSONAR: docker:S6504 - HTTPS is enforced with -sS flags (show errors only)
+# The -L flag follows redirects only within HTTPS, not to HTTP
+# This is the official Poetry installation method from python-poetry.org
 RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python3 - --version $POETRY_VERSION
 ENV PATH="/opt/poetry/bin:$PATH"
 

@@ -4,7 +4,7 @@ This module tests the performance of critical billing operations
 and tracks regression over time.
 """
 
-import random
+import secrets
 import string
 from datetime import datetime
 
@@ -25,10 +25,13 @@ class TestPerformanceBenchmarks:
         """Generate test data for benchmarks."""
 
         def _generate_app_key():
-            return f"APP-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
+            # Use secrets for cryptographically secure random generation
+            chars = string.ascii_uppercase + string.digits
+            return f"APP-{''.join(secrets.choice(chars) for _ in range(8))}"
 
         def _generate_campaign_id():
-            return f"CAMPAIGN-{datetime.now().strftime('%Y%m%d%H%M%S')}-{random.randint(1000, 9999)}"
+            # Use secrets for cryptographically secure random generation
+            return f"CAMPAIGN-{datetime.now().strftime('%Y%m%d%H%M%S')}-{secrets.randbelow(9000) + 1000}"
 
         return {
             "app_keys": [_generate_app_key() for _ in range(100)],
@@ -69,7 +72,7 @@ class TestPerformanceBenchmarks:
                         "counter_name": f"test.meter.{i}",
                         "counter_type": CounterType.DELTA.value,
                         "counter_unit": "UNITS",
-                        "counter_volume": str(random.randint(1, 1000)),
+                        "counter_volume": str(secrets.randbelow(1000) + 1),
                     }
                 )
             return manager.send_batch_metering(app_keys[0], meters)
@@ -207,7 +210,7 @@ class TestPerformanceBenchmarks:
                 counter_name=f"test.stress.{i}",
                 counter_type=CounterType.DELTA,
                 counter_unit="UNITS",
-                counter_volume=str(random.randint(1, 1000)),
+                counter_volume=str(secrets.randbelow(1000) + 1),
             )
 
         def stress_test():

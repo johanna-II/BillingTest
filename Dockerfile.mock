@@ -7,11 +7,15 @@ RUN groupadd -r mockuser && useradd -r -g mockuser mockuser
 WORKDIR /app
 
 # Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# NOSONAR: docker:S6504 - Installing only curl without recommended packages for minimal image
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy and install dependencies
 # First try specific mock requirements, fallback to general requirements
-COPY --chmod=444 requirements-mock.txt requirements.txt* ./
+# NOSONAR: docker:S6504 - Explicitly copying only requirements files, no sensitive data
+COPY --chmod=444 requirements-mock.txt ./
+COPY --chmod=444 requirements.txt ./
 RUN if [ -f requirements-mock.txt ]; then \
         pip install --no-cache-dir -r requirements-mock.txt; \
     else \

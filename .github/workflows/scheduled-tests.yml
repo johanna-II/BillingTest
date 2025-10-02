@@ -79,7 +79,8 @@ jobs:
           path: test-results-*.xml
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        # Using specific commit SHA for security (codecov-action v5.0.7)
+        uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a  # v5.0.7
         with:
           file: ./coverage.xml
           flags: scheduled-${{ matrix.member }}

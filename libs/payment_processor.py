@@ -414,14 +414,14 @@ class PaymentProcessor:
         Returns:
             Simulated payment result
         """
-        import random
+        import secrets
         import time
 
         # Simulate processing delay
         time.sleep(processing_time_ms / 1000.0)
 
-        # Determine success/failure
-        is_success = random.random() < success_rate
+        # Determine success/failure using cryptographically secure random
+        is_success = (secrets.randbelow(1000) / 1000) < success_rate
 
         if is_success:
             return PaymentResult(
@@ -440,7 +440,7 @@ class PaymentProcessor:
                 (ProcessingStatus.RETRY_NEEDED, "NETWORK_ERROR", "Network error"),
             ]
 
-            scenario = random.choice(failure_scenarios)
+            scenario = failure_scenarios[secrets.randbelow(len(failure_scenarios))]
             return PaymentResult(
                 payment_id=payment_request.payment_id,
                 status=scenario[0],

@@ -319,7 +319,8 @@ jobs:
         fi
     
     - name: Upload to Codecov
-      uses: codecov/codecov-action@v5
+      # Using specific commit SHA for security (codecov-action v5.0.7)
+      uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a  # v5.0.7
       with:
         file: ./coverage-combined.xml
         flags: unittests,integration,contracts

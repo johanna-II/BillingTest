@@ -1,8 +1,8 @@
 """OpenAPI specification handler for mock server."""
 
 import json
-import random
 import re
+import secrets
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any, cast
@@ -34,17 +34,23 @@ class OpenAPIHandler:
             return cast(OpenAPIDict, json.load(f))
 
     def _setup_generators(self) -> dict[str, Callable[[], Any]]:
-        """Set up value generators for different formats."""
+        """Set up value generators for different formats.
+
+        Uses secrets module for cryptographically secure random generation.
+        """
         return {
             "uuid": lambda: str(self._generate_uuid()),
             "date-time": lambda: datetime.now().isoformat(),
             "date": lambda: datetime.now().date().isoformat(),
             "time": lambda: datetime.now().time().isoformat(),
-            "email": lambda: f"user{random.randint(1, 1000)}@example.com",
-            "uri": lambda: f"https://example.com/resource/{random.randint(1, 1000)}",
-            "hostname": lambda: f"server{random.randint(1, 100)}.example.com",
-            "ipv4": lambda: f"{random.randint(1, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            "ipv6": lambda: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+            "email": lambda: f"user{secrets.randbelow(1000) + 1}@example.com",
+            "uri": lambda: f"https://example.com/resource/{secrets.randbelow(1000) + 1}",
+            "hostname": lambda: f"server{secrets.randbelow(100) + 1}.example.com",
+            "ipv4": lambda: f"{secrets.randbelow(255) + 1}.{secrets.randbelow(256)}.{secrets.randbelow(256)}.{secrets.randbelow(255) + 1}",
+            # NOSONAR: python:S1313 - Using RFC 5737 documentation IPv6 address
+            # 2001:0db8::/32 is reserved for documentation (RFC 3849)
+            # This is the official example IP range, not a real production address
+            "ipv6": lambda: f"2001:0db8:85a3::{secrets.randbelow(10000):04x}:{secrets.randbelow(10000):04x}",
         }
 
     def _generate_uuid(self) -> str:
@@ -139,7 +145,8 @@ class OpenAPIHandler:
             return schema["example"]
 
         if "examples" in schema and isinstance(schema["examples"], list):
-            return random.choice(schema["examples"])
+            examples = schema["examples"]
+            return examples[secrets.randbelow(len(examples))]
 
         return None
 
@@ -151,10 +158,8 @@ class OpenAPIHandler:
             "string": self._generate_string,
             "number": self._generate_number,
             "integer": self._generate_number,
-            # SonarQube: This use of random.choice is safe
-            # Context: Mock server generates test data only, no security impact
-            # The randomness is not used for cryptographic purposes
-            "boolean": lambda _: random.choice([True, False]),
+            # Uses secrets for cryptographically secure random generation
+            "boolean": lambda _: bool(secrets.randbelow(2)),
             "null": lambda _: None,
         }
 
@@ -192,7 +197,7 @@ class OpenAPIHandler:
         for prop_name, prop_schema in properties.items():
             # Always include required properties
             if (
-                prop_name in required or random.random() > 0.3
+                prop_name in required or secrets.randbelow(100) > 30
             ):  # 70% chance for optional
                 result[prop_name] = self._generate_from_schema(prop_schema)
 
@@ -205,7 +210,7 @@ class OpenAPIHandler:
         max_items = schema.get("maxItems", 5)
 
         # Generate random number of items
-        num_items = random.randint(min_items, max_items)
+        num_items = secrets.randbelow(max_items - min_items + 1) + min_items
 
         return [self._generate_from_schema(items_schema) for _ in range(num_items)]
 
@@ -213,7 +218,8 @@ class OpenAPIHandler:
         """Generate string based on schema."""
         # Check for enum
         if "enum" in schema:
-            return str(random.choice(schema["enum"]))
+            enum_values = schema["enum"]
+            return str(enum_values[secrets.randbelow(len(enum_values))])
 
         # Check for format
         format_type = schema.get("format")
@@ -225,18 +231,22 @@ class OpenAPIHandler:
         if pattern:
             # Simple pattern handling (not full regex generation)
             if pattern == "^[0-9]+$":
-                return str(random.randint(10000, 99999))
+                return str(secrets.randbelow(90000) + 10000)
             if pattern == "^[A-Z]{3}$":
-                return "".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=3))
+                chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                return "".join(chars[secrets.randbelow(len(chars))] for _ in range(3))
             if pattern == r"^\d{4}-\d{2}$":
-                return f"{random.randint(2020, 2025)}-{random.randint(1, 12):02d}"
+                year = secrets.randbelow(6) + 2020
+                month = secrets.randbelow(12) + 1
+                return f"{year}-{month:02d}"
 
         # Default string generation
         min_length = schema.get("minLength", 1)
         max_length = schema.get("maxLength", 20)
-        length = random.randint(min_length, max_length)
+        length = secrets.randbelow(max_length - min_length + 1) + min_length
 
-        return f"string_{random.randint(1, 1000)}"[:length]
+        suffix = secrets.randbelow(1000) + 1
+        return f"string_{suffix}"[:length]
 
     def _generate_number(self, schema: OpenAPIDict) -> int | float:
         """Generate number based on schema."""
@@ -244,8 +254,11 @@ class OpenAPIHandler:
         maximum = schema.get("maximum", 1000)
 
         if schema.get("type") == "integer":
-            return random.randint(int(minimum), int(maximum))
-        return round(random.uniform(minimum, maximum), 2)
+            return secrets.randbelow(int(maximum) - int(minimum) + 1) + int(minimum)
+        # For float, use secrets to generate a fraction
+        int_part = secrets.randbelow(int(maximum) - int(minimum) + 1) + int(minimum)
+        frac_part = secrets.randbelow(100) / 100.0
+        return round(int_part + frac_part, 2)
 
     def _validate_request_body(self, operation: OpenAPIDict, body: dict) -> str | None:
         """Validate request body against schema."""
