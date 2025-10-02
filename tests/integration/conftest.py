@@ -50,7 +50,7 @@ def integration_test_config():
         else os.environ.get("MOCK_SERVER_PORT")
     )
 
-    # In CI or when mock server is not available, use mock client instead
+    # In CI or when mock server is not available, use mock server
     # Check if we're in CI environment
     is_ci = (
         os.environ.get("CI", "false").lower() == "true"
@@ -68,9 +68,10 @@ def integration_test_config():
             "MOCK_SERVER_URL", f"http://localhost:{default_port}"
         ),
         "use_real_api": use_real_api,
-        "use_mock_client": is_ci,  # Use mock client in CI instead of mock server
+        "use_mock_client": False,  # Always use actual mock server for better integration testing
         "test_timeout": int(os.environ.get("INTEGRATION_TEST_TIMEOUT", "300")),
         "parallel_workers": int(os.environ.get("INTEGRATION_WORKERS", "4")),
+        "is_ci": is_ci,
     }
 
 
@@ -87,20 +88,50 @@ def mock_server(integration_test_config):
 
     # Use the configured port
     port = integration_test_config["mock_server_port"]
+    is_ci = integration_test_config.get("is_ci", False)
 
     # Get or create optimized server (reuses existing if available)
     manager = OptimizedMockServerManager.get_or_create(port=port)
 
+    # Increase timeout for CI environment
+    if is_ci:
+        manager._startup_timeout = 60  # 60 seconds for CI
+        manager._health_check_interval = 0.5
+        logger.info("CI environment detected - using extended startup timeout")
+
     try:
         manager.start()
         logger.info(f"Mock server ready at {manager.url}")
+
+        # Additional verification in CI
+        if is_ci:
+            import time
+
+            time.sleep(2)  # Give extra time for server to stabilize
+            if not manager._is_server_running():
+                raise RuntimeError("Mock server health check failed after startup")
+
         yield manager.url
-    except Exception:
-        logger.exception("Failed to start mock server")
+    except Exception as e:
+        logger.exception(f"Failed to start mock server: {e}")
+        # In CI, provide more debug info
+        if is_ci and manager.process:
+            if manager.process.stdout:
+                stdout = manager.process.stdout.read()
+                logger.error(f"Mock server stdout: {stdout.decode()}")
+            if manager.process.stderr:
+                stderr = manager.process.stderr.read()
+                logger.error(f"Mock server stderr: {stderr.decode()}")
         raise
     finally:
         # Note: Shared servers are not stopped to improve performance
-        pass
+        # But in CI, we may want to clean up
+        if not is_ci:
+            pass  # Keep server running for reuse
+        else:
+            # In CI, consider cleanup based on environment variable
+            if os.environ.get("CLEANUP_MOCK_SERVER", "false").lower() == "true":
+                manager.stop()
 
 
 @pytest.fixture(scope="class")
@@ -110,50 +141,17 @@ def api_client(mock_server, integration_test_config):
         # Use real API client with environment configuration
         return BillingAPIClient()
 
-    if integration_test_config.get("use_mock_client", False):
-        # Use mock client in CI to avoid server dependencies
-        from unittest.mock import Mock
+    # Use mock server - removed mock client logic for better integration testing
+    if not mock_server:
+        raise RuntimeError(
+            "Mock server not available. Check if mock server started successfully."
+        )
 
-        mock_client = Mock(spec=BillingAPIClient)
-        # Setup standard mock responses
-        mock_client.post.return_value = {
-            "header": {
-                "isSuccessful": True,
-                "resultCode": "0",
-                "resultMessage": "SUCCESS",
-            },
-            "status": "SUCCESS",
-            "id": "MOCK-ID-001",
-        }
-        mock_client.get.return_value = {
-            "header": {
-                "isSuccessful": True,
-                "resultCode": "0",
-                "resultMessage": "SUCCESS",
-            },
-            "status": "SUCCESS",
-            "data": [],
-        }
-        mock_client.put.return_value = {
-            "header": {
-                "isSuccessful": True,
-                "resultCode": "0",
-                "resultMessage": "SUCCESS",
-            },
-            "status": "SUCCESS",
-        }
-        mock_client.delete.return_value = {
-            "header": {
-                "isSuccessful": True,
-                "resultCode": "0",
-                "resultMessage": "SUCCESS",
-            },
-            "status": "SUCCESS",
-        }
-        return mock_client
+    base_url = mock_server
+    if not base_url.endswith("/api/v1"):
+        base_url = f"{base_url}"
 
-    # Use mock server
-    base_url = f"{mock_server}/api/v1"
+    logger.info(f"Creating API client with base URL: {base_url}")
     return BillingAPIClient(base_url=base_url)
 
 

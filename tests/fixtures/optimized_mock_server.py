@@ -101,25 +101,76 @@ class OptimizedMockServerManager:
         # Use exponential backoff for health checks
         check_interval = 0.05
         max_interval = 0.5
+        attempt = 0
 
         while time.time() - start_time < self._startup_timeout:
+            attempt += 1
+
+            # Check if process crashed early
+            if self.process and self.process.poll() is not None:
+                stderr = self.process.stderr.read() if self.process.stderr else b""
+                stdout = self.process.stdout.read() if self.process.stdout else b""
+                error_msg = (
+                    f"Mock server crashed during startup (attempt {attempt}):\n"
+                    f"STDOUT: {stdout.decode()}\n"
+                    f"STDERR: {stderr.decode()}"
+                )
+                raise RuntimeError(error_msg)
+
             try:
-                response = requests.get(f"{self.url}/health", timeout=1)
+                response = requests.get(
+                    f"{self.url}/health",
+                    timeout=2,  # Increased timeout for individual requests
+                    allow_redirects=False,
+                )
                 if response.status_code == 200:
+                    logger.info(
+                        f"Mock server health check passed on attempt {attempt} "
+                        f"after {time.time() - start_time:.2f}s"
+                    )
                     return
-            except requests.exceptions.RequestException:
-                pass
+                else:
+                    logger.debug(
+                        f"Health check returned status {response.status_code} "
+                        f"(attempt {attempt})"
+                    )
+            except requests.exceptions.ConnectionError as e:
+                logger.debug(
+                    f"Connection failed on attempt {attempt}: {e}. "
+                    f"Server may still be starting..."
+                )
+            except requests.exceptions.Timeout:
+                logger.debug(f"Health check timeout on attempt {attempt}")
+            except requests.exceptions.RequestException as e:
+                logger.debug(f"Health check error on attempt {attempt}: {e}")
 
             time.sleep(check_interval)
             check_interval = min(check_interval * 1.5, max_interval)
 
-        # Check if process crashed
-        if self.process and self.process.poll() is not None:
-            stderr = self.process.stderr.read() if self.process.stderr else b""
-            error_msg = f"Mock server crashed: {stderr.decode()}"
-            raise RuntimeError(error_msg)
+        # Timeout reached - provide detailed error
+        elapsed = time.time() - start_time
 
-        error_msg = f"Mock server failed to start on port {self.port}"
+        if self.process:
+            process_status = (
+                "running"
+                if self.process.poll() is None
+                else f"exited with code {self.process.returncode}"
+            )
+            stderr = self.process.stderr.read() if self.process.stderr else b""
+            stdout = self.process.stdout.read() if self.process.stdout else b""
+            error_msg = (
+                f"Mock server failed to start on port {self.port} after {elapsed:.2f}s "
+                f"({attempt} attempts).\n"
+                f"Process status: {process_status}\n"
+                f"STDOUT: {stdout.decode()}\n"
+                f"STDERR: {stderr.decode()}"
+            )
+        else:
+            error_msg = (
+                f"Mock server failed to start on port {self.port} after {elapsed:.2f}s "
+                f"({attempt} attempts). No process was created."
+            )
+
         raise RuntimeError(error_msg)
 
     def stop(self) -> None:
