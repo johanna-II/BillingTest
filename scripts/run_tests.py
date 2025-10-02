@@ -240,7 +240,7 @@ class TestRunner:
                         [
                             COV_LIBS,
                             COV_REPORT_TERM_MISSING,
-                            "--cov-report=xml",
+                            COV_REPORT_XML,
                             COV_OMIT_OBSERVABILITY,
                         ]
                     )
@@ -253,7 +253,7 @@ class TestRunner:
                         [
                             COV_LIBS,
                             COV_REPORT_TERM_MISSING,
-                            "--cov-report=xml",
+                            COV_REPORT_XML,
                             COV_OMIT_OBSERVABILITY,
                         ]
                     )

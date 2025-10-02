@@ -101,7 +101,7 @@ class PaymentValidator:
             ) from e
 
     @staticmethod
-    def validate_payment_group_id(payment_group_id: str) -> None:
+    def validate_payment_group_id(payment_group_id: str | None) -> None:
         """Validate payment group ID.
 
         Args:

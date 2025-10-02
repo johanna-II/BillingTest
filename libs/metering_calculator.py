@@ -258,6 +258,36 @@ class MeteringCalculator:
         return is_anomaly, deviation
 
     @classmethod
+    def _format_storage_volume(cls, volume: float) -> str:
+        """Format storage volume with appropriate scale."""
+        if volume >= 1024 * 1024 * 1024:  # TB
+            return f"{volume / (1024 * 1024 * 1024):.2f} TB"
+        if volume >= 1024 * 1024:  # GB
+            return f"{volume / (1024 * 1024):.2f} GB"
+        if volume >= 1024:  # MB
+            return f"{volume / 1024:.2f} MB"
+        return f"{volume:.2f} KB"
+
+    @classmethod
+    def _format_time_volume(cls, volume: float, unit: str) -> str:
+        """Format time volume with appropriate scale."""
+        if unit.upper() == "SECONDS":
+            if volume >= 86400:
+                return f"{volume / 86400:.2f} days"
+            if volume >= 3600:
+                return f"{volume / 3600:.2f} hours"
+            if volume >= 60:
+                return f"{volume / 60:.2f} minutes"
+            return f"{volume:.2f} seconds"
+
+        if unit.upper() == "HOURS":
+            if volume >= 24:
+                return f"{volume / 24:.2f} days"
+            return f"{volume:.2f} hours"
+
+        return f"{volume:.2f} {unit}"
+
+    @classmethod
     def format_volume_human_readable(cls, volume: float, unit: str) -> str:
         """Format volume in human-readable format.
 
@@ -270,31 +300,11 @@ class MeteringCalculator:
         """
         # For storage units, convert to appropriate scale
         if unit.upper() in ["KB", "MB", "GB", "TB"]:
-            if volume >= 1024 * 1024 * 1024:  # TB
-                return f"{volume / (1024 * 1024 * 1024):.2f} TB"
-            elif volume >= 1024 * 1024:  # GB
-                return f"{volume / (1024 * 1024):.2f} GB"
-            elif volume >= 1024:  # MB
-                return f"{volume / 1024:.2f} MB"
-            else:
-                return f"{volume:.2f} KB"
+            return cls._format_storage_volume(volume)
 
         # For time units
-        elif unit.upper() in ["SECONDS", "MINUTES", "HOURS", "DAYS"]:
-            if unit.upper() == "SECONDS":
-                if volume >= 86400:
-                    return f"{volume / 86400:.2f} days"
-                elif volume >= 3600:
-                    return f"{volume / 3600:.2f} hours"
-                elif volume >= 60:
-                    return f"{volume / 60:.2f} minutes"
-                else:
-                    return f"{volume:.2f} seconds"
-            elif unit.upper() == "HOURS":
-                if volume >= 24:
-                    return f"{volume / 24:.2f} days"
-                else:
-                    return f"{volume:.2f} hours"
+        if unit.upper() in ["SECONDS", "MINUTES", "HOURS", "DAYS"]:
+            return cls._format_time_volume(volume, unit)
 
         # Default formatting
         return f"{volume:.2f} {unit}"

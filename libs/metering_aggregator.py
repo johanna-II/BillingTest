@@ -65,6 +65,59 @@ class MeteringAggregator:
     }
 
     @classmethod
+    def _build_dimension_key(
+        cls, record: Dict[str, Any], dimensions: List[str]
+    ) -> tuple[str, Dict[str, str]]:
+        """Build dimension key and values from record.
+
+        Args:
+            record: Metering record
+            dimensions: List of dimensions to extract
+
+        Returns:
+            Tuple of (dimension_key, dimension_values)
+        """
+        dim_parts = []
+        dim_values = {}
+
+        dimension_mapping = {
+            "app_key": ("appKey", "app"),
+            "counter_name": ("counterName", "counter"),
+            "counter_type": ("counterType", "type"),
+            "resource_id": ("resourceId", "resource"),
+        }
+
+        for dim in dimensions:
+            if dim in dimension_mapping:
+                record_key, prefix = dimension_mapping[dim]
+                if record_key in record:
+                    value = record[record_key]
+                    dim_parts.append(f"{prefix}:{value}")
+                    dim_values[dim] = value
+
+        return "|".join(dim_parts), dim_values
+
+    @classmethod
+    def _calculate_final_metrics(cls, data: Dict[str, Any]) -> AggregatedMetrics:
+        """Calculate final aggregated metrics from collected data."""
+        volumes = data["volumes"]
+        timestamps = data["timestamps"]
+
+        # Default timestamp if none exists
+        default_time = datetime.now()
+
+        return AggregatedMetrics(
+            total_volume=sum(volumes),
+            record_count=len(volumes),
+            avg_volume=sum(volumes) / len(volumes) if volumes else Decimal("0"),
+            max_volume=max(volumes) if volumes else Decimal("0"),
+            min_volume=min(volumes) if volumes else Decimal("0"),
+            start_time=min(timestamps) if timestamps else default_time,
+            end_time=max(timestamps) if timestamps else default_time,
+            dimensions=AggregationDimension(**data["dimension_values"]),
+        )
+
+    @classmethod
     def aggregate_by_dimensions(
         cls, metering_data: List[Dict[str, Any]], dimensions: List[str]
     ) -> Dict[str, AggregatedMetrics]:
@@ -82,29 +135,7 @@ class MeteringAggregator:
         )
 
         for record in metering_data:
-            # Build dimension key
-            dim_parts = []
-            dim_values = {}
-
-            for dim in dimensions:
-                if dim == "app_key" and "appKey" in record:
-                    value = record["appKey"]
-                    dim_parts.append(f"app:{value}")
-                    dim_values["app_key"] = value
-                elif dim == "counter_name" and "counterName" in record:
-                    value = record["counterName"]
-                    dim_parts.append(f"counter:{value}")
-                    dim_values["counter_name"] = value
-                elif dim == "counter_type" and "counterType" in record:
-                    value = record["counterType"]
-                    dim_parts.append(f"type:{value}")
-                    dim_values["counter_type"] = value
-                elif dim == "resource_id" and "resourceId" in record:
-                    value = record["resourceId"]
-                    dim_parts.append(f"resource:{value}")
-                    dim_values["resource_id"] = value
-
-            key = "|".join(dim_parts)
+            key, dim_values = cls._build_dimension_key(record, dimensions)
 
             # Add data to aggregation
             volume = Decimal(str(record.get("counterVolume", 0)))
@@ -117,22 +148,8 @@ class MeteringAggregator:
         # Calculate final metrics
         results = {}
         for key, data in aggregated.items():
-            if not data["volumes"]:
-                continue
-
-            volumes = data["volumes"]
-            timestamps = data["timestamps"]
-
-            results[key] = AggregatedMetrics(
-                total_volume=sum(volumes),
-                record_count=len(volumes),
-                min_volume=min(volumes),
-                max_volume=max(volumes),
-                avg_volume=sum(volumes) / len(volumes),
-                start_time=min(timestamps),
-                end_time=max(timestamps),
-                dimensions=AggregationDimension(**data["dimension_values"]),
-            )
+            if data["volumes"]:
+                results[key] = cls._calculate_final_metrics(data)
 
         return results
 
@@ -311,26 +328,14 @@ class MeteringAggregator:
         return datetime.now()
 
     @classmethod
-    def create_usage_summary(
+    def _aggregate_counter_totals(
         cls, metering_data: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Create a comprehensive usage summary.
-
-        Args:
-            metering_data: List of metering records
+    ) -> tuple[defaultdict, set, list]:
+        """Aggregate counter totals from metering data.
 
         Returns:
-            Dictionary containing usage summary
+            Tuple of (counter_totals, resources, timestamps)
         """
-        if not metering_data:
-            return {
-                "total_records": 0,
-                "counters": {},
-                "resources": [],
-                "time_range": None,
-            }
-
-        # Aggregate by counter
         counter_totals: defaultdict[str, Dict[str, Decimal | None]] = defaultdict(
             lambda: {"delta": Decimal("0"), "gauge": None}
         )
@@ -355,7 +360,11 @@ class MeteringAggregator:
             elif counter_type == CounterType.GAUGE.value:
                 counter_totals[counter_name]["gauge"] = volume
 
-        # Format results
+        return counter_totals, resources, timestamps
+
+    @classmethod
+    def _format_counter_results(cls, counter_totals: defaultdict) -> Dict[str, Any]:
+        """Format counter totals into result dictionary."""
         counters = {}
         for name, values in counter_totals.items():
             delta_value = values["delta"]
@@ -367,6 +376,35 @@ class MeteringAggregator:
                 ),
                 "latest_gauge": float(values["gauge"]) if values["gauge"] else None,
             }
+        return counters
+
+    @classmethod
+    def create_usage_summary(
+        cls, metering_data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Create a comprehensive usage summary.
+
+        Args:
+            metering_data: List of metering records
+
+        Returns:
+            Dictionary containing usage summary
+        """
+        if not metering_data:
+            return {
+                "total_records": 0,
+                "counters": {},
+                "resources": [],
+                "time_range": None,
+            }
+
+        # Aggregate data
+        counter_totals, resources, timestamps = cls._aggregate_counter_totals(
+            metering_data
+        )
+
+        # Format results
+        counters = cls._format_counter_results(counter_totals)
 
         return {
             "total_records": len(metering_data),
