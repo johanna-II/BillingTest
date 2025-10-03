@@ -133,17 +133,27 @@ class TestSecurityVulnerabilities:
     def test_rate_limiting(self, api_client, test_uuid) -> None:
         """Test that rate limiting is in place.
 
-        Mock server has rate limit of 50 requests per second.
+        Mock server has rate limit of 500 requests per second by default.
+        This can be changed via MOCK_SERVER_RATE_LIMIT environment variable.
         """
+        import os
+
+        # Get the current rate limit (default 500)
+        rate_limit = int(os.environ.get("MOCK_SERVER_RATE_LIMIT", "500"))
+
+        # Send more requests than the limit to trigger rate limiting
+        # Add 20% buffer to ensure we exceed the limit
+        num_requests = int(rate_limit * 1.2)
+
         headers = {"uuid": test_uuid}
         data = {"meterList": [{"counterName": "rate.test", "counterVolume": 1}]}
 
-        # Make rapid requests to trigger rate limit (mock server: 50 req/sec)
+        # Make rapid requests to trigger rate limit
         success_count = 0
         rate_limited_count = 0
 
-        # Make 60 requests quickly to exceed the 50 req/sec limit
-        for _i in range(60):
+        # Make requests quickly to exceed the rate limit
+        for _i in range(num_requests):
             try:
                 api_client.post("/billing/meters", headers=headers, json_data=data)
                 success_count += 1
@@ -153,8 +163,8 @@ class TestSecurityVulnerabilities:
 
         # At least some requests should be rate limited
         assert rate_limited_count > 0, (
-            f"Expected rate limiting after 60 requests, but all succeeded. "
-            f"Success: {success_count}, Rate limited: {rate_limited_count}"
+            f"Expected rate limiting after {num_requests} requests (limit: {rate_limit}), "
+            f"but all succeeded. Success: {success_count}, Rate limited: {rate_limited_count}"
         )
 
         # Should have some successful requests before rate limit kicks in
