@@ -58,10 +58,14 @@ class RetryConfig:
     """Configuration for retry behavior."""
 
     total: int = DEFAULT_RETRY_COUNT
-    backoff_factor: float = 1.0
-    status_forcelist: tuple[int, ...] = (500, 502, 503, 504)
+    backoff_factor: float = 2.0
+    status_forcelist: tuple[int, ...] = (429, 500, 502, 503, 504)
     allowed_methods: tuple[str, ...] = ("GET", "POST", "PUT", "DELETE", "PATCH")
     respect_retry_after_header: bool = True
+    raise_on_status: bool = False
+    connect: int = 10
+    read: int = 10
+    redirect: int = 5
 
 
 @dataclass
@@ -128,8 +132,8 @@ def retry_on_exception(
     exceptions: type[Exception] | tuple[type[Exception], ...] = (
         requests.RequestException,
     ),
-    max_retries: int = 3,
-    backoff_factor: float = 1.0,
+    max_retries: int = 10,
+    backoff_factor: float = 2.0,
 ) -> Callable[[F], F]:
     """Decorator for retrying functions on specific exceptions."""
 
@@ -201,13 +205,19 @@ class BillingAPIClient:
 
         retry_strategy = Retry(
             total=self.retry_config.total,
+            connect=self.retry_config.connect,
+            read=self.retry_config.read,
+            redirect=self.retry_config.redirect,
             backoff_factor=self.retry_config.backoff_factor,
             status_forcelist=list(self.retry_config.status_forcelist),
             allowed_methods=list(self.retry_config.allowed_methods),
             respect_retry_after_header=self.retry_config.respect_retry_after_header,
+            raise_on_status=self.retry_config.raise_on_status,
         )
 
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy, pool_connections=100, pool_maxsize=100
+        )
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
 

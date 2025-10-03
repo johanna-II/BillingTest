@@ -279,9 +279,9 @@ class TimeoutConfig:
 class RetryConfig:
     """Retry configuration values."""
 
-    max_attempts: int = 3
-    backoff_factor: float = 1.0
-    max_backoff: int = 60
+    max_attempts: int = 10
+    backoff_factor: float = 2.0
+    max_backoff: int = 120
     status_codes: frozenset[int] = frozenset(
         {
             HTTPStatus.TOO_MANY_REQUESTS,
