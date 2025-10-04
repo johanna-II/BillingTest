@@ -24,6 +24,7 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.requests: dict[str, list[float]] = defaultdict(list)
+        self._enabled = True  # Allow disabling for specific tests
 
     def _get_client_id(self) -> str:
         """Get unique client identifier."""
@@ -38,18 +39,29 @@ class RateLimiter:
         ]
 
     def is_rate_limited(self) -> bool:
-        """Check if current request should be rate limited."""
+        """Check if current request should be rate limited.
+
+        Returns:
+            True if rate limit exceeded, False otherwise
+        """
+        if not self._enabled:
+            return False
+
         client_id = self._get_client_id()
         current_time = time.time()
 
-        # Clean old requests
+        # Clean old requests first
         self._clean_old_requests(client_id, current_time)
 
-        # Check rate limit
-        if len(self.requests[client_id]) >= self.max_requests:
+        # Check if we've reached the limit (>= not >)
+        # This means: 0-49 allowed (50 requests), 50+ blocked
+        current_count = len(self.requests[client_id])
+
+        if current_count >= self.max_requests:
+            # Already at or over limit - reject
             return True
 
-        # Add current request
+        # Under limit - accept and record
         self.requests[client_id].append(current_time)
         return False
 
@@ -60,12 +72,37 @@ class RateLimiter:
         self._clean_old_requests(client_id, current_time)
         return max(0, self.max_requests - len(self.requests[client_id]))
 
+    def reset(self, client_id: str | None = None) -> None:
+        """Reset rate limiter for a specific client or all clients.
+
+        Args:
+            client_id: Client ID to reset, or None to reset all
+        """
+        if client_id:
+            self.requests.pop(client_id, None)
+        else:
+            self.requests.clear()
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable or disable rate limiting.
+
+        Args:
+            enabled: True to enable, False to disable
+        """
+        self._enabled = enabled
+
 
 # Global rate limiter instance
 # For integration tests, use higher limit (500 req/sec)
 # For security tests, use lower limit (50 req/sec)
 _max_requests = int(os.environ.get("MOCK_SERVER_RATE_LIMIT", "500"))
 rate_limiter = RateLimiter(max_requests=_max_requests, window_seconds=1)
+
+# Log rate limiter initialization
+import logging
+
+_logger = logging.getLogger(__name__)
+_logger.info(f"Rate limiter initialized with max_requests={_max_requests}/sec")
 
 
 def rate_limit_middleware(app: Any) -> None:

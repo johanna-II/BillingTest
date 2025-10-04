@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -251,6 +252,31 @@ def health():
     )
 
 
+@app.route("/test/rate-limit/status", methods=["GET"])
+def rate_limit_status():
+    """Get rate limit status for debugging."""
+    from .security import rate_limiter
+
+    uuid_param = request.headers.get("uuid", "")
+    client_id = uuid_param or request.remote_addr or "unknown"
+
+    # Get current request count
+    current_time = time.time()
+    rate_limiter._clean_old_requests(client_id, current_time)
+    current_count = len(rate_limiter.requests.get(client_id, []))
+
+    return jsonify(
+        {
+            "client_id": client_id,
+            "current_requests": current_count,
+            "max_requests": rate_limiter.max_requests,
+            "window_seconds": rate_limiter.window_seconds,
+            "remaining": rate_limiter.max_requests - current_count,
+            "is_enabled": rate_limiter._enabled,
+        }
+    )
+
+
 # Test reset endpoint
 @app.route("/test/reset", methods=["POST"])
 def reset_test_data():
@@ -280,6 +306,11 @@ def reset_test_data():
                 billing_keys_to_delete.append(key)
         for key in billing_keys_to_delete:
             del billing_data[key]
+
+        # Reset rate limiter for this UUID
+        from .security import rate_limiter
+
+        rate_limiter.reset(client_id=uuid_param)
 
     return jsonify(
         create_success_response({"message": f"Reset data for UUID: {uuid_param}"})
