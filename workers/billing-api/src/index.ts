@@ -43,11 +43,12 @@ app.get('/health', (c) => {
 
 // Calculate billing endpoint
 app.post('/api/billing/admin/calculate', async (c) => {
-  const uuid = c.req.header('uuid')
-  const body = await c.req.json()
+  try {
+    const uuid = c.req.header('uuid')
+    const body = await c.req.json().catch(() => ({}))
 
-  // 간단한 빌링 계산 로직
-  const { usage = [], credits = [], adjustments = [] } = body
+    // 간단한 빌링 계산 로직
+    const { usage = [], credits = [], adjustments = [] } = body
 
   // 사용량 계산
   const subtotal = usage.reduce((sum: number, item: any) => {
@@ -122,56 +123,88 @@ app.post('/api/billing/admin/calculate', async (c) => {
       targetId: adj.targetProjectId
     }))
   })
+  } catch (error) {
+    console.error('Calculate billing error:', error)
+    return c.json({
+      header: { 
+        isSuccessful: false, 
+        resultCode: -1, 
+        resultMessage: error instanceof Error ? error.message : 'Calculation failed' 
+      }
+    }, 500)
+  }
 })
 
 // Get payment statements
 app.get('/api/billing/payments/:month/statements', async (c) => {
-  const uuid = c.req.header('uuid')
-  const month = c.param('month')
+  try {
+    const uuid = c.req.header('uuid')
+    const month = c.param('month')
 
-  // 간단한 mock 데이터
-  return c.json({
-    header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
-    paymentGroupId: `PG-${uuid?.slice(0, 8)}`,
-    paymentStatus: 'READY',
-    statements: [{
-      statementId: `stmt-${month}`,
-      uuid,
-      month,
-      currency: 'KRW',
-      amount: 0,
-      subtotal: 0,
-      billingGroupDiscount: 0,
-      adjustmentTotal: 0,
-      creditApplied: 0,
-      vat: 0,
-      unpaidAmount: 0,
-      lateFee: 0,
-      totalAmount: 0,
-      status: 'READY',
-      lineItems: [],
-      appliedCredits: [],
-      appliedAdjustments: []
-    }]
-  })
+    // 간단한 mock 데이터
+    return c.json({
+      header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
+      paymentGroupId: `PG-${uuid?.slice(0, 8) || 'default'}`,
+      paymentStatus: 'READY',
+      statements: [{
+        statementId: `stmt-${month}`,
+        uuid: uuid || 'default',
+        month,
+        currency: 'KRW',
+        amount: 0,
+        subtotal: 0,
+        billingGroupDiscount: 0,
+        adjustmentTotal: 0,
+        creditApplied: 0,
+        vat: 0,
+        unpaidAmount: 0,
+        lateFee: 0,
+        totalAmount: 0,
+        status: 'READY',
+        lineItems: [],
+        appliedCredits: [],
+        appliedAdjustments: []
+      }]
+    })
+  } catch (error) {
+    console.error('Get statements error:', error)
+    return c.json({
+      header: { 
+        isSuccessful: false, 
+        resultCode: -1, 
+        resultMessage: error instanceof Error ? error.message : 'Failed to get statements' 
+      }
+    }, 500)
+  }
 })
 
 // Process payment
 app.post('/api/billing/payments/:month', async (c) => {
-  const uuid = c.req.header('uuid')
-  const month = c.param('month')
-  const body = await c.req.json()
+  try {
+    const uuid = c.req.header('uuid')
+    const month = c.param('month')
+    const body = await c.req.json().catch(() => ({}))
 
-  return c.json({
-    header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
-    paymentId: `PAY-${Date.now()}`,
-    paymentGroupId: body.paymentGroupId,
-    status: 'SUCCESS',
-    amount: body.amount,
-    method: 'MOCK',
-    transactionDate: new Date().toISOString(),
-    receiptUrl: `https://receipt.example.com/${Date.now()}`
-  })
+    return c.json({
+      header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
+      paymentId: `PAY-${Date.now()}`,
+      paymentGroupId: body.paymentGroupId || `PG-${uuid?.slice(0, 8) || 'default'}`,
+      status: 'SUCCESS',
+      amount: body.amount || 0,
+      method: 'MOCK',
+      transactionDate: new Date().toISOString(),
+      receiptUrl: `https://receipt.example.com/${Date.now()}`
+    })
+  } catch (error) {
+    console.error('Payment processing error:', error)
+    return c.json({
+      header: { 
+        isSuccessful: false, 
+        resultCode: -1, 
+        resultMessage: error instanceof Error ? error.message : 'Payment processing failed' 
+      }
+    }, 500)
+  }
 })
 
 // Helper: 단가 계산
