@@ -2,7 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  // Rewrites are handled by API routes for better CORS control
+  output: 'export', // Static site generation for Cloudflare Pages
+  trailingSlash: true, // Better compatibility with static hosting
+  images: {
+    unoptimized: true, // Image optimization not available in static export
+  },
 }
 
 module.exports = nextConfig
