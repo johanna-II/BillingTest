@@ -21,9 +21,6 @@ from .mock_data import (
 from .security import setup_security
 from .test_data_manager import get_data_manager
 
-# Log file constants
-METERING_LOG_FILE = "mock_metering.log"
-
 # Error messages
 OPENAPI_NOT_AVAILABLE_ERROR = "OpenAPI not available"
 
@@ -52,7 +49,17 @@ app = Flask(__name__)
 # NOSONAR: python:S5122 - Permissive CORS is acceptable for test mock server
 # This mock server is designed for local development and CI testing only
 # In production, use a properly configured API gateway with restricted CORS
-CORS(app)
+# Allow localhost for development and Vercel domains for production
+CORS(
+    app,
+    origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://*.vercel.app",
+        "https://*.vercel.app/*",
+    ],
+    supports_credentials=True,
+)
 
 # Configure caching for better performance
 cache = Cache(
@@ -115,6 +122,28 @@ metering_data: dict[str, Any] = {}
 
 # In-memory storage for credit data
 credit_data: dict[str, Any] = {}
+
+# In-memory storage for adjustments (per UUID)
+adjustments_data: dict[str, list[Any]] = {}
+
+# In-memory storage for unpaid amounts and late fees (per UUID)
+unpaid_data: dict[str, dict[str, Any]] = {}
+
+
+# Initialize default test data for test-uuid-001
+def _initialize_test_data():
+    """Initialize default test data for testing."""
+    test_uuid = "test-uuid-001"
+    # Initialize empty credits by type (user can add via UI)
+    credit_data[test_uuid] = {
+        "PROMOTIONAL": {"totalAmount": 0, "usedAmount": 0, "restAmount": 0},
+        "FREE": {"totalAmount": 0, "usedAmount": 0, "restAmount": 0},
+        "PAID": {"totalAmount": 0, "usedAmount": 0, "restAmount": 0},
+    }
+
+
+# Initialize test data on startup
+_initialize_test_data()
 
 # Initialize OpenAPI handler if available
 if OPENAPI_AVAILABLE:
@@ -331,9 +360,6 @@ def reset_test_data_by_uuid(uuid):
     for contract_id in contracts_to_delete:
         del contracts[contract_id]
 
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(f"Reset test data for UUID: {uuid}\n")
-
     return create_success_response({"message": f"Test data reset for UUID: {uuid}"})
 
 
@@ -360,7 +386,10 @@ def create_metering():
         # For integration tests, use a consistent test UUID pattern
         test_uuid = "uuid-kr-test"
 
-    # Get UUID-specific metering store
+    # Clear previous metering data for this UUID (fresh calculation)
+    data_manager.clear_uuid_data(test_uuid)
+
+    # Get UUID-specific metering store (now empty)
     metering_store = data_manager.get_metering_data(test_uuid)
 
     # Handle meterList format (what the actual client sends)
@@ -375,14 +404,6 @@ def create_metering():
                 **meter,
             }
             meter_ids.append(meter_id)
-
-        with open(METERING_LOG_FILE, "a") as f:
-            f.write(
-                f"Created {len(data['meterList'])} meters for UUID: {test_uuid}, total: {len(metering_store)}\n"
-            )
-            # Log all current metering data for all UUIDs
-            all_data = data_manager.metering_data
-            f.write(f"  All UUID keys in metering_data: {list(all_data.keys())}\n")
 
         return jsonify(
             create_success_response(
@@ -584,7 +605,6 @@ def get_credit_history():
 
     # Get user's credit data
     total_credit_amt = 0
-    credit_data = data_manager.credit_data
     if uuid_param in credit_data:
         data = credit_data[uuid_param]
         # For history, return the remaining amount (not total given)
@@ -614,7 +634,6 @@ def grant_campaign_credit_old1(campaign_id):
     credit_amount = data.get("creditList", [{}])[0].get("creditAmt", 0)
     credit_name = data.get("creditList", [{}])[0].get("creditName", "Campaign Credit")
 
-    credit_data = data_manager.credit_data
     if uuid_param not in credit_data:
         credit_data[uuid_param] = {
             "grantAmount": 0,
@@ -908,13 +927,6 @@ def get_billing_detail():
         metering_count,
     ) = _calculate_billing_amounts_from_metering(metering_store)
 
-    # Debug logging
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(
-            f"Billing calculation - UUID: {uuid_param}, metering_store_size: {len(metering_store)}, "
-            f"metering_count: {metering_count}, compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
-        )
-
     # Generate billing detail
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
         billing_detail = generate_billing_detail(uuid_param, month, has_discount)
@@ -934,16 +946,26 @@ def get_billing_detail():
         billing_detail, uuid_param
     )
 
+    # Apply unpaid amount and late fee if provided
+    unpaid_amount = 0
+    late_fee = 0
+    if uuid_param in unpaid_data:
+        unpaid_info = unpaid_data[uuid_param]
+        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
+        late_fee = unpaid_info.get("lateFee", 0)
+
     # Prepare response data
-    final_total = billing_detail.get("totalAmount", 0)
+    final_total = billing_detail.get("totalAmount", 0) + unpaid_amount + late_fee
     response_data = {
         **billing_detail,
         "charge": billing_detail.get("charge", 0),
-        "totalAmount": final_total,  # Total after credits
+        "totalAmount": final_total,  # Total after credits, unpaid, and late fee
         "totalPayments": final_total,  # Same as totalAmount
         "discountAmount": billing_detail.get("discount", 0),
         "vat": billing_detail.get("vat", 0),
         "totalCredit": credit_to_use,
+        "unpaidAmount": unpaid_amount,
+        "lateFee": late_fee,
     }
 
     return jsonify(create_success_response(response_data))
@@ -952,8 +974,9 @@ def get_billing_detail():
 def _find_applicable_contract(uuid_param):
     """Find applicable contract for given UUID."""
     for contract_data in contracts.values():
-        if contract_data.get("uuid") == uuid_param or contract_data.get("contractId"):
-            return True, 0.3  # Default contract discount is 30%
+        if contract_data.get("uuid") == uuid_param:
+            discount_rate = contract_data.get("discountRate", 0.3)
+            return True, discount_rate
     return False, 0.0
 
 
@@ -1057,54 +1080,62 @@ def _apply_adjustments(final_charge, month):
 
 
 def _apply_credits(uuid_param, adjusted_charge):
-    """Apply available credits to the charge."""
+    """Apply available credits to the charge with priority: PROMOTIONAL > FREE > PAID."""
     if uuid_param not in credit_data:
-        return adjusted_charge, 0
+        return adjusted_charge, 0, []
 
-    rest_credits = credit_data[uuid_param].get("restAmount", 0)
+    user_credits = credit_data[uuid_param]
 
-    # Debug log
-    with open("mock_credit.log", "a") as f:
-        f.write(
-            f"get_statements - UUID: {uuid_param}, rest_credits: {rest_credits}, adjusted_charge: {adjusted_charge}\n"
+    # Check if new structure (by type) or old structure
+    if not isinstance(user_credits, dict) or "totalAmount" in user_credits:
+        # Old structure, return without credits
+        return adjusted_charge, 0, []
+
+    # Apply credits in priority order: PROMOTIONAL > FREE > PAID
+    credit_priority = ["PROMOTIONAL", "FREE", "PAID"]
+    remaining_charge = adjusted_charge
+    total_credit_used = 0
+    applied_credits_list = []
+
+    for credit_type in credit_priority:
+        if remaining_charge <= 0:
+            break
+
+        if credit_type not in user_credits:
+            continue
+
+        credit_info = user_credits[credit_type]
+        rest_amount = credit_info.get("restAmount", 0)
+
+        if rest_amount <= 0:
+            continue
+
+        # Apply this type of credit
+        credit_to_use = min(rest_amount, remaining_charge)
+
+        with data_lock:
+            credit_info["usedAmount"] += credit_to_use
+            credit_info["restAmount"] -= credit_to_use
+
+        remaining_charge -= credit_to_use
+        total_credit_used += credit_to_use
+
+        applied_credits_list.append(
+            {
+                "type": credit_type,
+                "amountApplied": credit_to_use,
+                "remainingBalance": credit_info["restAmount"],
+            }
         )
-        f.write(f"  Credit data: {credit_data.get(uuid_param, {})}\n")
 
-    if rest_credits <= 0:
-        return adjusted_charge, 0
-
-    # Apply credit to charge amount (before VAT)
-    credit_to_use = min(rest_credits, adjusted_charge)
-
-    # Update credit data to reflect usage
-    with data_lock:
-        total_credit_amount = credit_data[uuid_param].get("totalAmount", 0)
-        already_used = credit_data[uuid_param].get("usedAmount", 0)
-        credit_data[uuid_param]["usedAmount"] = already_used + credit_to_use
-        credit_data[uuid_param]["restAmount"] = max(
-            0, total_credit_amount - (already_used + credit_to_use)
-        )
-
-    return adjusted_charge - credit_to_use, credit_to_use
+    return remaining_charge, total_credit_used, applied_credits_list
 
 
 def _write_debug_log(
     uuid_param, month, metering_store, has_contract, contract_discount_rate
 ):
-    """Write debug information to log file."""
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(
-            f"get_statements - UUID: {uuid_param}, month: {month}, metering_store_size: {len(metering_store)}\n"
-        )
-        # Log all UUIDs with data
-        all_data = data_manager.metering_data
-        f.write(f"  All UUID keys in metering_data: {list(all_data.keys())}\n")
-        for meter_id, meter_data in metering_store.items():
-            f.write(f"  - meter_id: {meter_id}, data: {meter_data}\n")
-        f.write(
-            f"  has_contract: {has_contract}, contract_discount_rate: {contract_discount_rate}\n"
-        )
-        f.write(f"  contracts count: {len(contracts)}\n")
+    """Write debug information to log file (disabled for production)."""
+    pass
 
 
 @app.route("/billing/console/statements", methods=["GET"])
@@ -1133,12 +1164,6 @@ def get_statements():
     compute_amount, storage_amount, network_amount = _calculate_metering_amounts(
         metering_store, has_contract, contract_discount_rate
     )
-
-    # Debug logging - final amounts
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(
-            f"  Final amounts - compute: {compute_amount}, storage: {storage_amount}, network: {network_amount}\n"
-        )
 
     # Generate billing detail
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
@@ -1354,8 +1379,55 @@ def update_payment(payment_id):
 
 @app.route("/billing/admin/calculate", methods=["POST"])
 def create_calculation():
-    """Create calculation job."""
+    """Create calculation job and store adjustments and credits."""
+    data = request.json or {}
+    uuid_param = data.get("uuid") or request.headers.get("uuid", "default")
     job_id = str(uuid.uuid4())
+
+    # Clear previous calculation data for this UUID (fresh calculation)
+    # Clear adjustments
+    if uuid_param in adjustments_data:
+        del adjustments_data[uuid_param]
+
+    # Reset credits to zero (will be set from current request)
+    credit_data[uuid_param] = {
+        "PROMOTIONAL": {"totalAmount": 0, "usedAmount": 0, "restAmount": 0},
+        "FREE": {"totalAmount": 0, "usedAmount": 0, "restAmount": 0},
+        "PAID": {"totalAmount": 0, "usedAmount": 0, "restAmount": 0},
+    }
+
+    # Store adjustments if provided
+    if "adjustments" in data and data["adjustments"]:
+        adjustments_data[uuid_param] = data["adjustments"]
+
+    # Store credits if provided (by type)
+    if "credits" in data and data["credits"]:
+        user_credits = data["credits"]
+
+        # Update credits by type
+        for credit in user_credits:
+            credit_type = credit.get("type", "FREE")
+            credit_amount = credit.get("amount", 0)
+
+            if credit_type in credit_data[uuid_param]:
+                credit_data[uuid_param][credit_type]["totalAmount"] += credit_amount
+                credit_data[uuid_param][credit_type]["restAmount"] += credit_amount
+
+    # Store unpaid amount and late fee info if provided
+    if "unpaidAmount" in data or "isOverdue" in data:
+        unpaid_amount = data.get("unpaidAmount", 0)
+        is_overdue = data.get("isOverdue", False)
+        late_fee = unpaid_amount * 0.05 if is_overdue else 0
+
+        unpaid_data[uuid_param] = {
+            "unpaidAmount": unpaid_amount,
+            "isOverdue": is_overdue,
+            "lateFee": late_fee,
+        }
+    else:
+        # Clear unpaid data if not provided
+        if uuid_param in unpaid_data:
+            del unpaid_data[uuid_param]
 
     # Store the calculation job
     batch_jobs[job_id] = {
@@ -1369,9 +1441,6 @@ def create_calculation():
     }
 
     return jsonify(create_success_response({"batchJobCode": job_id}))
-
-
-# Duplicate endpoint removed - handled by /billing/credits/cancel above
 
 
 # Credit cancellation endpoint
@@ -1399,12 +1468,21 @@ def make_payment_console(month):
     data = request.json or {}
     payment_group_id = data.get("paymentGroupId", f"PG-{uuid_param[:8]}")
 
-    # Create mock payment response
+    # Get the actual amount from the request or billing data
+    amount = data.get("amount", 0)
+
+    # If no amount provided, try to get from billing data
+    if amount == 0:
+        billing_key = f"{uuid_param}:{month}"
+        if billing_key in billing_data:
+            amount = billing_data[billing_key].get("totalAmount", 0)
+
+    # Create payment response with actual amount
     payment_response = {
         "paymentId": f"PAY-{datetime.now().strftime('%Y%m%d%H%M%S')}",
         "paymentGroupId": payment_group_id,
         "status": "COMPLETED",
-        "amount": 150000,
+        "amount": amount,
         "paymentDate": datetime.now().isoformat(),
         "month": month,
     }
@@ -1440,13 +1518,207 @@ def get_payment_statements_console(month):
     if any(pattern.lower() in uuid_param.lower() for pattern in sql_patterns):
         return create_error_response("Invalid UUID: suspicious pattern detected", 400)
 
-    # Return mock payment status
+    # Find applicable contract
+    has_contract, contract_discount_rate = _find_applicable_contract(uuid_param)
+
+    # Get UUID-specific metering data
+    metering_store = data_manager.get_metering_data(uuid_param)
+
+    # Build line items from metering data (without discount - show original prices)
+    line_items = []
+    subtotal_from_items = 0
+    for meter_id, meter_data in metering_store.items():
+        counter_name = meter_data.get("counterName", "")
+        counter_type = meter_data.get("counterType", "DELTA")
+        counter_unit = meter_data.get("counterUnit", "HOURS")
+        volume = float(meter_data.get("counterVolume", 0))
+
+        # Determine unit price based on counter type (original prices without discount)
+        unit_price: float = 0.0
+        amount = 0
+        if counter_name == "compute.g2.t4.c8m64":
+            unit_price = 166.67
+            amount = int(volume * 166.67)
+        elif counter_name == COMPUTE_C2_C8M8_COUNTER:
+            unit_price = 397.0
+            amount = int(volume * 397)
+        elif counter_name == "storage.volume.ssd":
+            unit_price = 100.0  # 100 per GB per month
+            amount = int(volume * 100)  # volume is already in GB
+        elif counter_name == "network.floating_ip":
+            unit_price = 25.0
+            amount = int(volume * 25)
+
+        line_items.append(
+            {
+                "id": f"line-{meter_id}",
+                "counterName": counter_name,
+                "counterType": counter_type,
+                "unit": counter_unit,
+                "quantity": volume,
+                "unitPrice": int(unit_price),
+                "amount": amount,
+                "resourceId": meter_data.get("resourceId", ""),
+                "resourceName": meter_data.get("resourceName", ""),
+                "projectId": meter_data.get("projectId", ""),
+                "appKey": meter_data.get("appKey", ""),
+            }
+        )
+        subtotal_from_items += amount
+
+    # Use subtotal from line items (before any discounts)
+    subtotal = subtotal_from_items
+
+    # Build applied adjustments list
+    applied_adjustments = []
+
+    # 1. Contract discount (billing group level)
+    billing_group_discount = (
+        int(subtotal * contract_discount_rate) if has_contract else 0
+    )
+    if billing_group_discount > 0:
+        applied_adjustments.append(
+            {
+                "adjustmentId": f"adj-contract-{uuid_param}",
+                "type": "DISCOUNT",
+                "description": f"Contract Discount ({int(contract_discount_rate * 100)}%)",
+                "amount": billing_group_discount,
+                "level": "BILLING_GROUP",
+                "targetId": None,
+            }
+        )
+
+    # 2. User-defined adjustments (project or billing group level)
+    user_adjustment_total = 0
+    if uuid_param in adjustments_data:
+        user_adjustments = adjustments_data[uuid_param]
+
+        for idx, adj in enumerate(user_adjustments):
+            adj_level = adj.get("level", "BILLING_GROUP")
+            adj_type = adj.get("type", "DISCOUNT")
+            adj_method = adj.get("method", "RATE")
+            adj_value = adj.get("value", 0)
+            adj_description = adj.get("description", "Adjustment")
+            target_project_id = adj.get("targetProjectId")
+
+            # Calculate adjustment amount
+            if adj_level == "PROJECT" and target_project_id:
+                # Calculate adjustment for specific project only
+                project_subtotal = sum(
+                    item["amount"]
+                    for item in line_items
+                    if item.get("projectId") == target_project_id
+                )
+                if adj_method == "RATE":
+                    adjustment_amount = int(project_subtotal * (adj_value / 100))
+                else:  # FIXED
+                    adjustment_amount = int(adj_value)
+            else:  # BILLING_GROUP level
+                if adj_method == "RATE":
+                    adjustment_amount = int(subtotal * (adj_value / 100))
+                else:  # FIXED
+                    adjustment_amount = int(adj_value)
+
+            # Track total adjustment (negative for discount, positive for surcharge)
+            if adj_type == "DISCOUNT":
+                user_adjustment_total -= adjustment_amount
+            else:  # SURCHARGE
+                user_adjustment_total += adjustment_amount
+
+            applied_adjustments.append(
+                {
+                    "adjustmentId": f"adj-user-{idx}",
+                    "type": adj_type,
+                    "description": adj_description,
+                    "amount": adjustment_amount,
+                    "level": adj_level,
+                    "targetId": target_project_id,
+                }
+            )
+
+    # Calculate charge after all adjustments
+    # Note: billing_group_discount is positive, user_adjustment_total can be negative or positive
+    total_adjustment_amount = -billing_group_discount + user_adjustment_total
+    charge_after_adjustments = subtotal + total_adjustment_amount
+
+    # Apply credits to charge (before VAT) - returns list of applied credits
+    charge_after_credit, credit_used, applied_credits_raw = _apply_credits(
+        uuid_param, charge_after_adjustments
+    )
+
+    # Build applied credits with full details
+    applied_credits = []
+    for idx, credit in enumerate(applied_credits_raw):
+        credit_type = credit.get("type", "FREE")
+        campaign_names = {
+            "PROMOTIONAL": "Promotional Credit",
+            "FREE": "Free Credit",
+            "PAID": "Paid Credit",
+        }
+        applied_credits.append(
+            {
+                "creditId": f"credit-{uuid_param}-{credit_type.lower()}-{idx}",
+                "type": credit_type,
+                "amountApplied": credit.get("amountApplied", 0),
+                "remainingBalance": credit.get("remainingBalance", 0),
+                "campaignId": f"campaign-{credit_type.lower()}",
+                "campaignName": campaign_names.get(credit_type, credit_type),
+            }
+        )
+
+    # Apply unpaid amount and late fee if provided
+    unpaid_amount = 0
+    late_fee = 0
+    if uuid_param in unpaid_data:
+        unpaid_info = unpaid_data[uuid_param]
+        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
+        late_fee = unpaid_info.get("lateFee", 0)
+
+    # Calculate VAT (10%) on final charge after credits
+    vat = int(charge_after_credit * 0.1)
+
+    # Total amount including VAT, unpaid amount, and late fee
+    total_amount = charge_after_credit + vat + unpaid_amount + late_fee
+
+    # Store billing data for payment endpoint
+    billing_key = f"{uuid_param}:{month}"
+    billing_data[billing_key] = {
+        "uuid": uuid_param,
+        "month": month,
+        "subtotal": subtotal,
+        "billingGroupDiscount": billing_group_discount,
+        "totalAdjustment": total_adjustment_amount,
+        "creditApplied": credit_used,
+        "charge": charge_after_credit,
+        "vat": vat,
+        "unpaidAmount": unpaid_amount,
+        "lateFee": late_fee,
+        "totalAmount": total_amount,
+    }
+
+    # Return calculated payment status with detailed breakdown
     return jsonify(
         create_success_response(
             {
                 "paymentGroupId": f"PG-{uuid_param[:8]}",
                 "paymentStatus": "READY",
-                "statements": [{"amount": 150000, "month": month, "status": "READY"}],
+                "statements": [
+                    {
+                        "amount": total_amount,
+                        "subtotal": subtotal,
+                        "discount": billing_group_discount,
+                        "adjustmentTotal": total_adjustment_amount,
+                        "creditApplied": credit_used,
+                        "vat": vat,
+                        "unpaidAmount": unpaid_amount,
+                        "lateFee": late_fee,
+                        "month": month,
+                        "status": "READY",
+                        "lineItems": line_items,
+                        "appliedAdjustments": applied_adjustments,
+                        "appliedCredits": applied_credits,
+                    }
+                ],
             }
         )
     )
@@ -1483,21 +1755,10 @@ def update_billing_group(billing_group_id):
     """Update billing group (for applying contracts)."""
     data = request.json or {}
 
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(f"update_billing_group called - billing_group_id: {billing_group_id}\n")
-        f.write(f"  Request data: {data}\n")
-        f.write(f"  Headers: {dict(request.headers)}\n")
-
     # Store contract data
     # Check if this is a contract update (has contractId)
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(f"Checking for contractId in data: {'contractId' in data}\n")
-
     if "contractId" in data:
         contract_id = data["contractId"]
-
-        with open(METERING_LOG_FILE, "a") as f:
-            f.write(f"Found contractId: {contract_id}\n")
 
         # Store the contract
         contracts[contract_id] = {
@@ -1509,11 +1770,6 @@ def update_billing_group(billing_group_id):
             **data,
         }
 
-        with open(METERING_LOG_FILE, "a") as f:
-            f.write(
-                f"Contract applied: {contract_id} to billing group {billing_group_id}\n"
-            )
-            f.write(f"  Contract data: {contracts[contract_id]}\n")
     elif "contracts" in data:
         # Alternative format with contracts array
         contract_list = data["contracts"]
@@ -1534,12 +1790,6 @@ def update_billing_group(billing_group_id):
                 **contract_data,
             }
 
-            with open(METERING_LOG_FILE, "a") as f:
-                f.write(
-                    f"Contract applied: {contract_id} to billing group {billing_group_id}\n"
-                )
-                f.write(f"  Contract data: {contracts[contract_id]}\n")
-
     return jsonify(create_success_response({"billingGroupId": billing_group_id}))
 
 
@@ -1559,11 +1809,6 @@ def delete_billing_group_contracts(billing_group_id):
     for contract_id in contracts_to_delete:
         del contracts[contract_id]
         deleted_count += 1
-
-    with open(METERING_LOG_FILE, "a") as f:
-        f.write(
-            f"Deleted {deleted_count} contracts for billing group {billing_group_id}\n"
-        )
 
     return jsonify(create_success_response({"deletedCount": deleted_count}))
 
@@ -1658,14 +1903,6 @@ def manage_campaign_credits(campaign_id):
             credit_data[uuid_param] = generate_credit_data(
                 uuid_param, new_total, credit_type
             )
-            # Debug log
-            with open("mock_credit.log", "a") as f:
-                f.write(
-                    f"manage_campaign_credits - UUID: {uuid_param}, amount: {amount}, new_total: {new_total}\n"
-                )
-                f.write(
-                    f"  Credit data after grant: {credit_data.get(uuid_param, {})}\n"
-                )
 
     return jsonify(create_success_response({"creditId": str(uuid.uuid4())}))
 
@@ -1840,8 +2077,6 @@ def reset_all_test_data():
         # Cleared all test data for UUID
 
         # Log the action
-        with open(METERING_LOG_FILE, "a") as f:
-            f.write(f"Cleared all data for UUID: {uuid_param}\n")
 
         # Clear cache for this UUID
         cache.delete_many(f"*{uuid_param}*")
@@ -2266,18 +2501,6 @@ def handle_undefined_api(path):
         ),
         404,
     )
-
-
-# Provider states endpoint was already defined above, removed duplicate
-
-
-# Credits endpoint is already defined above as create_credit_v1
-
-
-# Contract endpoints already defined above, removed duplicate
-
-
-# Billing groups endpoints already defined above, removed duplicate
 
 
 # Meter endpoints (for contract tests)

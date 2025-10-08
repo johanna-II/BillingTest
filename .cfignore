@@ -1,0 +1,18 @@
+# Cloudflare Pages 업로드 제외 파일
+node_modules
+.git
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.log
+.DS_Store
+coverage
+.nyc_output
+htmlcov
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+

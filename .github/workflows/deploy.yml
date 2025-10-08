@@ -1,0 +1,62 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # 프론트엔드 테스트 및 빌드
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./web
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run type check
+        run: npm run type-check
+      
+      - name: Run linter
+        run: npm run lint
+      
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://placeholder.com' }}
+
+  # Vercel 배포 (메인 브랜치만)
+  deploy-vercel:
+    name: Deploy to Vercel
+    needs: test-frontend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./web
+          vercel-args: '--prod'
+

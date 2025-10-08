@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* KINFOLK inspired global styles */
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Ensure all text elements inherit font properly */
+  * {
+    font-family: inherit;
+  }
+
+  /* Typography refinements */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-kinfolk-serif;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    @apply leading-relaxed;
+  }
+
+  /* Form elements */
+  input, textarea, select, button {
+    @apply transition-colors duration-200;
+    font-family: inherit;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    @apply outline-none;
+  }
+
+  /* Select and option elements need explicit font inheritance */
+  select, option {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@layer components {
+  /* Minimal card style */
+  .kinfolk-card {
+    @apply bg-white border border-kinfolk-gray-200 rounded-none shadow-sm;
+    @apply hover:shadow-md transition-shadow duration-300;
+  }
+
+  /* Minimal button */
+  .kinfolk-button {
+    @apply px-8 py-3 text-sm uppercase tracking-widest;
+    @apply border border-kinfolk-gray-900 bg-kinfolk-gray-900 text-white;
+    @apply hover:bg-transparent hover:text-kinfolk-gray-900;
+    @apply transition-all duration-300;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .kinfolk-button-secondary {
+    @apply px-8 py-3 text-sm uppercase tracking-widest;
+    @apply border border-kinfolk-gray-300 bg-transparent text-kinfolk-gray-900;
+    @apply hover:border-kinfolk-gray-900;
+    @apply transition-all duration-300;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Minimal input */
+  .kinfolk-input {
+    @apply w-full px-4 py-3 text-sm;
+    @apply border-b border-kinfolk-gray-300 bg-transparent;
+    @apply focus:border-kinfolk-gray-900;
+    @apply placeholder:text-kinfolk-gray-400;
+    @apply transition-colors duration-200;
+  }
+
+  /* Minimal label */
+  .kinfolk-label {
+    @apply block text-xs uppercase tracking-widest text-kinfolk-gray-600 mb-2;
+  }
+
+  /* Section divider */
+  .kinfolk-divider {
+    @apply h-px bg-kinfolk-gray-200 my-12;
+  }
+
+  /* Spacing utilities for KINFOLK style */
+  .kinfolk-section {
+    @apply py-16 md:py-24;
+  }
+
+  .kinfolk-container {
+    @apply max-w-5xl mx-auto px-6 md:px-12;
+  }
+
+  /* Minimal grid */
+  .kinfolk-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12;
+  }
+
+  /* Typography */
+  .kinfolk-heading {
+    @apply font-kinfolk-serif text-3xl md:text-4xl font-normal tracking-tight;
+    @apply text-kinfolk-gray-900 mb-6;
+  }
+
+  .kinfolk-subheading {
+    @apply text-sm uppercase tracking-widest text-kinfolk-gray-600 mb-8;
+  }
+
+  .kinfolk-body {
+    @apply text-base text-kinfolk-gray-700 leading-relaxed;
+  }
+}
+
+@layer utilities {
+  /* Fade in animation */
+  .fade-in {
+    animation: fadeIn 0.6s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Loading spinner */
+  .spinner {
+    @apply inline-block w-4 h-4 border-2 border-kinfolk-gray-300;
+    @apply border-t-kinfolk-gray-900 rounded-full;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+/* Selection color */
+::selection {
+  @apply bg-kinfolk-gray-900 text-white;
+}
+
+::-moz-selection {
+  @apply bg-kinfolk-gray-900 text-white;
+}
+
