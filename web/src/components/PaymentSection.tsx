@@ -34,10 +34,12 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({ onBackToInput }) => {
 
     try {
       const result = await processPayment(
-        statement.month,
-        statement.totalAmount,
         statement.uuid,
-        statement.billingGroupId
+        statement.month,
+        {
+          amount: statement.totalAmount,
+          paymentGroupId: statement.billingGroupId || `PG-${statement.uuid.slice(0, 8)}`,
+        }
       )
       actions.setPaymentResult(result)
     } catch (err) {

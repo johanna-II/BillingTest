@@ -81,7 +81,9 @@ const StatementDisplay: React.FC<StatementDisplayProps> = ({ onProceedToPayment 
           </div>
           <div>
             <p className="kinfolk-label">Due Date</p>
-            <p className="text-sm font-medium">{format(statement.dueDate, 'PP')}</p>
+            <p className="text-sm font-medium">
+              {statement.dueDate ? format(statement.dueDate, 'PP') : 'N/A'}
+            </p>
           </div>
         </div>
       </div>

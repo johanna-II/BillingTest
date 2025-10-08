@@ -79,16 +79,26 @@ export interface BillingStatement {
   billingGroupId: string
   /** Statement month */
   month: string
+  /** Currency */
+  currency?: string
   /** Total amount before adjustments */
   subtotal: number
+  /** Billing group discount */
+  billingGroupDiscount?: number
   /** Total adjustments */
   adjustmentTotal: number
   /** Total credits applied */
   creditApplied: number
+  /** VAT amount */
+  vat?: number
   /** Unpaid amount from previous period */
   unpaidAmount: number
   /** Late fee if applicable */
   lateFee: number
+  /** Charge amount before VAT */
+  charge?: number
+  /** Final amount to pay (alias for totalAmount) */
+  amount?: number
   /** Final amount to pay */
   totalAmount: number
   /** Statement status */
@@ -100,9 +110,9 @@ export interface BillingStatement {
   /** Applied adjustments breakdown */
   appliedAdjustments: AppliedAdjustment[]
   /** Due date */
-  dueDate: Date
+  dueDate?: Date
   /** Creation timestamp */
-  createdAt: Date
+  createdAt?: Date
 }
 
 export interface LineItem {

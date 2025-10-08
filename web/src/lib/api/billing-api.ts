@@ -1,9 +1,14 @@
 import type { 
-  BillingCalculationRequest, 
-  BillingCalculationResponse,
-  PaymentRequest,
-  PaymentResponse 
+  BillingInput,
+  BillingStatement,
+  PaymentResult
 } from '@/types/billing';
+
+// API request/response types
+export interface PaymentRequest {
+  amount: number;
+  paymentGroupId: string;
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -15,8 +20,8 @@ export class BillingAPIClient {
   }
 
   async calculateBilling(
-    request: BillingCalculationRequest
-  ): Promise<BillingCalculationResponse> {
+    request: BillingInput
+  ): Promise<BillingStatement> {
     const response = await fetch(`${this.baseUrl}/api/billing/admin/calculate`, {
       method: 'POST',
       headers: {
@@ -36,7 +41,7 @@ export class BillingAPIClient {
   async getPaymentStatements(
     uuid: string,
     month: string
-  ): Promise<BillingCalculationResponse> {
+  ): Promise<BillingStatement> {
     const response = await fetch(
       `${this.baseUrl}/api/billing/payments/${month}/statements`,
       {
@@ -58,7 +63,7 @@ export class BillingAPIClient {
     uuid: string,
     month: string,
     request: PaymentRequest
-  ): Promise<PaymentResponse> {
+  ): Promise<PaymentResult> {
     const response = await fetch(`${this.baseUrl}/api/billing/payments/${month}`, {
       method: 'POST',
       headers: {
@@ -77,3 +82,13 @@ export class BillingAPIClient {
 }
 
 export const billingAPI = new BillingAPIClient();
+
+// Export convenience functions
+export const calculateBilling = (request: BillingInput) =>
+  billingAPI.calculateBilling(request);
+
+export const getPaymentStatements = (uuid: string, month: string) =>
+  billingAPI.getPaymentStatements(uuid, month);
+
+export const processPayment = (uuid: string, month: string, request: PaymentRequest) =>
+  billingAPI.processPayment(uuid, month, request);

@@ -56,7 +56,7 @@ export function generateStatementPDF(statement: BillingStatement): void {
   }
   
   doc.setFontSize(14);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(`Total Amount: ${statement.amount?.toLocaleString() || '0'} KRW`, 20, finalY + 70);
   
   // Download

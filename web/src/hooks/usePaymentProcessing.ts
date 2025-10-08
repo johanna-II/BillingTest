@@ -20,7 +20,10 @@ export function usePaymentProcessing() {
       amount: number
       uuid: string
       billingGroupId: string
-    }) => processPayment(statementId, amount, uuid, billingGroupId),
+    }) => processPayment(uuid, statementId, {
+      amount,
+      paymentGroupId: billingGroupId,
+    }),
     onSuccess: (data: PaymentResult) => {
       // Cache the payment result
       queryClient.setQueryData(['payment', data.paymentId], data)
