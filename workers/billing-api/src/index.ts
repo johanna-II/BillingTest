@@ -139,7 +139,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
 app.get('/api/billing/payments/:month/statements', async (c) => {
   try {
     const uuid = c.req.header('uuid')
-    const month = c.param('month')
+    const month = c.req.param('month')
 
     // 간단한 mock 데이터
     return c.json({
@@ -182,7 +182,7 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
 app.post('/api/billing/payments/:month', async (c) => {
   try {
     const uuid = c.req.header('uuid')
-    const month = c.param('month')
+    const month = c.req.param('month')
     const body = await c.req.json().catch(() => ({}))
 
     return c.json({
