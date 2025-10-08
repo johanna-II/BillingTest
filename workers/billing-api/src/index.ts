@@ -3,16 +3,33 @@ import { cors } from 'hono/cors'
 
 const app = new Hono()
 
-// CORS 설정
+// CORS 설정 - 모든 도메인 허용 또는 특정 도메인만
 app.use('/*', cors({
-  origin: [
-    'http://localhost:3000',
-    'https://*.pages.dev',
-    'https://your-domain.com'
-  ],
+  origin: (origin) => {
+    // 로컬 개발 또는 Cloudflare Pages/Workers 도메인 허용
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://billingtest.pages.dev',
+      /^https:\/\/.*\.pages\.dev$/,  // 모든 .pages.dev 서브도메인
+      /^https:\/\/.*\.workers\.dev$/  // 모든 .workers.dev 서브도메인
+    ]
+    
+    if (!origin) return '*' // non-browser requests
+    
+    // 정규식 또는 문자열 매칭
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') return allowed === origin
+      return allowed.test(origin)
+    })
+    
+    return isAllowed ? origin : 'https://billingtest.pages.dev'
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'uuid'],
+  allowHeaders: ['Content-Type', 'uuid', 'Authorization'],
+  exposeHeaders: ['Content-Length', 'X-Request-Id'],
   credentials: true,
+  maxAge: 86400, // 24시간 캐시
 }))
 
 // Health check
