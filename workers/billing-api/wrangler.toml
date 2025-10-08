@@ -1,0 +1,18 @@
+name = "billing-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers 무료 티어
+# - 10만 요청/일
+# - 10ms CPU/요청
+# - 충분함!
+
+[env.production]
+name = "billing-api"
+route = "api.your-domain.com/*"  # 나중에 커스텀 도메인 설정
+
+# CORS 설정
+[env.production.vars]
+ALLOWED_ORIGINS = "https://your-project.pages.dev"
+
