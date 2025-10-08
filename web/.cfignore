@@ -1,3 +1,5 @@
+# Cloudflare Pages ignore (for web directory)
+
 # Dependencies
 node_modules
 npm-debug.log*
@@ -21,15 +23,15 @@ coverage
 .env.development.local
 .env.test.local
 .env.production.local
+.env
 
-# Cache (but keep build output)
-.next/cache
-.next/**/*.pack
+# Next.js cache (exceeds 25MB limit)
+.next/cache/
+.next/cache/**
+**/*.pack
+
+# Build artifacts
+out/
 .cache
 .turbo
-
-# Build outputs (keep .next for deployment)
-out/
-build/
-dist/
 
