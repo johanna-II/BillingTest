@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run postbuild",
+    "postbuild": "node -e \"const fs = require('fs'); const path = require('path'); const cacheDir = path.join('.next', 'cache'); if (fs.existsSync(cacheDir)) { fs.rmSync(cacheDir, { recursive: true, force: true }); console.log('Cleaned .next/cache for Cloudflare deployment'); }\"",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
