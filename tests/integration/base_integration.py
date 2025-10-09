@@ -88,11 +88,40 @@ class BaseIntegrationTest:
         try:
             # Cancel any pending payments
             payment_mgr = test_context["managers"]["payment"]
-            pg_id, status = payment_mgr.get_payment_status()
-            if pg_id and status in ["PENDING", "REGISTERED"]:
-                payment_mgr.cancel_payment(pg_id)
-        except Exception:
-            pass  # Ignore cleanup errors
+            # Temporarily reduce retries and timeout for cleanup to avoid blocking tests
+            original_timeout = payment_mgr._client.timeout
+            original_retry_config = payment_mgr._client.retry_config
+
+            # Create minimal retry config for cleanup (max 10 seconds total)
+            from libs.http_client import RetryConfig
+
+            cleanup_retry_config = RetryConfig(
+                total=2,  # Only 2 retries for cleanup
+                backoff_factor=1.0,  # Linear backoff
+                connect=2,
+                read=2,
+            )
+
+            payment_mgr._client.timeout = 3  # 3 second timeout per request
+            payment_mgr._client.retry_config = cleanup_retry_config
+            # Re-setup session with new retry config
+            payment_mgr._client._setup_session()
+
+            try:
+                pg_id, status = payment_mgr.get_payment_status()
+                if pg_id and status in ["PENDING", "REGISTERED"]:
+                    payment_mgr.cancel_payment(pg_id)
+            finally:
+                # Restore original configuration
+                payment_mgr._client.timeout = original_timeout
+                payment_mgr._client.retry_config = original_retry_config
+                payment_mgr._client._setup_session()
+        except Exception as e:
+            # Ignore cleanup errors - data may not exist yet or API may be unavailable
+            import logging
+
+            logging.getLogger(__name__).debug(f"Cleanup ignored error: {e}")
+            pass
 
         try:
             # Reset all mock server data for this UUID

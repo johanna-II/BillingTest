@@ -4,7 +4,20 @@ import os
 
 import pytest
 import requests
-from pact import Consumer, EachLike, Format, Like, Provider, Term
+
+from tests.contracts.pact_compat import (
+    PACT_AVAILABLE,
+    Consumer,
+    EachLike,
+    Format,
+    Like,
+    Provider,
+    Term,
+)
+
+pytestmark = pytest.mark.skipif(
+    not PACT_AVAILABLE, reason="pact-python not available - skipping contract tests"
+)
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
 os.makedirs(PACT_DIR, exist_ok=True)

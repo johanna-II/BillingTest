@@ -7,7 +7,19 @@ according to the OpenAPI specification defined in docs/openapi/billing-api.yaml.
 import os
 
 import pytest
-from pact import Consumer, EachLike, Like, Provider, Term
+
+from tests.contracts.pact_compat import (
+    PACT_AVAILABLE,
+    Consumer,
+    EachLike,
+    Like,
+    Provider,
+    Term,
+)
+
+pytestmark = pytest.mark.skipif(
+    not PACT_AVAILABLE, reason="pact-python not available - skipping contract tests"
+)
 
 from libs.Batch import BatchManager
 from libs.Contract import ContractManager

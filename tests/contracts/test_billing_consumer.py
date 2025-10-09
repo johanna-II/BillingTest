@@ -4,10 +4,21 @@ import os
 
 import pytest
 import requests
-from pact import Consumer, Like, Provider, Term
+
+from tests.contracts.pact_compat import (
+    PACT_AVAILABLE,
+    Consumer,
+    Like,
+    Provider,
+    Term,
+)
 
 # This file uses Pact Python v2 which is deprecated.
 # Please use test_billing_consumer_v3.py for new tests.
+
+pytestmark = pytest.mark.skipif(
+    not PACT_AVAILABLE, reason="pact-python not available - skipping contract tests"
+)
 
 # Pact configuration
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
