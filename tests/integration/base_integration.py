@@ -36,10 +36,14 @@ class BaseIntegrationTest:
         return {"billing": billing_client, "payment": payment_client}
 
     @pytest.fixture(scope="class")
-    def test_context(self, api_clients, month, member) -> dict[str, Any]:
-        """Create test context with all managers."""
-        uuid = f"uuid-{member}-test"
-        billing_group_id = f"bg-{member}-test"
+    def test_context(self, api_clients, month, member, worker_id) -> dict[str, Any]:
+        """Create test context with all managers.
+
+        Each worker gets unique identifiers to avoid conflicts in parallel execution.
+        """
+        # Use worker_id to ensure unique IDs per worker in parallel execution
+        uuid = f"uuid-{member}-{worker_id}"
+        billing_group_id = f"bg-{member}-{worker_id}"
 
         return {
             "uuid": uuid,

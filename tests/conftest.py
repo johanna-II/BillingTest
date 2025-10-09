@@ -304,6 +304,28 @@ def month(test_config: TestConfig) -> str:
 
 
 @pytest.fixture(scope="session")
+def worker_id(request: SubRequest) -> str:
+    """Provide unique worker ID for parallel test execution.
+
+    In parallel execution with pytest-xdist, each worker gets a unique ID (gw0, gw1, etc.).
+    In sequential execution, returns 'master'.
+
+    This ensures test isolation when running with -n flag.
+
+    Args:
+        request: Pytest request object
+
+    Returns:
+        Worker ID string (e.g., 'gw0', 'gw1', 'master')
+    """
+    if hasattr(request.config, "workerinput"):
+        # Running with pytest-xdist
+        return request.config.workerinput["workerid"]
+    # Running without xdist (sequential)
+    return "master"
+
+
+@pytest.fixture(scope="session")
 def use_mock(test_config: TestConfig) -> bool:
     """Provide mock usage flag.
 

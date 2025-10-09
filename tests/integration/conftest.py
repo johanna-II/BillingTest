@@ -174,19 +174,29 @@ def _cleanup_test_data(client) -> None:
 
 
 @pytest.fixture(scope="class")
-def test_billing_group() -> str:
-    """Test billing group ID - unique per test worker in parallel mode."""
-    # Include worker ID for parallel test isolation
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+def test_billing_group(worker_id) -> str:
+    """Test billing group ID - unique per test worker in parallel mode.
+
+    Args:
+        worker_id: Unique worker identifier from pytest-xdist
+
+    Returns:
+        Unique billing group ID for this worker
+    """
     base_id = os.environ.get("TEST_BILLING_GROUP", "bg-integration-test")
     return f"{base_id}-{worker_id}"
 
 
 @pytest.fixture(scope="class")
-def test_app_keys():
-    """Test application keys - unique per test worker in parallel mode."""
-    # Include worker ID for parallel test isolation
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+def test_app_keys(worker_id):
+    """Test application keys - unique per test worker in parallel mode.
+
+    Args:
+        worker_id: Unique worker identifier from pytest-xdist
+
+    Returns:
+        List of unique app keys for this worker
+    """
     return [
         f"app-integration-001-{worker_id}",
         f"app-integration-002-{worker_id}",
