@@ -5,12 +5,61 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
 export default function APIReferencePage(): JSX.Element {
-  const [swaggerUrl] = useState('http://localhost:5001/docs')
+  // Auto-detect Swagger URL based on environment
+  const getSwaggerUrl = (): string => {
+    // In production (Cloudflare Pages), use the worker URL
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return `${process.env.NEXT_PUBLIC_API_URL}/docs`
+    }
+    
+    // For local development, try port 5001 first (mock server)
+    // If not available, fall back to port 8787 (worker dev)
+    if (typeof window !== 'undefined') {
+      return 'http://localhost:5001/docs'
+    }
+    
+    return 'http://localhost:5001/docs'
+  }
+
+  const [swaggerUrl, setSwaggerUrl] = useState(getSwaggerUrl())
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Check if Swagger UI is available
+  useEffect(() => {
+    const checkSwaggerAvailability = async () => {
+      try {
+        const response = await fetch(swaggerUrl, { method: 'HEAD' })
+        if (!response.ok) {
+          throw new Error('Swagger UI not available')
+        }
+        setIsLoading(false)
+      } catch (err) {
+        // Try fallback to worker dev server
+        const fallbackUrl = 'http://localhost:8787/docs'
+        try {
+          const fallbackResponse = await fetch(fallbackUrl, { method: 'HEAD' })
+          if (fallbackResponse.ok) {
+            setSwaggerUrl(fallbackUrl)
+            setIsLoading(false)
+            return
+          }
+        } catch {
+          // Both failed
+        }
+        
+        setError('Swagger UI server not running. Please start the mock server on port 5001 or the worker dev server.')
+        setIsLoading(false)
+      }
+    }
+
+    checkSwaggerAvailability()
+  }, [])
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -86,22 +135,65 @@ export default function APIReferencePage(): JSX.Element {
             <div className="border-b border-kinfolk-gray-200 px-6 py-4 bg-kinfolk-beige-50">
               <div className="flex items-center justify-between">
                 <h2 className="kinfolk-subheading mb-0">Interactive API Documentation</h2>
-                <a 
-                  href={swaggerUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900"
-                >
-                  Open in New Tab ↗
-                </a>
+                {!error && (
+                  <a 
+                    href={swaggerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900"
+                  >
+                    Open in New Tab ↗
+                  </a>
+                )}
               </div>
             </div>
-            <iframe
-              src={swaggerUrl}
-              className="w-full border-none"
-              style={{ height: '1000px', minHeight: '800px' }}
-              title="API Documentation"
-            />
+            
+            {isLoading ? (
+              <div className="flex items-center justify-center p-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-kinfolk-gray-900 mx-auto mb-4"></div>
+                  <p className="text-kinfolk-gray-600">Loading API Documentation...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="p-12">
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8">
+                    <h3 className="kinfolk-subheading mb-4 text-yellow-800">⚠️ Swagger UI Not Available</h3>
+                    <p className="text-sm text-kinfolk-gray-700 mb-4">{error}</p>
+                    
+                    <div className="bg-white rounded p-4 mb-4">
+                      <p className="text-sm font-semibold mb-2">To start the mock server:</p>
+                      <code className="text-xs bg-kinfolk-gray-900 text-white px-3 py-2 rounded block">
+                        python start_mock_server_simple.py
+                      </code>
+                    </div>
+                    
+                    <div className="bg-white rounded p-4">
+                      <p className="text-sm font-semibold mb-2">Or start the worker dev server:</p>
+                      <code className="text-xs bg-kinfolk-gray-900 text-white px-3 py-2 rounded block">
+                        cd workers/billing-api && npm run dev
+                      </code>
+                    </div>
+                    
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="mt-4 px-4 py-2 bg-kinfolk-gray-900 text-white text-sm hover:bg-kinfolk-gray-800 transition-colors"
+                    >
+                      Retry Connection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <iframe
+                src={swaggerUrl}
+                className="w-full border-none"
+                style={{ height: '1000px', minHeight: '800px' }}
+                title="API Documentation"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+              />
+            )}
           </div>
 
           {/* API Overview */}
@@ -151,10 +243,11 @@ export default function APIReferencePage(): JSX.Element {
           <div className="mt-12 kinfolk-card p-8 bg-yellow-50 border border-yellow-200">
             <h3 className="kinfolk-subheading mb-4">Important Notes</h3>
             <ul className="space-y-2 text-sm text-kinfolk-gray-700">
-              <li>• Make sure the mock server is running at <code className="bg-white px-2 py-1">http://localhost:5001</code></li>
+              <li>• <strong>Current Swagger URL:</strong> <code className="bg-white px-2 py-1">{swaggerUrl}</code></li>
               <li>• All endpoints require a <code className="bg-white px-2 py-1">uuid</code> header for authentication</li>
               <li>• Use <code className="bg-white px-2 py-1">test-uuid-001</code> for testing purposes</li>
-              <li>• The mock server includes sample data for testing various scenarios</li>
+              <li>• The server includes sample data for testing various scenarios</li>
+              <li>• For production, set <code className="bg-white px-2 py-1">NEXT_PUBLIC_API_URL</code> in Cloudflare Pages settings</li>
             </ul>
           </div>
         </div>
