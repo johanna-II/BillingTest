@@ -1,173 +1,182 @@
 # Integration Tests
 
-This directory contains integration tests for the billing system.
+이 디렉토리에는 전체 시스템 통합 테스트가 포함되어 있습니다.
 
-## Overview
+## 🚀 Quick Start
 
-Integration tests verify the interaction between different components of the billing system, including:
-
-- Billing workflows (contracts, metering, calculations, payments)
-- Adjustment management
-- Credit management
-- Payment processing
-- Batch operations
-
-## Running Integration Tests
-
-### Quick Start
+### 로컬 실행
 
 ```bash
-# Run all integration tests with mock server
-python -m pytest tests/integration/ --use-mock -v
+# Mock 서버와 함께 병렬로 실행 (권장)
+python tests/integration/run.py
 
-# Or use the optimized runner
-python tests/integration/run_integration_tests.py
+# 병렬 워커 수 지정
+python tests/integration/run.py --parallel 4
+
+# 순차 실행 (디버깅용)
+python tests/integration/run.py --parallel 0
 ```
 
-### Using the Integration Test Runner
+### CI 환경
 
-The `run_integration_tests.py` script provides optimized test execution:
+CI에서는 자동으로 병렬 실행됩니다:
+- **통합 테스트**: 4개 워커로 병렬 실행, 120초 타임아웃
+- **단위 테스트**: auto 워커로 병렬 실행, 60초 타임아웃
+- **계약 테스트**: 순차 실행, 300초 타임아웃
 
+## ⚡ 병렬 실행
+
+### 장점
+- ✅ **속도 향상**: 4개 워커로 약 4배 빠른 실행
+- ✅ **타임아웃 방지**: 개별 테스트가 짧게 실행되어 전체 타임아웃 방지
+- ✅ **리소스 활용**: CI 환경의 멀티코어 CPU 활용
+
+### 설정
+
+#### pytest-xdist 사용
 ```bash
-# Run tests in parallel (faster)
-python tests/integration/run_integration_tests.py --parallel
+# auto: CPU 코어 수만큼 워커 생성
+pytest tests/integration/ -n auto
 
-# Run specific test file
-python tests/integration/run_integration_tests.py -f test_billing_workflows.py
+# 고정 워커 수
+pytest tests/integration/ -n 4
 
-# Run specific test function
-python tests/integration/run_integration_tests.py -k test_standard_billing_cycle
-
-# Run with coverage report
-python tests/integration/run_integration_tests.py --coverage
-
-# Skip slow tests
-python tests/integration/run_integration_tests.py --slow
+# 순차 실행
+pytest tests/integration/
 ```
 
-### Manual Test Execution
-
+#### run.py 스크립트 사용
 ```bash
-# Basic execution
-pytest tests/integration/ --use-mock
+# 기본 (2 워커)
+python tests/integration/run.py
 
-# Parallel execution (requires pytest-xdist)
-pytest tests/integration/ --use-mock -n 4
+# 커스텀 워커
+python tests/integration/run.py --parallel 4
 
-# With coverage
-pytest tests/integration/ --use-mock --cov=libs --cov-report=html
-
-# Run specific test class
-pytest tests/integration/test_billing_workflows.py::TestBillingWorkflows --use-mock
-
-# Run with verbose output
-pytest tests/integration/ --use-mock -v --tb=short
+# 순차 실행
+python tests/integration/run.py --parallel 0
 ```
 
-## Test Structure
+## ⏱️ 타임아웃 설정
 
-### Base Integration Test Class
+### 전역 타임아웃
+- **기본값**: 120초
+- **설정 방법**: `--timeout 120`
 
-All integration tests inherit from `BaseIntegrationTest` which provides:
-
-- Common fixtures for API clients and managers
-- Test data cleanup
-- Assertion helpers
-- Consistent test context
-
-Example:
-
+### 개별 테스트 타임아웃
 ```python
-from tests.integration.base_integration import BaseIntegrationTest
+@pytest.mark.timeout(60)  # 이 테스트만 60초
+def test_fast_operation():
+    pass
 
-class TestMyFeature(BaseIntegrationTest):
-    def test_feature(self, test_context, test_app_keys):
-        managers = test_context["managers"]
-        # Your test logic here
+@pytest.mark.timeout(300)  # 이 테스트만 300초
+def test_slow_operation():
+    pass
 ```
 
-### Available Fixtures
+### 느린 테스트
+`test_payment_lifecycle`와 같이 외부 API를 호출하는 테스트:
+- 개별 타임아웃: 120초
+- Retry 횟수 감소: 3회 → 2회
+- 연결 실패 시 skip 처리
 
-- `test_context`: Complete test context with managers and configuration
-- `test_app_keys`: Unique application keys for testing
-- `api_clients`: Billing and Payment API clients
-- `month`: Test month (from command line or default)
-- `member`: Test member/region (from command line or default)
+## 🧪 테스트 카테고리
 
-## Mock Server Optimization
+### test_all_business_combinations.py
+- 모든 비즈니스 로직 조합 테스트
+- 할인, 크레딧, 요금 조정 등의 복합 시나리오
+- **병렬 실행 안전**: ✅
 
-The integration tests use an optimized mock server that:
+### test_billing_workflows.py
+- 전체 빌링 워크플로우 테스트
+- 결제, 크레딧, 조정 라이프사이클
+- **병렬 실행 안전**: ⚠️ (일부 테스트는 순차 권장)
 
-- Reuses server instances across tests
-- Supports parallel test execution
-- Provides faster startup times
-- Uses connection pooling
+### test_business_scenarios.py
+- 실제 비즈니스 시나리오
+- 엔터프라이즈, 스타트업 등의 실제 케이스
+- **병렬 실행 안전**: ✅
 
-## Writing New Integration Tests
+## 🔧 트러블슈팅
 
-1. Create a new test file in `tests/integration/`
-2. Import and inherit from `BaseIntegrationTest`
-3. Use the provided fixtures and managers
-4. Follow the naming convention: `test_<feature>_<scenario>`
+### 타임아웃 발생
+```bash
+# 타임아웃 증가
+python tests/integration/run.py --timeout 300
 
-Example:
-
-```python
-import pytest
-from tests.integration.base_integration import BaseIntegrationTest
-
-@pytest.mark.integration
-@pytest.mark.mock_required
-class TestNewFeature(BaseIntegrationTest):
-
-    def test_basic_scenario(self, test_context, test_app_keys):
-        """Test description."""
-        managers = test_context["managers"]
-
-        # Setup
-        result = managers["contract"].apply_contract(
-            contract_id="test-001",
-            name="Test Contract"
-        )
-        self.assert_api_success(result)
-
-        # Test logic
-        # ...
-
-        # Assertions
-        assert expected == actual
+# 특정 테스트만 실행
+python tests/integration/run.py -k test_name
 ```
 
-## Best Practices
+### 병렬 실행 시 충돌
+```bash
+# 순차 실행으로 전환
+python tests/integration/run.py --parallel 0
 
-1. **Test Isolation**: Each test should be independent
-2. **Use Base Class**: Always inherit from `BaseIntegrationTest`
-3. **Cleanup**: The base class handles cleanup automatically
-4. **Assertions**: Use `self.assert_api_success()` for API responses
-5. **Test Data**: Use fixtures for test data generation
-6. **Parallel Safety**: Ensure tests can run in parallel
+# 워커 수 감소
+python tests/integration/run.py --parallel 2
+```
 
-## Troubleshooting
+### Mock 서버 연결 실패
+```bash
+# Mock 서버 출력 확인
+python tests/integration/run.py --mock-verbose
 
-### Tests are Skipped
+# Mock 서버 없이 실행 (실제 API 사용 - 주의!)
+python tests/integration/run.py --no-mock
+```
 
-- Make sure to use `--use-mock` flag
-- Check if mock server is running
+## 📊 성능 벤치마크
 
-### Mock Server Issues
+### 순차 실행
+```
+509 tests in ~30 minutes (일부 타임아웃)
+```
 
-- Check port availability (default: 5000)
-- Look for server logs in console output
-- Try running with a different port: `--mock-port 5001`
+### 병렬 실행 (4 워커)
+```
+509 tests in ~8-10 minutes (타임아웃 최소화)
+```
 
-### Slow Tests
+### 병렬 실행 (auto, ~8 워커)
+```
+509 tests in ~5-7 minutes
+```
 
-- Use parallel execution: `-n auto`
-- Skip slow tests: `-m "not slow"`
-- Use the optimized runner script
+## ✅ Best Practices
 
-### Test Failures
+1. **기본적으로 병렬 실행**: 속도와 타임아웃 방지
+2. **디버깅 시 순차 실행**: `--parallel 0`으로 명확한 에러 추적
+3. **느린 테스트 표시**: `@pytest.mark.timeout()` 사용
+4. **API 실패 처리**: Timeout/Connection 에러 시 skip
+5. **Clean teardown**: fixture에서 짧은 타임아웃 사용
 
-- Check mock server health: `curl http://localhost:5000/health`
-- Verify test data setup
-- Look for cleanup issues between tests
+## 📝 예제
+
+### 기본 실행
+```bash
+# 2 워커로 병렬 실행
+python tests/integration/run.py
+```
+
+### 빠른 실행
+```bash
+# 최대 병렬화
+python tests/integration/run.py --parallel auto
+```
+
+### 안전한 실행
+```bash
+# 순차 실행 + 긴 타임아웃
+python tests/integration/run.py --parallel 0 --timeout 300
+```
+
+### 특정 테스트
+```bash
+# 특정 워크플로우만 병렬 실행
+python tests/integration/run.py -k workflow --parallel 4
+```
+
+---
+
+**CI에서 자동으로 최적 설정이 적용됩니다!**

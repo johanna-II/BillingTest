@@ -96,17 +96,32 @@ jobs:
       run: |
         # coverage 파일명을 명시적으로 지정
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
-        if [ "${{ matrix.test-type }}" = "contracts" ]; then
+        
+        # 통합 테스트는 병렬 실행 (4 workers) + 짧은 타임아웃 (120s)
+        # 단위 테스트는 병렬 실행 (auto) + 기본 타임아웃 (60s)
+        # 계약 테스트는 순차 실행 + 기본 타임아웃 (300s)
+        if [ "${{ matrix.test-type }}" = "integration" ]; then
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+            -n 4 \
+            --timeout=120 \
+            --timeout-method=thread \
+            --cov=libs --cov-report=term-missing \
+            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
+            --junit-xml=test-results-${{ matrix.test-type }}.xml
+        elif [ "${{ matrix.test-type }}" = "unit" ]; then
+          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+            -n auto \
+            --timeout=60 \
+            --cov=libs --cov-report=term-missing \
+            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
+            --junit-xml=test-results-${{ matrix.test-type }}.xml
+        elif [ "${{ matrix.test-type }}" = "contracts" ]; then
+          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+            --timeout=300 \
             --cov=libs --cov-report=term-missing \
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock
-        else
-          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
-            --cov=libs --cov-report=term-missing \
-            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-            --junit-xml=test-results-${{ matrix.test-type }}.xml
         fi
       env:
         PYTEST_TIMEOUT: 300
@@ -322,7 +337,7 @@ jobs:
       # Using specific commit SHA for security (codecov-action v5.0.7)
       uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a  # v5.0.7
       with:
-        file: ./coverage-combined.xml
+        files: ./coverage-combined.xml
         flags: unittests,integration,contracts
         name: combined-coverage
         fail_ci_if_error: true

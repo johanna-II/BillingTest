@@ -9,7 +9,7 @@ scripts_dir = Path(__file__).resolve().parent.parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
 from test.mock_server import mock_server_context
-from test.test_runner import TestRunner, create_argument_parser, get_default_workers
+from test.test_runner import TestRunner, create_argument_parser
 
 
 def main():
@@ -33,8 +33,12 @@ def main():
     if args.timeout:
         extra_args.extend(["--timeout", str(args.timeout)])
     else:
-        # Default timeout for integration tests
-        extra_args.extend(["--timeout", "60"])
+        # Default timeout for integration tests - 120 seconds
+        # (individual tests may have shorter timeouts)
+        extra_args.extend(["--timeout", "120"])
+
+    # Use thread-based timeout for better compatibility
+    extra_args.extend(["--timeout-method", "thread"])
 
     if args.keyword:
         extra_args.extend(["-k", args.keyword])
@@ -44,8 +48,9 @@ def main():
     if args.tests:
         test_path = " ".join(args.tests)
 
-    # Integration tests typically run serially
-    parallel = args.parallel or get_default_workers("integration")
+    # Integration tests can run in parallel (default: 2 workers)
+    # Use -n 0 or --parallel 0 to disable parallel execution
+    parallel = args.parallel if args.parallel is not None else 2
 
     cmd = runner.build_pytest_command(
         test_path=test_path,
