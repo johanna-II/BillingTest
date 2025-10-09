@@ -946,27 +946,26 @@ def get_billing_detail():
         billing_detail, uuid_param
     )
 
-    # Apply unpaid amount and late fee if provided (with thread-safe access)
+    # Apply unpaid amount and late fee if provided (simple and safe)
     unpaid_amount = 0
     late_fee = 0
-    try:
-        with data_lock:
-            if uuid_param in unpaid_data:
-                unpaid_info = unpaid_data.get(uuid_param, {})
-                unpaid_amount = unpaid_info.get("unpaidAmount", 0)
-                late_fee = unpaid_info.get("lateFee", 0)
-    except Exception:
-        # Fallback to defaults if any error
-        unpaid_amount = 0
-        late_fee = 0
+    if uuid_param in unpaid_data:
+        unpaid_info = unpaid_data.get(uuid_param, {})
+        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
+        late_fee = unpaid_info.get("lateFee", 0)
 
-    # Prepare response data
-    final_total = billing_detail.get("totalAmount", 0) + unpaid_amount + late_fee
+    # Prepare response data (DON'T modify existing totalAmount if no unpaid/late fee)
+    base_total = billing_detail.get("totalAmount", 0)
+
     response_data = {
         **billing_detail,
         "charge": billing_detail.get("charge", 0),
-        "totalAmount": final_total,  # Total after credits, unpaid, and late fee
-        "totalPayments": final_total,  # Same as totalAmount
+        "totalAmount": base_total + unpaid_amount + late_fee
+        if (unpaid_amount > 0 or late_fee > 0)
+        else base_total,
+        "totalPayments": base_total + unpaid_amount + late_fee
+        if (unpaid_amount > 0 or late_fee > 0)
+        else base_total,
         "discountAmount": billing_detail.get("discount", 0),
         "vat": billing_detail.get("vat", 0),
         "totalCredit": credit_to_use,
@@ -1423,26 +1422,24 @@ def create_calculation():
                 credit_data[uuid_param][credit_type]["totalAmount"] += credit_amount
                 credit_data[uuid_param][credit_type]["restAmount"] += credit_amount
 
-    # Store unpaid amount and late fee info if provided (thread-safe)
-    try:
-        with data_lock:
-            if "unpaidAmount" in data or "isOverdue" in data:
-                unpaid_amount = data.get("unpaidAmount", 0)
-                is_overdue = data.get("isOverdue", False)
-                late_fee = unpaid_amount * 0.05 if is_overdue else 0
+    # Store unpaid amount and late fee info if provided (only when explicitly set)
+    if "unpaidAmount" in data and data.get("unpaidAmount", 0) > 0:
+        unpaid_amount = data.get("unpaidAmount", 0)
+        is_overdue = data.get("isOverdue", False)
+        late_fee = unpaid_amount * 0.05 if is_overdue else 0
 
-                unpaid_data[uuid_param] = {
-                    "unpaidAmount": unpaid_amount,
-                    "isOverdue": is_overdue,
-                    "lateFee": late_fee,
-                }
-            else:
-                # Clear unpaid data if not provided
-                if uuid_param in unpaid_data:
-                    del unpaid_data[uuid_param]
-    except Exception:
-        # Silently fail - defaults to no unpaid amount
-        pass
+        unpaid_data[uuid_param] = {
+            "unpaidAmount": unpaid_amount,
+            "isOverdue": is_overdue,
+            "lateFee": late_fee,
+        }
+    elif (
+        uuid_param in unpaid_data
+        and "unpaidAmount" in data
+        and data.get("unpaidAmount", 0) == 0
+    ):
+        # Explicitly clear if unpaid amount is set to 0
+        del unpaid_data[uuid_param]
 
     # Store the calculation job
     batch_jobs[job_id] = {
@@ -1681,25 +1678,24 @@ def get_payment_statements_console(month):
             }
         )
 
-    # Apply unpaid amount and late fee if provided (with thread-safe access)
+    # Apply unpaid amount and late fee if provided (simple and safe)
     unpaid_amount = 0
     late_fee = 0
-    try:
-        with data_lock:
-            if uuid_param in unpaid_data:
-                unpaid_info = unpaid_data.get(uuid_param, {})
-                unpaid_amount = unpaid_info.get("unpaidAmount", 0)
-                late_fee = unpaid_info.get("lateFee", 0)
-    except Exception:
-        # Fallback to defaults if any error
-        unpaid_amount = 0
-        late_fee = 0
+    if uuid_param in unpaid_data:
+        unpaid_info = unpaid_data.get(uuid_param, {})
+        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
+        late_fee = unpaid_info.get("lateFee", 0)
 
     # Calculate VAT (10%) on final charge after credits
     vat = int(charge_after_credit * 0.1)
 
-    # Total amount including VAT, unpaid amount, and late fee
-    total_amount = charge_after_credit + vat + unpaid_amount + late_fee
+    # Total amount including VAT (and unpaid/late fee if present)
+    base_total = charge_after_credit + vat
+    total_amount = (
+        base_total + unpaid_amount + late_fee
+        if (unpaid_amount > 0 or late_fee > 0)
+        else base_total
+    )
 
     # Store billing data for payment endpoint
     billing_key = f"{uuid_param}:{month}"

@@ -1,64 +1,24 @@
 /**
  * API Reference Page - KINFOLK Style
- * Swagger UI Integration
+ * Swagger UI Integration (Self-hosted)
  */
 
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import 'swagger-ui-react/swagger-ui.css'
+
+// Dynamically import SwaggerUI to avoid SSR issues
+const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false })
 
 export default function APIReferencePage(): JSX.Element {
-  // Auto-detect Swagger URL based on environment
-  const getSwaggerUrl = (): string => {
-    // In production (Cloudflare Pages), use the worker URL
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return `${process.env.NEXT_PUBLIC_API_URL}/docs`
-    }
-    
-    // For local development, try port 5001 first (mock server)
-    // If not available, fall back to port 8787 (worker dev)
-    if (typeof window !== 'undefined') {
-      return 'http://localhost:5001/docs'
-    }
-    
-    return 'http://localhost:5001/docs'
-  }
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  const [swaggerUrl, setSwaggerUrl] = useState(getSwaggerUrl())
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Check if Swagger UI is available
   useEffect(() => {
-    const checkSwaggerAvailability = async () => {
-      try {
-        const response = await fetch(swaggerUrl, { method: 'HEAD' })
-        if (!response.ok) {
-          throw new Error('Swagger UI not available')
-        }
-        setIsLoading(false)
-      } catch (err) {
-        // Try fallback to worker dev server
-        const fallbackUrl = 'http://localhost:8787/docs'
-        try {
-          const fallbackResponse = await fetch(fallbackUrl, { method: 'HEAD' })
-          if (fallbackResponse.ok) {
-            setSwaggerUrl(fallbackUrl)
-            setIsLoading(false)
-            return
-          }
-        } catch {
-          // Both failed
-        }
-        
-        setError('Swagger UI server not running. Please start the mock server on port 5001 or the worker dev server.')
-        setIsLoading(false)
-      }
-    }
-
-    checkSwaggerAvailability()
+    setIsLoaded(true)
   }, [])
 
   return (
@@ -77,7 +37,7 @@ export default function APIReferencePage(): JSX.Element {
 
           {/* Info Card */}
           <div className="kinfolk-card p-8 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div>
                 <h3 className="kinfolk-subheading mb-4">Swagger UI</h3>
                 <p className="text-sm text-kinfolk-gray-700 leading-relaxed mb-4">
@@ -85,14 +45,52 @@ export default function APIReferencePage(): JSX.Element {
                   Test endpoints directly from your browser.
                 </p>
                 <div className="space-y-2 text-sm text-kinfolk-gray-700">
-                  <p><strong>Base URL:</strong> <code className="bg-kinfolk-beige-50 px-2 py-1">http://localhost:5001</code></p>
-                  <p><strong>OpenAPI Version:</strong> 3.0.0</p>
+                  <p><strong>OpenAPI Version:</strong> 3.0.3</p>
+                  <p className="text-xs text-kinfolk-gray-600 mt-3 bg-green-50 border border-green-200 px-3 py-2">
+                    ⚡ Always available - 24/7 documentation access
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="kinfolk-subheading mb-4">Server Selection</h3>
+                <div className="space-y-3 text-sm text-kinfolk-gray-700">
+                  <div className="bg-kinfolk-beige-50 p-3 border border-kinfolk-gray-300">
+                    <div className="font-medium mb-1">Next.js API Routes (Recommended)</div>
+                    <code className="text-xs">http://localhost:3000/api</code>
+                    <div className="text-xs text-kinfolk-gray-600 mt-1">
+                      ✓ Always available with dev server
+                    </div>
+                  </div>
+                  <div className="bg-white p-3 border border-kinfolk-gray-300">
+                    <div className="font-medium mb-1">Mock Server (Direct)</div>
+                    <code className="text-xs">http://localhost:5001</code>
+                    <div className="text-xs text-kinfolk-gray-600 mt-1">
+                      Requires mock server running
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div>
                 <h3 className="kinfolk-subheading mb-4">Quick Links</h3>
                 <ul className="space-y-2">
+                  <li>
+                    <a 
+                      href="#contracts" 
+                      className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
+                    >
+                      → Contract Management
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="#credits" 
+                      className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
+                    >
+                      → Credits & Adjustments
+                    </a>
+                  </li>
                   <li>
                     <a 
                       href="#metering" 
@@ -103,26 +101,18 @@ export default function APIReferencePage(): JSX.Element {
                   </li>
                   <li>
                     <a 
-                      href="#calculation" 
-                      className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
-                    >
-                      → Calculation Endpoints
-                    </a>
-                  </li>
-                  <li>
-                    <a 
                       href="#payments" 
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
-                      → Payment Endpoints
+                      → Payment Processing
                     </a>
                   </li>
                   <li>
                     <a 
-                      href="#statements" 
+                      href="#batch" 
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
-                      → Statement Endpoints
+                      → Batch Operations
                     </a>
                   </li>
                 </ul>
@@ -131,73 +121,50 @@ export default function APIReferencePage(): JSX.Element {
           </div>
 
           {/* Swagger UI Container */}
-          <div className="kinfolk-card overflow-hidden" style={{ minHeight: '800px' }}>
+          <div className="kinfolk-card overflow-hidden">
             <div className="border-b border-kinfolk-gray-200 px-6 py-4 bg-kinfolk-beige-50">
-              <div className="flex items-center justify-between">
-                <h2 className="kinfolk-subheading mb-0">Interactive API Documentation</h2>
-                {!error && (
-                  <a 
-                    href={swaggerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900"
-                  >
-                    Open in New Tab ↗
-                  </a>
-                )}
-              </div>
+              <h2 className="kinfolk-subheading mb-0">Interactive API Documentation</h2>
             </div>
-            
-            {isLoading ? (
-              <div className="flex items-center justify-center p-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-kinfolk-gray-900 mx-auto mb-4"></div>
-                  <p className="text-kinfolk-gray-600">Loading API Documentation...</p>
+            <div className="bg-white">
+              {isLoaded ? (
+                <SwaggerUI 
+                  url="/openapi.yaml"
+                  docExpansion="list"
+                  defaultModelsExpandDepth={1}
+                  displayRequestDuration={true}
+                  filter={true}
+                />
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="spinner mx-auto mb-4" />
+                  <p className="text-sm text-kinfolk-gray-600">Loading API Documentation...</p>
                 </div>
-              </div>
-            ) : error ? (
-              <div className="p-12">
-                <div className="max-w-2xl mx-auto">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8">
-                    <h3 className="kinfolk-subheading mb-4 text-yellow-800">⚠️ Swagger UI Not Available</h3>
-                    <p className="text-sm text-kinfolk-gray-700 mb-4">{error}</p>
-                    
-                    <div className="bg-white rounded p-4 mb-4">
-                      <p className="text-sm font-semibold mb-2">To start the mock server:</p>
-                      <code className="text-xs bg-kinfolk-gray-900 text-white px-3 py-2 rounded block">
-                        python start_mock_server_simple.py
-                      </code>
-                    </div>
-                    
-                    <div className="bg-white rounded p-4">
-                      <p className="text-sm font-semibold mb-2">Or start the worker dev server:</p>
-                      <code className="text-xs bg-kinfolk-gray-900 text-white px-3 py-2 rounded block">
-                        cd workers/billing-api && npm run dev
-                      </code>
-                    </div>
-                    
-                    <button 
-                      onClick={() => window.location.reload()}
-                      className="mt-4 px-4 py-2 bg-kinfolk-gray-900 text-white text-sm hover:bg-kinfolk-gray-800 transition-colors"
-                    >
-                      Retry Connection
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <iframe
-                src={swaggerUrl}
-                className="w-full border-none"
-                style={{ height: '1000px', minHeight: '800px' }}
-                title="API Documentation"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-              />
-            )}
+              )}
+            </div>
           </div>
 
           {/* API Overview */}
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="kinfolk-card p-6" id="contracts">
+              <div className="w-12 h-12 bg-kinfolk-gray-900 text-white flex items-center justify-center text-lg font-bold mb-4">
+                C
+              </div>
+              <h3 className="kinfolk-subheading mb-3">Contracts</h3>
+              <p className="text-sm text-kinfolk-gray-700">
+                Manage billing contracts and agreements
+              </p>
+            </div>
+
+            <div className="kinfolk-card p-6" id="credits">
+              <div className="w-12 h-12 bg-kinfolk-gray-900 text-white flex items-center justify-center text-lg font-bold mb-4">
+                $
+              </div>
+              <h3 className="kinfolk-subheading mb-3">Credits</h3>
+              <p className="text-sm text-kinfolk-gray-700">
+                Grant and manage billing credits
+              </p>
+            </div>
+
             <div className="kinfolk-card p-6" id="metering">
               <div className="w-12 h-12 bg-kinfolk-gray-900 text-white flex items-center justify-center text-lg font-bold mb-4">
                 M
@@ -205,16 +172,6 @@ export default function APIReferencePage(): JSX.Element {
               <h3 className="kinfolk-subheading mb-3">Metering</h3>
               <p className="text-sm text-kinfolk-gray-700">
                 Send usage data for billing calculation
-              </p>
-            </div>
-
-            <div className="kinfolk-card p-6" id="calculation">
-              <div className="w-12 h-12 bg-kinfolk-gray-900 text-white flex items-center justify-center text-lg font-bold mb-4">
-                C
-              </div>
-              <h3 className="kinfolk-subheading mb-3">Calculation</h3>
-              <p className="text-sm text-kinfolk-gray-700">
-                Trigger billing calculations with adjustments
               </p>
             </div>
 
@@ -228,27 +185,104 @@ export default function APIReferencePage(): JSX.Element {
               </p>
             </div>
 
-            <div className="kinfolk-card p-6" id="statements">
+            <div className="kinfolk-card p-6" id="batch">
               <div className="w-12 h-12 bg-kinfolk-gray-900 text-white flex items-center justify-center text-lg font-bold mb-4">
-                S
+                B
               </div>
-              <h3 className="kinfolk-subheading mb-3">Statements</h3>
+              <h3 className="kinfolk-subheading mb-3">Batch</h3>
               <p className="text-sm text-kinfolk-gray-700">
-                Retrieve detailed billing statements
+                Batch job operations and monitoring
               </p>
             </div>
           </div>
 
-          {/* Additional Info */}
-          <div className="mt-12 kinfolk-card p-8 bg-yellow-50 border border-yellow-200">
+          {/* How to Test */}
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Option 1: Next.js API Routes */}
+            <div className="kinfolk-card p-8 bg-green-50 border-2 border-green-300">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-green-600 text-white flex items-center justify-center text-sm font-bold mr-3">1</div>
+                <h3 className="kinfolk-subheading mb-0">Recommended: Next.js API Routes</h3>
+              </div>
+              <ul className="space-y-2 text-sm text-kinfolk-gray-700">
+                <li className="flex items-start">
+                  <span className="mr-2">✓</span>
+                  <span>Already running with <code className="bg-white px-2 py-1">npm run dev</code></span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">✓</span>
+                  <span>No additional server needed</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">✓</span>
+                  <span>CORS automatically handled</span>
+                </li>
+              </ul>
+              <div className="mt-4 pt-4 border-t border-green-300">
+                <p className="text-xs font-medium mb-2">How to use:</p>
+                <ol className="text-xs text-kinfolk-gray-700 space-y-1 list-decimal list-inside">
+                  <li>Select <strong>"Next.js API Routes"</strong> in Swagger UI dropdown</li>
+                  <li>Click "Try it out" on any endpoint</li>
+                  <li>Add <code className="bg-white px-1">uuid: test-uuid-001</code> header</li>
+                  <li>Click "Execute"</li>
+                </ol>
+              </div>
+            </div>
+
+            {/* Option 2: Mock Server Direct */}
+            <div className="kinfolk-card p-8 bg-yellow-50 border border-yellow-200">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-yellow-600 text-white flex items-center justify-center text-sm font-bold mr-3">2</div>
+                <h3 className="kinfolk-subheading mb-0">Alternative: Mock Server Direct</h3>
+              </div>
+              <ul className="space-y-2 text-sm text-kinfolk-gray-700">
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>Direct access to backend logic</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>Requires separate server process</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>Additional endpoints available</span>
+                </li>
+              </ul>
+              <div className="mt-4 pt-4 border-t border-yellow-300">
+                <p className="text-xs font-medium mb-2">Start Mock Server:</p>
+                <pre className="bg-kinfolk-gray-900 text-white p-3 text-xs rounded">
+{`cd mock_server
+python run_server.py`}
+                </pre>
+                <p className="text-xs text-kinfolk-gray-600 mt-2">
+                  Then select <strong>"Mock Server (Direct)"</strong> in dropdown
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Usage Guide */}
+          <div className="mt-6 kinfolk-card p-8 bg-kinfolk-beige-50 border-2 border-kinfolk-gray-900">
             <h3 className="kinfolk-subheading mb-4">Important Notes</h3>
-            <ul className="space-y-2 text-sm text-kinfolk-gray-700">
-              <li>• <strong>Current Swagger URL:</strong> <code className="bg-white px-2 py-1">{swaggerUrl}</code></li>
-              <li>• All endpoints require a <code className="bg-white px-2 py-1">uuid</code> header for authentication</li>
-              <li>• Use <code className="bg-white px-2 py-1">test-uuid-001</code> for testing purposes</li>
-              <li>• The server includes sample data for testing various scenarios</li>
-              <li>• For production, set <code className="bg-white px-2 py-1">NEXT_PUBLIC_API_URL</code> in Cloudflare Pages settings</li>
-            </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-kinfolk-gray-700">
+              <div>
+                <h4 className="font-medium mb-2">Authentication</h4>
+                <ul className="space-y-1 text-xs">
+                  <li>• All endpoints require <code className="bg-white px-2 py-1">uuid</code> header</li>
+                  <li>• Test UUID: <code className="bg-white px-2 py-1">test-uuid-001</code></li>
+                  <li>• Each request needs this header for routing</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Server Dropdown</h4>
+                <ul className="space-y-1 text-xs">
+                  <li>• Located at top of Swagger UI</li>
+                  <li>• Switch between Next.js and Mock Server</li>
+                  <li>• Default: Next.js API Routes (Port 3000)</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </main>
