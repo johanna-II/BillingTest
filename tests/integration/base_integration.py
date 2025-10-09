@@ -19,9 +19,12 @@ from libs.Payments import PaymentManager
 class BaseIntegrationTest:
     """Base class for integration tests with common setup."""
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="function")
     def api_clients(self, use_mock) -> dict[str, Any]:
-        """Create API clients based on test configuration."""
+        """Create API clients based on test configuration.
+
+        Function-scoped to ensure proper isolation in parallel execution.
+        """
         if use_mock:
             mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:5000")
             billing_client = BillingAPIClient(base_url=mock_url, use_mock=True)
@@ -35,7 +38,7 @@ class BaseIntegrationTest:
 
         return {"billing": billing_client, "payment": payment_client}
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="function")
     def test_context(self, api_clients, month, member, worker_id) -> dict[str, Any]:
         """Create test context with all managers.
 

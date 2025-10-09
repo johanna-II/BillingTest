@@ -137,6 +137,7 @@ class TestBillingWorkflows(BaseIntegrationTest):
     # ======================
     # Payment Workflows
     # ======================
+    @pytest.mark.serial  # Payment tests must run sequentially to avoid crashes
     @pytest.mark.timeout(120)  # 개별 테스트 타임아웃 2분
     def test_payment_lifecycle(self, test_context):
         """Test complete payment lifecycle.
@@ -209,6 +210,7 @@ class TestBillingWorkflows(BaseIntegrationTest):
     # ======================
     # Combined Workflows
     # ======================
+    @pytest.mark.serial  # Complex workflows must run sequentially
     def test_complete_billing_cycle(self, test_context, test_app_keys):
         """Test a complete billing cycle with all components."""
         managers = test_context["managers"]

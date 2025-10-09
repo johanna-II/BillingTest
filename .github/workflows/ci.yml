@@ -97,17 +97,36 @@ jobs:
         # coverage 파일명을 명시적으로 지정
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
         
-        # 통합 테스트는 병렬 실행 (4 workers) + 짧은 타임아웃 (120s)
+        # 통합 테스트는 2단계로 실행:
+        #  1) serial이 아닌 테스트 병렬 실행 (4 workers)
+        #  2) serial 테스트 순차 실행
         # 단위 테스트는 병렬 실행 (auto) + 기본 타임아웃 (60s)
         # 계약 테스트는 순차 실행 + 기본 타임아웃 (300s)
         if [ "${{ matrix.test-type }}" = "integration" ]; then
+          echo "Running parallel-safe integration tests..."
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+            -m "not serial" \
             -n 4 \
             --timeout=120 \
             --timeout-method=thread \
             --cov=libs --cov-report=term-missing \
-            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-            --junit-xml=test-results-${{ matrix.test-type }}.xml
+            --cov-report=xml:coverage-${{ matrix.test-type }}-parallel.xml \
+            --junit-xml=test-results-${{ matrix.test-type }}-parallel.xml \
+            --cov-append
+          
+          echo "Running serial integration tests sequentially..."
+          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+            -m "serial" \
+            --timeout=180 \
+            --timeout-method=thread \
+            --cov=libs --cov-report=term-missing \
+            --cov-report=xml:coverage-${{ matrix.test-type }}-serial.xml \
+            --junit-xml=test-results-${{ matrix.test-type }}-serial.xml \
+            --cov-append
+          
+          # Combine coverage files
+          coverage combine || true
+          coverage xml -o coverage-${{ matrix.test-type }}.xml || true
         elif [ "${{ matrix.test-type }}" = "unit" ]; then
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             -n auto \

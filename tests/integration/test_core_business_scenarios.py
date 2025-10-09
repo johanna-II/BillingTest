@@ -16,8 +16,13 @@ from tests.integration.base_integration import BaseIntegrationTest
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.serial  # Core scenarios involve state changes that can conflict in parallel
 class TestCoreBillingScenarios(BaseIntegrationTest):
-    """Test core business scenarios that must work correctly."""
+    """Test core business scenarios that must work correctly.
+
+    Note: Marked as serial to prevent worker crashes from concurrent API calls
+    to the same mock server resources.
+    """
 
     @pytest.mark.integration
     def test_basic_billing_no_adjustments(self, test_context, test_app_keys):

@@ -15,8 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
+@pytest.mark.serial  # Complex scenarios involve multiple API calls that can conflict
 class TestComplexBillingScenarios(BaseIntegrationTest):
-    """Test complex billing scenarios with multiple interacting components."""
+    """Test complex billing scenarios with multiple interacting components.
+
+    Note: Marked as serial to prevent worker crashes from concurrent complex workflows.
+    """
 
     def test_metering_with_credit_and_adjustment(self, test_context, test_app_keys):
         """Test billing calculation with metering, credit application, and adjustments.

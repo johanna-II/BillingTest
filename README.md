@@ -70,8 +70,14 @@ python tests/unit/run.py
 
 # Run integration tests (MUST use mock server)
 USE_MOCK_SERVER=true pytest tests/integration --use-mock
-# Or using the runner script (handles mock automatically)
-python tests/integration/run.py
+# Or using the runner script (handles mock automatically with parallel execution)
+python tests/integration/run.py  # Default: 2 parallel workers
+
+# Run with custom parallel workers
+python tests/integration/run.py --parallel 4
+
+# Run without parallel execution (sequential)
+python tests/integration/run.py --parallel 0
 
 # Run performance tests (with mock for stable results)
 USE_MOCK_SERVER=true pytest tests/performance --use-mock

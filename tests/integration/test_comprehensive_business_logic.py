@@ -23,8 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
+@pytest.mark.serial  # These tests involve complex state changes that can interfere in parallel
 class TestBusinessLogicCombinations(BaseIntegrationTest):
-    """Test all possible business logic combinations."""
+    """Test all possible business logic combinations.
+
+    Note: Marked as serial to avoid worker crashes due to payment state transitions
+    and error recovery scenarios that can interfere with each other in parallel execution.
+    """
 
     # Test Data Sets
     ADJUSTMENT_COMBINATIONS = [

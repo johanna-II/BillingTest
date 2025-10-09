@@ -134,25 +134,34 @@ def mock_server(integration_test_config):
                 manager.stop()
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def api_client(mock_server, integration_test_config):
-    """Create API client for integration tests."""
+    """Create API client for integration tests.
+
+    Function-scoped to ensure proper cleanup and isolation in parallel execution.
+    """
     if integration_test_config["use_real_api"]:
         # Use real API client with environment configuration
-        return BillingAPIClient()
+        client = BillingAPIClient()
+    else:
+        # Use mock server - removed mock client logic for better integration testing
+        if not mock_server:
+            raise RuntimeError(
+                "Mock server not available. Check if mock server started successfully."
+            )
 
-    # Use mock server - removed mock client logic for better integration testing
-    if not mock_server:
-        raise RuntimeError(
-            "Mock server not available. Check if mock server started successfully."
-        )
+        base_url = mock_server
+        if not base_url.endswith("/api/v1"):
+            base_url = f"{base_url}"
 
-    base_url = mock_server
-    if not base_url.endswith("/api/v1"):
-        base_url = f"{base_url}"
+        logger.info(f"Creating API client with base URL: {base_url}")
+        client = BillingAPIClient(base_url=base_url)
 
-    logger.info(f"Creating API client with base URL: {base_url}")
-    return BillingAPIClient(base_url=base_url)
+    yield client
+
+    # Cleanup: close client session
+    if hasattr(client, "close"):
+        client.close()
 
 
 @pytest.fixture
@@ -173,9 +182,11 @@ def _cleanup_test_data(client) -> None:
     # For now, it's a placeholder
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def test_billing_group(worker_id) -> str:
     """Test billing group ID - unique per test worker in parallel mode.
+
+    Function-scoped for better isolation in parallel execution.
 
     Args:
         worker_id: Unique worker identifier from pytest-xdist
@@ -183,13 +194,19 @@ def test_billing_group(worker_id) -> str:
     Returns:
         Unique billing group ID for this worker
     """
+    import time
+
+    # Add timestamp to ensure uniqueness even within same worker
+    timestamp = int(time.time() * 1000) % 100000  # Last 5 digits
     base_id = os.environ.get("TEST_BILLING_GROUP", "bg-integration-test")
-    return f"{base_id}-{worker_id}"
+    return f"{base_id}-{worker_id}-{timestamp}"
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def test_app_keys(worker_id):
     """Test application keys - unique per test worker in parallel mode.
+
+    Function-scoped for better isolation in parallel execution.
 
     Args:
         worker_id: Unique worker identifier from pytest-xdist
@@ -197,10 +214,13 @@ def test_app_keys(worker_id):
     Returns:
         List of unique app keys for this worker
     """
+    import time
+
+    timestamp = int(time.time() * 1000) % 100000
     return [
-        f"app-integration-001-{worker_id}",
-        f"app-integration-002-{worker_id}",
-        f"app-integration-003-{worker_id}",
+        f"app-integration-001-{worker_id}-{timestamp}",
+        f"app-integration-002-{worker_id}-{timestamp}",
+        f"app-integration-003-{worker_id}-{timestamp}",
     ]
 
 
