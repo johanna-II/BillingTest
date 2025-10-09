@@ -946,13 +946,19 @@ def get_billing_detail():
         billing_detail, uuid_param
     )
 
-    # Apply unpaid amount and late fee if provided
+    # Apply unpaid amount and late fee if provided (with thread-safe access)
     unpaid_amount = 0
     late_fee = 0
-    if uuid_param in unpaid_data:
-        unpaid_info = unpaid_data[uuid_param]
-        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
-        late_fee = unpaid_info.get("lateFee", 0)
+    try:
+        with data_lock:
+            if uuid_param in unpaid_data:
+                unpaid_info = unpaid_data.get(uuid_param, {})
+                unpaid_amount = unpaid_info.get("unpaidAmount", 0)
+                late_fee = unpaid_info.get("lateFee", 0)
+    except Exception:
+        # Fallback to defaults if any error
+        unpaid_amount = 0
+        late_fee = 0
 
     # Prepare response data
     final_total = billing_detail.get("totalAmount", 0) + unpaid_amount + late_fee
@@ -964,9 +970,13 @@ def get_billing_detail():
         "discountAmount": billing_detail.get("discount", 0),
         "vat": billing_detail.get("vat", 0),
         "totalCredit": credit_to_use,
-        "unpaidAmount": unpaid_amount,
-        "lateFee": late_fee,
     }
+
+    # Only include unpaid amount and late fee if they exist (for backward compatibility)
+    if unpaid_amount > 0:
+        response_data["unpaidAmount"] = unpaid_amount
+    if late_fee > 0:
+        response_data["lateFee"] = late_fee
 
     return jsonify(create_success_response(response_data))
 
@@ -1413,21 +1423,26 @@ def create_calculation():
                 credit_data[uuid_param][credit_type]["totalAmount"] += credit_amount
                 credit_data[uuid_param][credit_type]["restAmount"] += credit_amount
 
-    # Store unpaid amount and late fee info if provided
-    if "unpaidAmount" in data or "isOverdue" in data:
-        unpaid_amount = data.get("unpaidAmount", 0)
-        is_overdue = data.get("isOverdue", False)
-        late_fee = unpaid_amount * 0.05 if is_overdue else 0
+    # Store unpaid amount and late fee info if provided (thread-safe)
+    try:
+        with data_lock:
+            if "unpaidAmount" in data or "isOverdue" in data:
+                unpaid_amount = data.get("unpaidAmount", 0)
+                is_overdue = data.get("isOverdue", False)
+                late_fee = unpaid_amount * 0.05 if is_overdue else 0
 
-        unpaid_data[uuid_param] = {
-            "unpaidAmount": unpaid_amount,
-            "isOverdue": is_overdue,
-            "lateFee": late_fee,
-        }
-    else:
-        # Clear unpaid data if not provided
-        if uuid_param in unpaid_data:
-            del unpaid_data[uuid_param]
+                unpaid_data[uuid_param] = {
+                    "unpaidAmount": unpaid_amount,
+                    "isOverdue": is_overdue,
+                    "lateFee": late_fee,
+                }
+            else:
+                # Clear unpaid data if not provided
+                if uuid_param in unpaid_data:
+                    del unpaid_data[uuid_param]
+    except Exception:
+        # Silently fail - defaults to no unpaid amount
+        pass
 
     # Store the calculation job
     batch_jobs[job_id] = {
@@ -1666,13 +1681,19 @@ def get_payment_statements_console(month):
             }
         )
 
-    # Apply unpaid amount and late fee if provided
+    # Apply unpaid amount and late fee if provided (with thread-safe access)
     unpaid_amount = 0
     late_fee = 0
-    if uuid_param in unpaid_data:
-        unpaid_info = unpaid_data[uuid_param]
-        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
-        late_fee = unpaid_info.get("lateFee", 0)
+    try:
+        with data_lock:
+            if uuid_param in unpaid_data:
+                unpaid_info = unpaid_data.get(uuid_param, {})
+                unpaid_amount = unpaid_info.get("unpaidAmount", 0)
+                late_fee = unpaid_info.get("lateFee", 0)
+    except Exception:
+        # Fallback to defaults if any error
+        unpaid_amount = 0
+        late_fee = 0
 
     # Calculate VAT (10%) on final charge after credits
     vat = int(charge_after_credit * 0.1)
@@ -1682,7 +1703,7 @@ def get_payment_statements_console(month):
 
     # Store billing data for payment endpoint
     billing_key = f"{uuid_param}:{month}"
-    billing_data[billing_key] = {
+    stored_billing_data = {
         "uuid": uuid_param,
         "month": month,
         "subtotal": subtotal,
@@ -1691,10 +1712,37 @@ def get_payment_statements_console(month):
         "creditApplied": credit_used,
         "charge": charge_after_credit,
         "vat": vat,
-        "unpaidAmount": unpaid_amount,
-        "lateFee": late_fee,
         "totalAmount": total_amount,
     }
+
+    # Only store unpaid amount and late fee if they exist
+    if unpaid_amount > 0:
+        stored_billing_data["unpaidAmount"] = unpaid_amount
+    if late_fee > 0:
+        stored_billing_data["lateFee"] = late_fee
+
+    billing_data[billing_key] = stored_billing_data
+
+    # Build statement response
+    statement_data = {
+        "amount": total_amount,
+        "subtotal": subtotal,
+        "discount": billing_group_discount,
+        "adjustmentTotal": total_adjustment_amount,
+        "creditApplied": credit_used,
+        "vat": vat,
+        "month": month,
+        "status": "READY",
+        "lineItems": line_items,
+        "appliedAdjustments": applied_adjustments,
+        "appliedCredits": applied_credits,
+    }
+
+    # Only include unpaid amount and late fee if they exist (for backward compatibility)
+    if unpaid_amount > 0:
+        statement_data["unpaidAmount"] = unpaid_amount
+    if late_fee > 0:
+        statement_data["lateFee"] = late_fee
 
     # Return calculated payment status with detailed breakdown
     return jsonify(
@@ -1702,23 +1750,7 @@ def get_payment_statements_console(month):
             {
                 "paymentGroupId": f"PG-{uuid_param[:8]}",
                 "paymentStatus": "READY",
-                "statements": [
-                    {
-                        "amount": total_amount,
-                        "subtotal": subtotal,
-                        "discount": billing_group_discount,
-                        "adjustmentTotal": total_adjustment_amount,
-                        "creditApplied": credit_used,
-                        "vat": vat,
-                        "unpaidAmount": unpaid_amount,
-                        "lateFee": late_fee,
-                        "month": month,
-                        "status": "READY",
-                        "lineItems": line_items,
-                        "appliedAdjustments": applied_adjustments,
-                        "appliedCredits": applied_credits,
-                    }
-                ],
+                "statements": [statement_data],
             }
         )
     )
