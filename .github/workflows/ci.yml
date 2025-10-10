@@ -87,7 +87,8 @@ jobs:
         pip install pytest-xdist pytest-cov pytest-html pytest-rerunfailures pytest-timeout
     
     - name: Start Mock Server
-      if: matrix.test-type != 'unit'
+      # Only for contracts (integration & comprehensive use Docker)
+      if: matrix.test-type == 'contracts'
       run: |
         # Start mock server in background
         python -m mock_server.run_server &
@@ -116,22 +117,25 @@ jobs:
         # coverage 파일명을 명시적으로 지정
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
         
+        # Docker 격리 실행 사용 (worker crash 방지)
         # 통합 테스트는 병렬 실행 (2 workers) + 300초 타임아웃 + auto retry (5회)
         # 단위 테스트는 병렬 실행 (auto) + 60초 타임아웃
         # 계약 테스트는 순차 실행 + 300초 타임아웃
-        # Payment API 테스트들은 skip됨 (mock server 미지원)
         if [ "${{ matrix.test-type }}" = "integration" ]; then
-          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
-            -n 2 \
-            --timeout=300 \
-            --timeout-method=thread \
-            --reruns=5 \
-            --reruns-delay=3 \
-            --cov=libs --cov-report=term-missing \
-            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-            --junit-xml=test-results-${{ matrix.test-type }}.xml \
-            || (echo "::warning::Integration tests failed but will retry" && exit 0)
+          # Use Docker for isolation to prevent worker crashes
+          docker-compose -f docker-compose.test.yml run --rm test-integration \
+            || (echo "::warning::Integration tests failed, retrying with direct pytest..." && \
+                pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+                  -n 2 \
+                  --timeout=300 \
+                  --timeout-method=thread \
+                  --reruns=5 \
+                  --reruns-delay=3 \
+                  --cov=libs --cov-report=term-missing \
+                  --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
+                  --junit-xml=test-results-${{ matrix.test-type }}.xml)
         elif [ "${{ matrix.test-type }}" = "unit" ]; then
+          # Unit tests run directly (faster, no mock server needed)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             -n auto \
             --timeout=60 \
@@ -139,6 +143,7 @@ jobs:
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml
         elif [ "${{ matrix.test-type }}" = "contracts" ]; then
+          # Contracts run directly (sequential)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             --timeout=300 \
             --cov=libs --cov-report=term-missing \
@@ -146,23 +151,13 @@ jobs:
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock
         elif [ "${{ matrix.test-type }}" = "comprehensive" ]; then
-          # 450 Combinations + All Business Combinations + Comprehensive tests
-          pytest tests/integration/test_complete_450_combinations.py \
-            tests/integration/test_all_business_combinations.py \
-            tests/integration/test_comprehensive_business_logic.py \
-            -v --tb=short \
-            -n 2 \
-            --timeout=600 \
-            --timeout-method=thread \
-            --reruns=5 \
-            --reruns-delay=5 \
-            --cov=libs --cov-report=term-missing \
-            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-            --junit-xml=test-results-${{ matrix.test-type }}.xml \
+          # Use Docker for comprehensive tests (most stable)
+          docker-compose -f docker-compose.test.yml run --rm test-comprehensive \
             || (echo "::warning::Comprehensive tests had failures" && exit 0)
         fi
       env:
-        PYTEST_TIMEOUT: 300
+        PYTEST_TIMEOUT: 600
+        COMPOSE_HTTP_TIMEOUT: 600
     
     - name: Upload test results
       if: always()

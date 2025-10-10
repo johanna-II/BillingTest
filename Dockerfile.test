@@ -33,6 +33,8 @@ RUN pip install --no-cache-dir \
     pytest-xdist \
     pytest-timeout \
     pytest-mock \
+    pytest-rerunfailures \
+    pytest-html \
     coverage[toml]
 
 # Copy project files with read-only permissions

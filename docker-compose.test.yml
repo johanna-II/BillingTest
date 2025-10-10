@@ -108,7 +108,7 @@ services:
       retries: 5
       start_period: 30s
 
-  # Integration test runner
+  # Integration test runner (isolated, parallel-safe)
   test-integration:
     build:
       context: .
@@ -124,12 +124,59 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - USE_MOCK_SERVER=true
-      - MOCK_SERVER_URL=http://mock-server:5000/api/v1
+      - MOCK_SERVER_URL=http://mock-server:5000
+      - MOCK_SERVER_PORT=5000
+      - CI=true
     command: >
       python -m pytest
-      tests/
-      -m "integration or mock_required"
+      tests/integration/
       -v
+      --tb=short
+      -n 2
+      --timeout=300
+      --timeout-method=thread
+      --reruns=5
+      --reruns-delay=3
+      --cov=libs
+      --cov-report=term-missing
+      --cov-report=xml:coverage-integration.xml
+      --junit-xml=test-results-integration.xml
+      --use-mock
+    networks:
+      - test-network
+  
+  # Comprehensive test runner (450 combinations)
+  test-comprehensive:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    depends_on:
+      mock-server:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./htmlcov:/app/htmlcov
+      - ./report:/app/report
+    environment:
+      - PYTHONUNBUFFERED=1
+      - USE_MOCK_SERVER=true
+      - MOCK_SERVER_URL=http://mock-server:5000
+      - MOCK_SERVER_PORT=5000
+      - CI=true
+    command: >
+      python -m pytest
+      tests/integration/test_complete_450_combinations.py
+      tests/integration/test_all_business_combinations.py
+      tests/integration/test_comprehensive_business_logic.py
+      -v
+      --tb=short
+      -n 2
+      --timeout=600
+      --timeout-method=thread
+      --reruns=5
+      --reruns-delay=5
+      --junit-xml=test-results-comprehensive.xml
       --use-mock
     networks:
       - test-network
