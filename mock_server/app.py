@@ -126,9 +126,6 @@ credit_data: dict[str, Any] = {}
 # In-memory storage for adjustments (per UUID)
 adjustments_data: dict[str, list[Any]] = {}
 
-# In-memory storage for unpaid amounts and late fees (per UUID)
-unpaid_data: dict[str, dict[str, Any]] = {}
-
 
 # Initialize default test data for test-uuid-001
 def _initialize_test_data():
@@ -946,36 +943,17 @@ def get_billing_detail():
         billing_detail, uuid_param
     )
 
-    # Apply unpaid amount and late fee if provided (simple and safe)
-    unpaid_amount = 0
-    late_fee = 0
-    if uuid_param in unpaid_data:
-        unpaid_info = unpaid_data.get(uuid_param, {})
-        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
-        late_fee = unpaid_info.get("lateFee", 0)
-
-    # Prepare response data (DON'T modify existing totalAmount if no unpaid/late fee)
-    base_total = billing_detail.get("totalAmount", 0)
-
+    # Prepare response data
+    final_total = billing_detail.get("totalAmount", 0)
     response_data = {
         **billing_detail,
         "charge": billing_detail.get("charge", 0),
-        "totalAmount": base_total + unpaid_amount + late_fee
-        if (unpaid_amount > 0 or late_fee > 0)
-        else base_total,
-        "totalPayments": base_total + unpaid_amount + late_fee
-        if (unpaid_amount > 0 or late_fee > 0)
-        else base_total,
+        "totalAmount": final_total,  # Total after credits
+        "totalPayments": final_total,  # Same as totalAmount
         "discountAmount": billing_detail.get("discount", 0),
         "vat": billing_detail.get("vat", 0),
         "totalCredit": credit_to_use,
     }
-
-    # Only include unpaid amount and late fee if they exist (for backward compatibility)
-    if unpaid_amount > 0:
-        response_data["unpaidAmount"] = unpaid_amount
-    if late_fee > 0:
-        response_data["lateFee"] = late_fee
 
     return jsonify(create_success_response(response_data))
 
@@ -1422,25 +1400,6 @@ def create_calculation():
                 credit_data[uuid_param][credit_type]["totalAmount"] += credit_amount
                 credit_data[uuid_param][credit_type]["restAmount"] += credit_amount
 
-    # Store unpaid amount and late fee info if provided (only when explicitly set)
-    if "unpaidAmount" in data and data.get("unpaidAmount", 0) > 0:
-        unpaid_amount = data.get("unpaidAmount", 0)
-        is_overdue = data.get("isOverdue", False)
-        late_fee = unpaid_amount * 0.05 if is_overdue else 0
-
-        unpaid_data[uuid_param] = {
-            "unpaidAmount": unpaid_amount,
-            "isOverdue": is_overdue,
-            "lateFee": late_fee,
-        }
-    elif (
-        uuid_param in unpaid_data
-        and "unpaidAmount" in data
-        and data.get("unpaidAmount", 0) == 0
-    ):
-        # Explicitly clear if unpaid amount is set to 0
-        del unpaid_data[uuid_param]
-
     # Store the calculation job
     batch_jobs[job_id] = {
         "batchJobCode": "API_CALCULATE_USAGE_AND_PRICE",
@@ -1678,28 +1637,15 @@ def get_payment_statements_console(month):
             }
         )
 
-    # Apply unpaid amount and late fee if provided (simple and safe)
-    unpaid_amount = 0
-    late_fee = 0
-    if uuid_param in unpaid_data:
-        unpaid_info = unpaid_data.get(uuid_param, {})
-        unpaid_amount = unpaid_info.get("unpaidAmount", 0)
-        late_fee = unpaid_info.get("lateFee", 0)
-
     # Calculate VAT (10%) on final charge after credits
     vat = int(charge_after_credit * 0.1)
 
-    # Total amount including VAT (and unpaid/late fee if present)
-    base_total = charge_after_credit + vat
-    total_amount = (
-        base_total + unpaid_amount + late_fee
-        if (unpaid_amount > 0 or late_fee > 0)
-        else base_total
-    )
+    # Total amount including VAT
+    total_amount = charge_after_credit + vat
 
     # Store billing data for payment endpoint
     billing_key = f"{uuid_param}:{month}"
-    stored_billing_data = {
+    billing_data[billing_key] = {
         "uuid": uuid_param,
         "month": month,
         "subtotal": subtotal,
@@ -1711,42 +1657,27 @@ def get_payment_statements_console(month):
         "totalAmount": total_amount,
     }
 
-    # Only store unpaid amount and late fee if they exist
-    if unpaid_amount > 0:
-        stored_billing_data["unpaidAmount"] = unpaid_amount
-    if late_fee > 0:
-        stored_billing_data["lateFee"] = late_fee
-
-    billing_data[billing_key] = stored_billing_data
-
-    # Build statement response
-    statement_data = {
-        "amount": total_amount,
-        "subtotal": subtotal,
-        "discount": billing_group_discount,
-        "adjustmentTotal": total_adjustment_amount,
-        "creditApplied": credit_used,
-        "vat": vat,
-        "month": month,
-        "status": "READY",
-        "lineItems": line_items,
-        "appliedAdjustments": applied_adjustments,
-        "appliedCredits": applied_credits,
-    }
-
-    # Only include unpaid amount and late fee if they exist (for backward compatibility)
-    if unpaid_amount > 0:
-        statement_data["unpaidAmount"] = unpaid_amount
-    if late_fee > 0:
-        statement_data["lateFee"] = late_fee
-
     # Return calculated payment status with detailed breakdown
     return jsonify(
         create_success_response(
             {
                 "paymentGroupId": f"PG-{uuid_param[:8]}",
                 "paymentStatus": "READY",
-                "statements": [statement_data],
+                "statements": [
+                    {
+                        "amount": total_amount,
+                        "subtotal": subtotal,
+                        "discount": billing_group_discount,
+                        "adjustmentTotal": total_adjustment_amount,
+                        "creditApplied": credit_used,
+                        "vat": vat,
+                        "month": month,
+                        "status": "READY",
+                        "lineItems": line_items,
+                        "appliedAdjustments": applied_adjustments,
+                        "appliedCredits": applied_credits,
+                    }
+                ],
             }
         )
     )

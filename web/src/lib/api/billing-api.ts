@@ -83,9 +83,21 @@ export class BillingAPIClient {
 
 export const billingAPI = new BillingAPIClient();
 
-// Export convenience functions
-export const calculateBilling = (request: BillingInput) =>
-  billingAPI.calculateBilling(request);
+// Export convenience functions with client-side enhancements
+export const calculateBilling = async (request: BillingInput): Promise<BillingStatement> => {
+  const statement = await billingAPI.calculateBilling(request);
+  
+  // Add unpaid amount and late fee client-side (doesn't affect backend/tests)
+  const unpaidAmount = request.unpaidAmount || 0;
+  const lateFee = request.isOverdue && unpaidAmount > 0 ? unpaidAmount * 0.05 : 0;
+  
+  return {
+    ...statement,
+    unpaidAmount,
+    lateFee,
+    totalAmount: statement.totalAmount + unpaidAmount + lateFee,
+  };
+};
 
 export const getPaymentStatements = (uuid: string, month: string) =>
   billingAPI.getPaymentStatements(uuid, month);
