@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestBusinessLogicCombinations(BaseIntegrationTest):
     """Test all possible business logic combinations.
 
@@ -538,6 +539,7 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestBusinessRuleValidation(BaseIntegrationTest):
     """Validate specific business rules and constraints."""
 

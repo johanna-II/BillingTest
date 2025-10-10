@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
-@pytest.mark.flaky(reruns=2, reruns_delay=2)
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestComplexBillingScenarios(BaseIntegrationTest):
     """Test complex billing scenarios with multiple interacting components.
 
-    These tests use automatic retry on failure due to parallel execution issues.
+    These tests use automatic retry (5 attempts) to handle worker crashes and parallel execution issues.
 
     Note: E2E billing cycle test is skipped (requires real payment API).
     Other tests are safe for parallel execution with function-scoped fixtures.

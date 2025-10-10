@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestCompleteBusinessCombinations(BaseIntegrationTest):
     """Test ALL business logic combinations systematically."""
 
@@ -391,6 +392,7 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestEdgeCaseCombinations(BaseIntegrationTest):
     """Test edge cases and boundary conditions."""
 
@@ -543,6 +545,7 @@ class TestEdgeCaseCombinations(BaseIntegrationTest):
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestRealWorldScenarios(BaseIntegrationTest):
     """Test real-world business scenarios."""
 

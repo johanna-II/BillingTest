@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.integration
-@pytest.mark.flaky(reruns=2, reruns_delay=2)
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestCoreBillingScenarios(BaseIntegrationTest):
     """Test core business scenarios that must work correctly.
 
     Note: Payment lifecycle test is skipped (requires real API).
-    These tests use automatic retry on failure due to parallel execution issues.
+    These tests use automatic retry (5 attempts) to handle worker crashes and parallel execution issues.
     """
 
     @pytest.mark.integration

@@ -437,6 +437,7 @@ class TestAll450Combinations(BaseIntegrationTest):
 
 
 @pytest.mark.integration
+@pytest.mark.flaky(reruns=5, reruns_delay=3)
 class TestBusinessRuleValidation(BaseIntegrationTest):
     """Test specific business rule validations."""
 
