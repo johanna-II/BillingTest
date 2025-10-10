@@ -78,8 +78,8 @@ def main():
         "--workers",
         "-w",
         type=int,
-        default=4,
-        help="Number of parallel workers (default: 4)",
+        default=2,
+        help="Number of parallel workers (default: 2, reduced from 4 for stability)",
     )
 
     parser.add_argument(
