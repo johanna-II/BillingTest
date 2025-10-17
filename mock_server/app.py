@@ -1688,8 +1688,6 @@ def get_payment_statements_console(month):
 @app.route("/billing/payments/<month>/statements/unpaid", methods=["GET"])
 def get_unpaid_statements_console(month):
     """Get unpaid statements for console API."""
-    uuid_param = request.headers.get("uuid", "default")
-
     # Return mock unpaid statements
     return jsonify(
         create_success_response(

@@ -158,13 +158,13 @@ class TestCreditMocked:
             status=200,
         )
 
-        credits = [
+        credit_list = [
             ("BULK-001", "Credit 1", 1000),
             ("BULK-002", "Credit 2", 2000),
             ("BULK-003", "Credit 3", 3000),
         ]
 
-        for campaign_id, name, amount in credits:
+        for campaign_id, name, amount in credit_list:
             result = credit_manager.grant_credit(
                 campaign_id=campaign_id,
                 credit_name=name,

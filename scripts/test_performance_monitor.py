@@ -39,7 +39,7 @@ class TestMonitor:
         ]
 
         print("Running tests with profiling...")
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        subprocess.run(cmd, capture_output=True, text=True)
 
         # Parse the JSON report
         if durations_file.exists():

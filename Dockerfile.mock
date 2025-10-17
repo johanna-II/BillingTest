@@ -31,10 +31,8 @@ COPY --chown=mockuser:mockuser --chmod=555 mock_server /app/mock_server
 # Note: OpenAPI specs are excluded by .dockerignore for security
 # They will be mounted via volume in docker-compose if needed
 # Mock server works without OpenAPI files (uses mock_data.py instead)
-RUN mkdir -p /app/docs/openapi && chown -R mockuser:mockuser /app/docs
-
-# Ensure proper ownership of the working directory
-RUN chown -R mockuser:mockuser /app
+RUN mkdir -p /app/docs/openapi && chown -R mockuser:mockuser /app/docs \
+&& chown -R mockuser:mockuser /app
 
 # Set Python path
 ENV PYTHONPATH=/app

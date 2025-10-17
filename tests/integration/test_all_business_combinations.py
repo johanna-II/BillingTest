@@ -269,13 +269,13 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
         total_credits = 0
         for credit_type, amount in credits_list:
             if credit_type == CreditType.FREE:
-                result = managers["credit"].grant_credit(
+                managers["credit"].grant_credit(
                     amount=amount,
                     credit_type=CreditType.CAMPAIGN,
                     credit_name=f"Test Free Credit - {scenario_name[:10]}",
                 )
             elif credit_type == CreditType.PAID:
-                result = managers["credit"].grant_credit(
+                managers["credit"].grant_credit(
                     amount=amount,
                     credit_type=CreditType.PAID,
                     credit_name=f"Test Paid Credit - {scenario_name[:10]}",
@@ -284,7 +284,6 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
                 # TODO: Refunds are handled through PaymentManager.process_refund
                 # For now, skip refund credits in this test
                 logger.warning("Skipping REFUND credit type in test - not implemented")
-                result = None
             total_credits += amount
             logger.info(f"Granted {credit_type.value} credit: {amount}")
 
