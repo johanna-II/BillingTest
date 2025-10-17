@@ -132,20 +132,20 @@ make dev-test
 
 ```bash
 # Run tests in Docker (all platforms)
-docker-compose -f docker-compose.test.yml run test-full
+docker compose -f docker-compose.test.yml run test-full
 
 # Quick tests without coverage
-docker-compose -f docker-compose.test.yml run test-quick
+docker compose -f docker-compose.test.yml run test-quick
 
 # Test on different Python versions
-docker-compose -f docker-compose.test.yml run test-py311
-docker-compose -f docker-compose.test.yml run test-py310
+docker compose -f docker-compose.test.yml run test-py311
+docker compose -f docker-compose.test.yml run test-py310
 
 # Run integration tests with mock server
-docker-compose -f docker-compose.test.yml up test-integration
+docker compose -f docker-compose.test.yml up test-integration
 
 # Run all test configurations
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+docker compose -f docker-compose.test.yml up --abort-on-container-exit
 ```
 
 #### Manual Test Execution
@@ -167,11 +167,11 @@ poetry run pytest --use-mock --env alpha --member kr
 
 ```bash
 # Build and run with Docker Compose
-docker-compose up -d
-docker-compose run BillingTest pytest
+docker compose up -d
+docker compose run BillingTest pytest
 
 # Run specific member tests
-docker-compose run BillingTest pytest --env alpha --member kr --month 2024-01
+docker compose run BillingTest pytest --env alpha --member kr --month 2024-01
 ```
 
 ## Project Structure

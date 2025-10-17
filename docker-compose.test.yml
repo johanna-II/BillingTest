@@ -99,14 +99,23 @@ services:
     volumes:
       - ./mock_server:/app/mock_server
       - ./docs/openapi:/app/docs/openapi
+    # Resource limits for mock server
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     networks:
       - test-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 5s
       timeout: 10s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
 
   # Integration test runner (isolated, parallel-safe)
   test-integration:
@@ -127,6 +136,17 @@ services:
       - MOCK_SERVER_URL=http://mock-server:5000
       - MOCK_SERVER_PORT=5000
       - CI=true
+    # Resource limits to prevent OOM and worker crashes
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    # Increase shared memory for pytest-xdist workers
+    shm_size: '2gb'
     command: >
       python -m pytest
       tests/integration/
@@ -137,6 +157,8 @@ services:
       --timeout-method=thread
       --reruns=5
       --reruns-delay=3
+      --max-worker-restart=15
+      --dist=loadfile
       --cov=libs
       --cov-report=term-missing
       --cov-report=xml:coverage-integration.xml
@@ -164,6 +186,19 @@ services:
       - MOCK_SERVER_URL=http://mock-server:5000
       - MOCK_SERVER_PORT=5000
       - CI=true
+      # Prevent memory issues with large test suites
+      - PYTEST_XDIST_WORKER_COUNT=2
+    # Resource limits for heavy test suite
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    # Large shared memory for parallel workers
+    shm_size: '4gb'
     command: >
       python -m pytest
       tests/integration/test_complete_450_combinations.py
@@ -176,6 +211,8 @@ services:
       --timeout-method=thread
       --reruns=5
       --reruns-delay=5
+      --max-worker-restart=20
+      --dist=loadfile
       --junit-xml=test-results-comprehensive.xml
       --use-mock
     networks:
