@@ -206,18 +206,6 @@ class AdjustmentCalculator:
         Returns:
             True if combination is valid
         """
-        # Get string representations
-        target_str = (
-            adjustment_target.value
-            if isinstance(adjustment_target, AdjustmentTarget)
-            else str(adjustment_target)
-        )
-        type_str = (
-            adjustment_type.value
-            if isinstance(adjustment_type, AdjustmentType)
-            else str(adjustment_type)
-        )
-
         # All combinations are currently valid
         # This method exists for future business rule implementation
         return True
