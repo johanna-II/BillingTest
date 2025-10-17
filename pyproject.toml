@@ -300,6 +300,11 @@ markers = [
     "performance: marks performance tests",
     "benchmark: marks benchmark tests",
     "security: marks security tests",
+    "flaky: marks tests known to be flaky and need fixes",
+    "critical: marks critical business logic tests",
+    "contracts: marks contract tests (alias for contract)",
+    "parallel_safe: marks tests that are known to work well in parallel",
+    "requires_isolation: marks tests that need complete isolation",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:pkg_resources",
