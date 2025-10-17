@@ -89,7 +89,7 @@ class TestCreditMocked:
         # Mock the credit history endpoint (get_total_credit_balance calls get_credit_history)
         responses.add(
             responses.GET,
-            re.compile(r".*/billing/credits/history$"),
+            re.compile(r".*/billing/credits/history"),
             json={
                 "header": {"isSuccessful": True},
                 "creditHistories": [
