@@ -14,7 +14,6 @@ from libs.constants import (
     AdjustmentType,
     CounterType,
     CreditType,
-    PaymentStatus,
 )
 from tests.integration.base_integration import BaseIntegrationTest
 
@@ -135,55 +134,6 @@ class TestBillingWorkflows(BaseIntegrationTest):
         # Skipping actual refund test as it requires payment setup
         logger.info("Refund workflow test - requires valid payment ID")
 
-    # ======================
-    # Payment Workflows
-    # ======================
-    @pytest.mark.serial  # Payment tests must run sequentially to avoid crashes
-    @pytest.mark.skip(
-        reason="Payment lifecycle test requires real payment API - not available in mock server"
-    )
-    def test_payment_lifecycle(self, test_context):
-        """Test complete payment lifecycle.
-
-        Note: Skipped because payment endpoints (get_payment_status, get_payment_history)
-        are not fully implemented in mock server and cause timeout.
-
-        This test requires:
-        - /billing/{month}/statements (console API) - not in mock
-        - /billing/payments/{month}/history - not in mock
-
-        Re-enable when mock server supports these endpoints.
-        """
-        managers = test_context["managers"]
-        payment_id = f"PAY-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-        # 1. Make payment
-        payment_result = managers["payment"].make_payment(
-            payment_group_id=test_context["billing_group_id"],
-            max_retries=2,
-        )
-        logger.info(f"Payment result: {payment_result}")
-        assert payment_result is not None
-
-        # 2. Get payment status
-        status_result = managers["payment"].get_payment_status()
-        assert status_result is not None
-
-        # 3. Get payment history
-        history_result = managers["payment"].get_payment_history(
-            payment_group_id=test_context["billing_group_id"],
-            start_date=test_context["month"] + "-01",
-            end_date=test_context["month"] + "-31",
-        )
-        assert isinstance(history_result, list)
-
-        # 4. Change payment status
-        change_result = managers["payment"].change_payment_status(
-            payment_group_id=test_context["billing_group_id"],
-            target_status=PaymentStatus.PAID,
-        )
-        self.assert_api_success(change_result)
-
     def test_payment_statement_workflow(self, test_context):
         """Test payment statement workflow."""
         managers = test_context["managers"]
@@ -202,68 +152,6 @@ class TestBillingWorkflows(BaseIntegrationTest):
     # ======================
     # Combined Workflows
     # ======================
-    @pytest.mark.serial  # Complex workflows must run sequentially
-    @pytest.mark.skip(
-        reason="Complete billing cycle requires payment API endpoints not in mock server"
-    )
-    def test_complete_billing_cycle(self, test_context, test_app_keys):
-        """Test a complete billing cycle with all components.
-
-        Note: Skipped because get_payment_status() and payment APIs
-        require console endpoints not implemented in mock server.
-        """
-        managers = test_context["managers"]
-
-        # 1. Send metering data
-        metering_result = managers["metering"].send_metering(
-            app_key=test_app_keys[0],
-            counter_name="compute.instance",
-            counter_type=CounterType.DELTA,
-            counter_unit="HOURS",
-            counter_volume="100",
-        )
-        self.assert_api_success(metering_result)
-
-        # 2. Apply adjustments
-        adj_result = managers["adjustment"].apply_adjustment(
-            description="Monthly Discount",
-            adjustment_type=AdjustmentType.RATE_DISCOUNT,
-            adjustment_amount=10,
-            adjustment_target=AdjustmentTarget.PROJECT,
-            target_id=test_app_keys[0],
-        )
-        self.assert_api_success(adj_result)
-
-        # 3. Grant credits
-        credit_result = managers["credit"].grant_credit(
-            amount=20000,
-            credit_type=CreditType.CAMPAIGN,
-            credit_name="Billing Cycle Credit",
-        )
-        self.assert_api_success(credit_result)
-
-        # 4. Trigger calculation
-        calc_result = managers["calculation"].recalculate_all()
-        self.assert_api_success(calc_result)
-        # Wait for calculation completion
-        import time
-
-        time.sleep(5)
-
-        # 5. Get payment status
-        payment_info = managers["payment"].get_payment_status()
-        assert payment_info is not None
-
-        # 6. Make payment if needed
-        unpaid = managers["payment"].check_unpaid_amount(
-            payment_group_id=test_context["billing_group_id"]
-        )
-        if unpaid > 0:
-            payment_result = managers["payment"].make_payment(
-                payment_group_id=test_context["billing_group_id"]
-            )
-            self.assert_api_success(payment_result)
-
     def test_error_handling_workflow(self, test_context, test_app_keys):
         """Test error handling across workflows."""
         managers = test_context["managers"]

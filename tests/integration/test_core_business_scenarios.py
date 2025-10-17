@@ -123,50 +123,6 @@ class TestCoreBillingScenarios(BaseIntegrationTest):
         assert statement.get("statements"), "No billing statement generated"
 
     @pytest.mark.integration
-    @pytest.mark.skip(
-        reason="Payment lifecycle requires console API not in mock server"
-    )
-    def test_payment_lifecycle(self, test_context, test_app_keys):
-        """Test complete payment lifecycle: create -> pay -> verify.
-
-        Note: Skipped because get_payment_status() and payment APIs
-        require console endpoints not implemented in mock server.
-        """
-        managers = test_context["managers"]
-
-        # Create some billing
-        managers["metering"].send_metering(
-            app_key=test_app_keys[0],
-            counter_name="compute.payment_test",
-            counter_type="DELTA",
-            counter_unit="HOURS",
-            counter_volume="100",
-        )
-
-        # Calculate
-        managers["calculation"].recalculate_all()
-        time.sleep(1)
-
-        # Get payment info
-        pg_id, status = managers["payment"].get_payment_status()
-
-        if pg_id:
-            # Make payment
-            payment_result = managers["payment"].make_payment(
-                payment_group_id=pg_id,
-                amount=100000,
-                payment_method="CARD",
-                payment_details={"card_number": "1234-5678-9012-3456"},
-            )
-
-            # In mock environment, just verify no errors
-            assert payment_result is not None
-
-            # Check status
-            new_pg_id, new_status = managers["payment"].get_payment_status()
-            assert new_pg_id is not None
-
-    @pytest.mark.integration
     def test_overdue_charge_calculation(self, test_context, test_app_keys):
         """Test overdue charges are calculated correctly."""
         managers = test_context["managers"]

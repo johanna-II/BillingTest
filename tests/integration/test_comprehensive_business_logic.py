@@ -14,7 +14,6 @@ from libs.constants import (
     AdjustmentType,
     CounterType,
     CreditType,
-    PaymentStatus,
 )
 from libs.constants import BatchJobCode as JobCode
 from tests.integration.base_integration import BaseIntegrationTest
@@ -182,45 +181,6 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
         # Verify calculation handles all types
         calc_result = managers["calculation"].recalculate_all()
         assert calc_result.get("header", {}).get("isSuccessful", False)
-
-    @pytest.mark.skip(
-        reason="Payment state transitions require console API not in mock server"
-    )
-    def test_payment_state_transitions(self, test_context):
-        """Test all possible payment state transitions.
-
-        Payment lifecycle:
-        DRAFT -> REGISTERED -> READY -> PAID
-                            -> CANCELLED
-
-        Note: Skipped because get_payment_status() calls console API endpoint
-        that is not implemented in mock server.
-        """
-        managers = test_context["managers"]
-
-        # Get current payment status
-        payment_group_id, status = managers["payment"].get_payment_status()
-        logger.info(f"Initial payment status: {status}")
-
-        if payment_group_id:
-            # Test state transitions
-            if status == PaymentStatus.REGISTERED:
-                # Can transition to READY
-                result = managers["payment"].change_payment_status(payment_group_id)
-                logger.info("Changed REGISTERED -> READY")
-
-            elif status == PaymentStatus.READY:
-                # Can transition to PAID or CANCELLED
-                # Test cancellation
-                cancel_result = managers["payment"].cancel_payment(payment_group_id)
-                logger.info("Tested READY -> CANCELLED")
-
-            elif status == PaymentStatus.PAID:
-                # Already paid, test refund scenario
-                # TODO: Refunds are handled through PaymentManager.process_refund
-                logger.warning("Skipping refund test - not implemented")
-                credit_result = None
-                logger.info("Created refund credit for PAID state")
 
     def test_contract_pricing_with_adjustments(self, test_context, test_app_keys):
         """Test contract-based pricing with various adjustments.
@@ -462,80 +422,6 @@ class TestBusinessLogicCombinations(BaseIntegrationTest):
                     credit_name="Premium Bonus Credit",
                     amount=50000,
                 )
-
-    @pytest.mark.skip(
-        reason="Error recovery scenarios require advanced mock server features"
-    )
-    def test_error_recovery_scenarios(self, test_context, test_app_keys):
-        """Test system behavior in error scenarios.
-
-        Note: Skipped because error scenarios require mock server to simulate
-        various failure modes that are not currently implemented.
-
-        Tests:
-        1. Invalid metering data handling
-        2. Adjustment conflicts
-        3. Credit insufficiency
-        4. Calculation failures and retries
-        """
-        managers = test_context["managers"]
-
-        # 1. Test invalid metering data
-        try:
-            managers["metering"].send_metering(
-                app_key="INVALID-APP-KEY",
-                counter_name="test.invalid",
-                counter_type="INVALID_TYPE",  # Invalid type
-                counter_unit="UNITS",
-                counter_volume="-100",  # Negative volume
-            )
-            logger.warning("Invalid metering accepted (may be valid in some cases)")
-        except Exception as e:
-            logger.info(f"Invalid metering correctly rejected: {e}")
-
-        # 2. Test conflicting adjustments
-        # Apply two rate discounts on same target (should they stack?)
-        managers["adjustment"].apply_adjustment(
-            adjustment_name="First discount",
-            adjustment_type=AdjustmentType.RATE_DISCOUNT,
-            adjustment_amount=10,
-            adjustment_target=AdjustmentTarget.PROJECT,
-            target_id=test_app_keys[0],
-        )
-
-        managers["adjustment"].apply_adjustment(
-            adjustment_name="Second discount",
-            adjustment_type=AdjustmentType.RATE_DISCOUNT,
-            adjustment_amount=20,
-            adjustment_target=AdjustmentTarget.PROJECT,
-            target_id=test_app_keys[0],
-        )
-
-        # 3. Test credit over-usage
-        # Grant small credit
-        managers["credit"].grant_credit(
-            campaign_id="SMALL-CREDIT",
-            credit_name="Small Test Credit",
-            amount=1000,
-        )
-
-        # Create large usage
-        managers["metering"].send_metering(
-            app_key=test_app_keys[0],
-            counter_name="test.overuse",
-            counter_type=CounterType.DELTA,
-            counter_unit="UNITS",
-            counter_volume="100000",  # Much larger than credit
-        )
-
-        # Calculate and check handling
-        managers["calculation"].recalculate_all()
-        payment_statement = managers["payment"].get_payment_statement()
-
-        if payment_statement.get("statements"):
-            statement = payment_statement["statements"][0]
-            total_due = statement.get("totalAmount", 0)
-            logger.info(f"Amount due after insufficient credit: {total_due}")
 
 
 @pytest.mark.integration
