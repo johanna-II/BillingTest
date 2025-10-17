@@ -28,17 +28,16 @@ RUN if [ -f requirements-mock.txt ]; then \
 COPY --chown=mockuser:mockuser --chmod=555 mock_server /app/mock_server
 
 # Create docs directory structure
-RUN mkdir -p /app/docs/openapi
-
-# Copy OpenAPI spec with read-only permissions (optional, will be mounted in docker-compose)
-# Using 555 to ensure directory access (execute permission required for directories)
-COPY --chown=mockuser:mockuser --chmod=555 docs/openapi /app/docs/openapi
+# Note: OpenAPI specs are excluded by .dockerignore for security
+# They will be mounted via volume in docker-compose if needed
+# Mock server works without OpenAPI files (uses mock_data.py instead)
+RUN mkdir -p /app/docs/openapi && chown -R mockuser:mockuser /app/docs
 
 # Ensure proper ownership of the working directory
 RUN chown -R mockuser:mockuser /app
 
 # Set Python path
-ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 5000
