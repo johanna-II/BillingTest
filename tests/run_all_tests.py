@@ -29,9 +29,9 @@ class TestRunner:
 
     def run_command(self, cmd: list[str], env: dict | None = None) -> int:
         """Run a command and return exit code."""
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Running: {' '.join(cmd)}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         process_env = os.environ.copy()
         if env:
@@ -277,13 +277,13 @@ def main():
         print("=" * 80)
         print(f"Total Duration: {total_duration:.2f}s")
         print(
-            f"  - Unit Tests:        {unit_duration:.2f}s ({unit_duration/total_duration*100:.1f}%)"
+            f"  - Unit Tests:        {unit_duration:.2f}s ({unit_duration / total_duration * 100:.1f}%)"
         )
         print(
-            f"  - Integration Tests: {int_duration:.2f}s ({int_duration/total_duration*100:.1f}%)"
+            f"  - Integration Tests: {int_duration:.2f}s ({int_duration / total_duration * 100:.1f}%)"
         )
         print(
-            f"  - Contract Tests:    {contract_duration:.2f}s ({contract_duration/total_duration*100:.1f}%)"
+            f"  - Contract Tests:    {contract_duration:.2f}s ({contract_duration / total_duration * 100:.1f}%)"
         )
         print("=" * 80)
     elif args.suite == "unit":

@@ -212,9 +212,9 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
         credit_combo: tuple[str, list[tuple[CreditType, int]]],
     ) -> dict[str, Any]:
         """Execute a single scenario with all combinations."""
-        logger.info(f"\n{'='*60}")
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Executing scenario: {scenario_name}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         managers = test_context["managers"]
         base_usage_amount = 100000  # 100,000 KRW base charge
@@ -368,9 +368,9 @@ class TestCompleteBusinessCombinations(BaseIntegrationTest):
 
     def _verify_scenario_results(self, results: list[dict[str, Any]]) -> None:
         """Verify all scenario results."""
-        logger.info(f"\n{'='*60}")
+        logger.info(f"\n{'=' * 60}")
         logger.info("SUMMARY OF ALL SCENARIOS")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         for result in results:
             logger.info(f"\nScenario: {result['scenario']}")

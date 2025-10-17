@@ -26,7 +26,7 @@ class TestCreditMocked:
         """Test basic credit grant with mocked response."""
         responses.add(
             responses.POST,
-            re.compile(r".*/billing/admin/campaign/.*/credits$"),
+            re.compile(r".*/billing/admin/campaign/[^/]*/credits$"),
             json={
                 "header": {
                     "isSuccessful": True,
@@ -58,7 +58,7 @@ class TestCreditMocked:
         """Test granting different credit types."""
         responses.add(
             responses.POST,
-            re.compile(r".*/billing/admin/campaign/.*/credits$"),
+            re.compile(r".*/billing/admin/campaign/[^/]*/credits$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -89,7 +89,7 @@ class TestCreditMocked:
         # Mock the credit history endpoint (get_total_credit_balance calls get_credit_history)
         responses.add(
             responses.GET,
-            re.compile(r".*/billing/credits/history"),
+            re.compile(r".*/billing/credits/history$"),
             json={
                 "header": {"isSuccessful": True},
                 "creditHistories": [
@@ -115,7 +115,7 @@ class TestCreditMocked:
         """Test credit with expiration date."""
         responses.add(
             responses.POST,
-            re.compile(r".*/billing/admin/campaign/.*/credits$"),
+            re.compile(r".*/billing/admin/campaign/[^/]*/credits$"),
             json={
                 "header": {"isSuccessful": True},
                 "credit": {"creditId": "CRD-EXP-001", "expiryDate": "2024-12-31"},
@@ -153,7 +153,7 @@ class TestCreditMocked:
         """Test multiple credit operations."""
         responses.add(
             responses.POST,
-            re.compile(r".*/billing/admin/campaign/.*/credits$"),
+            re.compile(r".*/billing/admin/campaign/[^/]*/credits$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
