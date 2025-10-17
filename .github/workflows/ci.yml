@@ -122,19 +122,56 @@ jobs:
         # 단위 테스트는 병렬 실행 (auto) + 60초 타임아웃
         # 계약 테스트는 순차 실행 + 300초 타임아웃
         if [ "${{ matrix.test-type }}" = "integration" ]; then
-          # Use Docker Compose V2 for isolation to prevent worker crashes
-          docker compose -f docker-compose.test.yml run --rm test-integration \
-            || (echo "::warning::Integration tests failed, retrying with direct pytest..." && \
-                pytest tests/${{ matrix.test-type }}/ -v --tb=short \
-                  -n 2 \
-                  --timeout=300 \
-                  --timeout-method=thread \
-                  --reruns=5 \
-                  --reruns-delay=3 \
-                  --max-worker-restart=15 \
-                  --cov=libs --cov-report=term-missing \
-                  --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-                  --junit-xml=test-results-${{ matrix.test-type }}.xml)
+          # Build and run Mock Server as separate container (not docker-compose)
+          echo "Building Mock Server Docker image..."
+          docker build -f Dockerfile.mock -t billing-mock-server:ci .
+          
+          echo "Starting Mock Server in background..."
+          docker run -d \
+            --name mock-server-ci \
+            --network host \
+            -p 5000:5000 \
+            -e FLASK_ENV=production \
+            -e FLASK_APP=mock_server.app \
+            -e PYTHONUNBUFFERED=1 \
+            -e MOCK_SERVER_RATE_LIMIT=500 \
+            billing-mock-server:ci
+          
+          echo "Waiting for Mock Server to be healthy..."
+          for i in {1..60}; do
+            if curl -f http://localhost:5000/health 2>/dev/null; then
+              echo "✓ Mock server ready after ${i} seconds"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "✗ Mock server failed to start"
+              docker logs mock-server-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          
+          echo "Running Integration Tests (Real Mock Server!)..."
+          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
+            -n 2 \
+            --timeout=300 \
+            --timeout-method=thread \
+            --reruns=3 \
+            --reruns-delay=2 \
+            --max-worker-restart=15 \
+            --dist=loadfile \
+            --cov=libs --cov-report=term-missing \
+            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
+            --junit-xml=test-results-${{ matrix.test-type }}.xml \
+            --use-mock \
+            || TEST_EXIT_CODE=$?
+          
+          echo "Stopping Mock Server..."
+          docker logs mock-server-ci | tail -50
+          docker stop mock-server-ci || true
+          docker rm mock-server-ci || true
+          
+          exit ${TEST_EXIT_CODE:-0}
         elif [ "${{ matrix.test-type }}" = "unit" ]; then
           # Unit tests run directly (faster, no mock server needed)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
@@ -152,13 +189,60 @@ jobs:
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock
         elif [ "${{ matrix.test-type }}" = "comprehensive" ]; then
-          # Use Docker Compose V2 for comprehensive tests (most stable)
-          docker compose -f docker-compose.test.yml run --rm test-comprehensive \
-            || (echo "::warning::Comprehensive tests had failures" && exit 0)
+          # Build and run Mock Server as separate container
+          echo "Building Mock Server Docker image..."
+          docker build -f Dockerfile.mock -t billing-mock-server:ci .
+          
+          echo "Starting Mock Server..."
+          docker run -d \
+            --name mock-server-ci \
+            --network host \
+            -p 5000:5000 \
+            -e FLASK_ENV=production \
+            -e FLASK_APP=mock_server.app \
+            -e PYTHONUNBUFFERED=1 \
+            -e MOCK_SERVER_RATE_LIMIT=500 \
+            billing-mock-server:ci
+          
+          echo "Waiting for Mock Server..."
+          for i in {1..60}; do
+            if curl -f http://localhost:5000/health 2>/dev/null; then
+              echo "✓ Mock server ready"
+              break
+            fi
+            [ $i -eq 60 ] && { echo "✗ Failed to start"; docker logs mock-server-ci; exit 1; }
+            sleep 1
+          done
+          
+          echo "Running Comprehensive Tests..."
+          pytest tests/integration/test_all_business_combinations.py \
+            tests/integration/test_comprehensive_business_logic.py \
+            -v --tb=short \
+            -n 2 \
+            --timeout=600 \
+            --timeout-method=thread \
+            --reruns=3 \
+            --reruns-delay=3 \
+            --max-worker-restart=20 \
+            --dist=loadfile \
+            --junit-xml=test-results-${{ matrix.test-type }}.xml \
+            --use-mock \
+            || { TEST_EXIT_CODE=$?; echo "::warning::Comprehensive tests had failures"; }
+          
+          echo "Cleanup..."
+          docker logs mock-server-ci | tail -50
+          docker stop mock-server-ci || true
+          docker rm mock-server-ci || true
+          
+          exit ${TEST_EXIT_CODE:-0}
         fi
       env:
         PYTEST_TIMEOUT: 600
         COMPOSE_HTTP_TIMEOUT: 600
+        USE_MOCK_SERVER: 'true'
+        MOCK_SERVER_URL: http://localhost:5000
+        MOCK_SERVER_PORT: '5000'
+        PYTHONUNBUFFERED: '1'
     
     - name: Upload test results
       if: always()
