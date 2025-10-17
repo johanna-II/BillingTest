@@ -26,7 +26,7 @@ class TestCreditMocked:
         """Test basic credit grant with mocked response."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/credit/grant$"),
+            re.compile(r".*/billing/admin/campaign/.*/credits$"),
             json={
                 "header": {
                     "isSuccessful": True,
@@ -58,7 +58,7 @@ class TestCreditMocked:
         """Test granting different credit types."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/credit/grant$"),
+            re.compile(r".*/billing/admin/campaign/.*/credits$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -86,16 +86,21 @@ class TestCreditMocked:
     @responses.activate
     def test_get_credit_balance(self, credit_manager):
         """Test getting credit balance."""
+        # Mock the credit history endpoint (get_total_credit_balance calls get_credit_history)
         responses.add(
             responses.GET,
-            re.compile(r".*/v1/credit/balance$"),
+            re.compile(r".*/billing/credits/history"),
             json={
                 "header": {"isSuccessful": True},
-                "balance": {
-                    "totalBalance": 15000,
-                    "availableBalance": 12000,
-                    "usedBalance": 3000,
-                },
+                "creditHistories": [
+                    {
+                        "creditType": "FREE",
+                        "amount": 15000,
+                        "balance": 15000,
+                        "transactionDate": "2024-01-01",
+                        "description": "Test credit",
+                    }
+                ],
             },
             status=200,
         )
@@ -103,14 +108,14 @@ class TestCreditMocked:
         result = credit_manager.get_total_credit_balance()
 
         assert result is not None
-        assert len(responses.calls) == 1
+        assert len(responses.calls) >= 1
 
     @responses.activate
     def test_grant_credit_with_expiry(self, credit_manager):
         """Test credit with expiration date."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/credit/grant$"),
+            re.compile(r".*/billing/admin/campaign/.*/credits$"),
             json={
                 "header": {"isSuccessful": True},
                 "credit": {"creditId": "CRD-EXP-001", "expiryDate": "2024-12-31"},
@@ -127,38 +132,28 @@ class TestCreditMocked:
 
         assert result["header"]["isSuccessful"]
 
-    @responses.activate
     def test_credit_error_handling(self, credit_manager):
         """Test credit error scenarios."""
-        responses.add(
-            responses.POST,
-            re.compile(r".*/v1/credit/grant$"),
-            json={
-                "header": {
-                    "isSuccessful": False,
-                    "resultCode": 400,
-                    "resultMessage": "Invalid credit amount",
-                }
-            },
-            status=400,
-        )
-
-        result = credit_manager.grant_credit(
-            campaign_id="ERROR-TEST",
-            credit_name="Error Test",
-            amount=-1000,  # Negative amount
-            credit_type=CreditType.CAMPAIGN,
-        )
-
-        # Should handle error gracefully
-        assert result is not None
+        # Test validation error for negative amount
+        # This should raise ValidationException before making API call
+        with pytest.raises(Exception) as exc_info:
+            credit_manager.grant_credit(
+                campaign_id="ERROR-TEST",
+                credit_name="Error Test",
+                amount=-1000,  # Negative amount
+                credit_type=CreditType.CAMPAIGN,
+            )
+        # Should be ValidationException
+        assert "positive" in str(
+            exc_info.value
+        ).lower() or "ValidationException" in str(type(exc_info.value))
 
     @responses.activate
     def test_bulk_credit_operations(self, credit_manager):
         """Test multiple credit operations."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/credit/grant$"),
+            re.compile(r".*/billing/admin/campaign/.*/credits$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )

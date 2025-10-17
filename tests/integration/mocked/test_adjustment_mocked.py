@@ -25,7 +25,7 @@ class TestAdjustmentMocked:
         """Test basic adjustment application."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/adjustment$"),
+            re.compile(r".*/billing/admin/projects/adjustments$"),
             json={
                 "header": {
                     "isSuccessful": True,
@@ -56,9 +56,10 @@ class TestAdjustmentMocked:
     @responses.activate
     def test_different_adjustment_types(self, adjustment_manager):
         """Test different adjustment types."""
+        # Mock for both project and billing group endpoints
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/adjustment$"),
+            re.compile(r".*/billing/admin/(projects|billing-groups)/adjustments$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -88,9 +89,10 @@ class TestAdjustmentMocked:
     @responses.activate
     def test_adjustment_targets(self, adjustment_manager):
         """Test different adjustment targets."""
+        # Mock for both project and billing group endpoints
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/adjustment$"),
+            re.compile(r".*/billing/admin/(projects|billing-groups)/adjustments$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -120,9 +122,10 @@ class TestAdjustmentMocked:
     @responses.activate
     def test_surcharge_adjustments(self, adjustment_manager):
         """Test surcharge (positive) adjustments."""
+        # Mock for both project and billing group endpoints
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/adjustment$"),
+            re.compile(r".*/billing/admin/(projects|billing-groups)/adjustments$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -152,9 +155,10 @@ class TestAdjustmentMocked:
     @responses.activate
     def test_adjustment_with_description(self, adjustment_manager):
         """Test adjustment with detailed description."""
+        # Mock for billing group endpoint
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/adjustment$"),
+            re.compile(r".*/billing/admin/billing-groups/adjustments$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -170,29 +174,19 @@ class TestAdjustmentMocked:
 
         assert result["header"]["isSuccessful"]
 
-    @responses.activate
     def test_adjustment_error_handling(self, adjustment_manager):
         """Test adjustment error scenarios."""
-        responses.add(
-            responses.POST,
-            re.compile(r".*/v1/adjustment$"),
-            json={
-                "header": {
-                    "isSuccessful": False,
-                    "resultCode": 400,
-                    "resultMessage": "Invalid adjustment amount",
-                }
-            },
-            status=400,
+        # Test validation error for > 100% rate discount
+        # This should raise ValidationException before making API call
+        with pytest.raises(Exception) as exc_info:
+            adjustment_manager.apply_adjustment(
+                adjustment_name="Invalid Adjustment",
+                adjustment_type=AdjustmentType.RATE_DISCOUNT,
+                adjustment_amount=150.0,  # > 100%
+                adjustment_target=AdjustmentTarget.PROJECT,
+                target_id="proj-invalid",
+            )
+        # Should be ValidationException
+        assert "100%" in str(exc_info.value) or "ValidationException" in str(
+            type(exc_info.value)
         )
-
-        result = adjustment_manager.apply_adjustment(
-            adjustment_name="Invalid Adjustment",
-            adjustment_type=AdjustmentType.RATE_DISCOUNT,
-            adjustment_amount=150.0,  # > 100%
-            adjustment_target=AdjustmentTarget.PROJECT,
-            target_id="proj-invalid",
-        )
-
-        # Should handle error gracefully
-        assert result is not None
