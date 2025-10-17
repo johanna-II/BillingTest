@@ -1198,7 +1198,9 @@ def get_statements():
         final_total = adjusted_charge + final_vat
 
     # Apply credits
-    adjusted_charge, credit_to_use = _apply_credits(uuid_param, adjusted_charge)
+    adjusted_charge, credit_to_use, applied_credits_list = _apply_credits(
+        uuid_param, adjusted_charge
+    )
 
     # Final recalculation after credits
     if credit_to_use > 0:
