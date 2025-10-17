@@ -267,60 +267,6 @@ jobs:
         path: |
           test-results-security.xml
 
-  flaky-test-detection:
-    name: Flaky Test Detection
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-xdist pytest-rerunfailures pytest-json-report
-    
-    - name: Run tests multiple times
-      run: |
-        for i in {1..5}; do
-          echo "Run $i of 5"
-          pytest tests/ \
-            -n auto \
-            --json-report \
-            --json-report-file=report-$i.json \
-            || true
-        done
-    
-    - name: Analyze flaky tests
-      run: |
-        python tests/analyze_flaky_tests.py report-*.json > flaky-tests-report.md
-    
-    - name: Upload flaky test report
-      uses: actions/upload-artifact@v4
-      with:
-        name: flaky-tests-report
-        path: flaky-tests-report.md
-    
-    - name: Create issue for flaky tests
-      if: failure()
-      uses: actions/github-script@v8
-      with:
-        script: |
-          const fs = require('fs');
-          const report = fs.readFileSync('flaky-tests-report.md', 'utf8');
-          await github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title: 'Flaky Tests Detected',
-            body: report,
-            labels: ['flaky-test', 'automated']
-          });
-
   coverage-check:
     name: Coverage Analysis
     runs-on: ubuntu-latest
