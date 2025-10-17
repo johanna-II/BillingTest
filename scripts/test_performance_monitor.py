@@ -126,7 +126,6 @@ class TestMonitor:
         # Check test distribution
         total_tests = analysis["summary"]["total"]
         unit_count = len(analysis["test_categories"]["unit"])
-        int_count = len(analysis["test_categories"]["integration"])
 
         if total_tests > 0:
             unit_ratio = unit_count / total_tests
