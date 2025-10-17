@@ -97,7 +97,7 @@ class TestMeteringMocked:
         # Mock response for multiple calls
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/metering$"),
+            re.compile(r".*/billing/meters$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -121,35 +121,22 @@ class TestMeteringMocked:
         # Verify all requests were made
         assert len(responses.calls) == 3
 
-    @responses.activate
     def test_send_metering_error_handling(self, metering_manager):
         """Test error response handling."""
-        # Mock error response
-        responses.add(
-            responses.POST,
-            re.compile(r".*/v1/metering$"),
-            json={
-                "header": {
-                    "isSuccessful": False,
-                    "resultCode": 400,
-                    "resultMessage": "Invalid counter type",
-                }
-            },
-            status=400,
-        )
-
-        result = metering_manager.send_metering(
-            app_key="test-app-004",
-            counter_name="invalid.counter",
-            counter_type="INVALID_TYPE",
-            counter_unit="UNITS",
-            counter_volume="100",
-        )
-
-        # Should handle error gracefully
-        assert result is not None
-        # The manager might return the error response
-        # Exact behavior depends on implementation
+        # Test validation error for invalid counter type
+        # This should raise ValidationException before making API call
+        with pytest.raises(Exception) as exc_info:
+            metering_manager.send_metering(
+                app_key="test-app-004",
+                counter_name="invalid.counter",
+                counter_type="INVALID_TYPE",
+                counter_unit="UNITS",
+                counter_volume="100",
+            )
+        # Should be ValidationException
+        assert "Invalid counter type" in str(
+            exc_info.value
+        ) or "ValidationException" in str(type(exc_info.value))
 
     @responses.activate
     def test_send_metering_network_timeout(self, metering_manager):
@@ -157,7 +144,7 @@ class TestMeteringMocked:
         # Mock timeout
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/metering$"),
+            re.compile(r".*/billing/meters$"),
             body=Exception("Connection timeout"),
         )
 
@@ -181,7 +168,7 @@ class TestMeteringMocked:
         """Verify request body structure."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/metering$"),
+            re.compile(r".*/billing/meters$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -199,7 +186,7 @@ class TestMeteringMocked:
         request = responses.calls[0].request
 
         # Check URL
-        assert "/v1/metering" in request.url
+        assert "/billing/meters" in request.url
 
         # Check method
         assert request.method == "POST"
@@ -212,7 +199,7 @@ class TestMeteringMocked:
         """Test different counter types (DELTA, GAUGE)."""
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/metering$"),
+            re.compile(r".*/billing/meters$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
@@ -250,12 +237,12 @@ class TestMeteringPerformance:
 
         responses.add(
             responses.POST,
-            re.compile(r".*/v1/metering$"),
+            re.compile(r".*/billing/meters$"),
             json={"header": {"isSuccessful": True}},
             status=200,
         )
 
-        mgr = MeteringManager(month="2024-01", billing_group_id="perf-test")
+        mgr = MeteringManager(month="2024-01")
 
         start = time.time()
         for i in range(10):
