@@ -53,29 +53,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test-type: [unit, integration, contracts, comprehensive]
+        test-type: [unit, contracts, comprehensive]
     
     steps:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
-    - name: Check if comprehensive should run
-      if: matrix.test-type == 'comprehensive'
-      env:
-        GITHUB_REF: ${{ github.ref }}
-        COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-      run: |
-        if [[ "$GITHUB_REF" != "refs/heads/main" ]] && [[ "$COMMIT_MESSAGE" != *"[full-test]"* ]]; then
-          echo "Skipping comprehensive tests (only runs on main or with [full-test] tag)"
-          exit 0
-        fi
-    
     - uses: actions/checkout@v4
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
     
     - name: Set up Python
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
     
     - name: Cache dependencies
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
@@ -84,6 +76,7 @@ jobs:
           Linux-pip-
     
     - name: Install dependencies
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
@@ -91,7 +84,7 @@ jobs:
     
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
-      if: matrix.test-type == 'contracts'
+      if: (matrix.test-type == 'contracts') || (matrix.test-type == 'comprehensive' && (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')))
       run: |
         # Start mock server in background
         python -m mock_server.run_server &
@@ -116,66 +109,15 @@ jobs:
         FLASK_ENV: production
     
     - name: Run Tests with Coverage
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
         # coverage 파일명을 명시적으로 지정
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
         
-        # Docker 격리 실행 사용 (worker crash 방지)
-        # 통합 테스트는 병렬 실행 (2 workers) + 300초 타임아웃 + auto retry (5회)
         # 단위 테스트는 병렬 실행 (auto) + 60초 타임아웃
         # 계약 테스트는 순차 실행 + 300초 타임아웃
-        if [ "${{ matrix.test-type }}" = "integration" ]; then
-          # Build and run Mock Server as separate container (not docker-compose)
-          echo "Building Mock Server Docker image..."
-          docker build -f Dockerfile.mock -t billing-mock-server:ci .
-          
-          echo "Starting Mock Server in background..."
-          docker run -d \
-            --name mock-server-ci \
-            --network host \
-            -p 5000:5000 \
-            -e FLASK_ENV=production \
-            -e FLASK_APP=mock_server.app \
-            -e PYTHONUNBUFFERED=1 \
-            -e MOCK_SERVER_RATE_LIMIT=500 \
-            billing-mock-server:ci
-          
-          echo "Waiting for Mock Server to be healthy..."
-          for i in {1..60}; do
-            if curl -f http://localhost:5000/health 2>/dev/null; then
-              echo "✓ Mock server ready after ${i} seconds"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "✗ Mock server failed to start"
-              docker logs mock-server-ci
-              exit 1
-            fi
-            sleep 1
-          done
-          
-          echo "Running Integration Tests (Real Mock Server!)..."
-          pytest tests/${{ matrix.test-type }}/ -v --tb=short \
-            -n 2 \
-            --timeout=300 \
-            --timeout-method=thread \
-            --reruns=3 \
-            --reruns-delay=2 \
-            --max-worker-restart=15 \
-            --dist=loadfile \
-            --cov=libs --cov-report=term-missing \
-            --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-            --junit-xml=test-results-${{ matrix.test-type }}.xml \
-            --use-mock \
-            || TEST_EXIT_CODE=$?
-          
-          echo "Stopping Mock Server..."
-          docker logs mock-server-ci | tail -50
-          docker stop mock-server-ci || true
-          docker rm mock-server-ci || true
-          
-          exit ${TEST_EXIT_CODE:-0}
-        elif [ "${{ matrix.test-type }}" = "unit" ]; then
+        # 통합 테스트는 integration-tests-service.yml에서 별도 실행
+        if [ "${{ matrix.test-type }}" = "unit" ]; then
           # Unit tests run directly (faster, no mock server needed)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             -n auto \
@@ -405,7 +347,7 @@ jobs:
       uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a  # v5.0.7
       with:
         files: ./coverage-combined.xml
-        flags: unittests,integration,contracts
+        flags: unittests,contracts
         name: combined-coverage
         fail_ci_if_error: true
 
