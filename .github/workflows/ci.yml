@@ -59,8 +59,11 @@ jobs:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
     - name: Check if comprehensive should run
       if: matrix.test-type == 'comprehensive'
+      env:
+        GITHUB_REF: ${{ github.ref }}
+        COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
       run: |
-        if [[ "${{ github.ref }}" != "refs/heads/main" ]] && [[ "${{ github.event.head_commit.message }}" != *"[full-test]"* ]]; then
+        if [[ "$GITHUB_REF" != "refs/heads/main" ]] && [[ "$COMMIT_MESSAGE" != *"[full-test]"* ]]; then
           echo "Skipping comprehensive tests (only runs on main or with [full-test] tag)"
           exit 0
         fi
