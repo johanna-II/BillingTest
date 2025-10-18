@@ -138,7 +138,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-results
+          name: test-results-integration
           path: |
             test-results-integration.xml
             coverage-integration.xml
@@ -192,7 +192,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: component-test-results
+          name: test-results-component
           path: |
             test-results-component.xml
             coverage-component.xml
@@ -213,14 +213,14 @@ jobs:
           echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Integration Tests (Real Mock Server)" >> $GITHUB_STEP_SUMMARY
-          if [[ -f integration-test-results/test-results-integration.xml ]]; then
+          if [[ -f test-results-integration/test-results-integration.xml ]]; then
             echo "✓ Integration tests completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "✗ Integration tests failed or incomplete" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Component Tests (responses)" >> $GITHUB_STEP_SUMMARY
-          if [[ -f component-test-results/test-results-component.xml ]]; then
+          if [[ -f test-results-component/test-results-component.xml ]]; then
             echo "✓ Component tests completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "✗ Component tests failed or incomplete" >> $GITHUB_STEP_SUMMARY
