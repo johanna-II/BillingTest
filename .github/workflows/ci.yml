@@ -57,22 +57,17 @@ jobs:
     
     steps:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
-    - name: Check if comprehensive should run
-      if: matrix.test-type == 'comprehensive'
-      run: |
-        if [[ "${{ github.ref }}" != "refs/heads/main" ]] && [[ "${{ github.event.head_commit.message }}" != *"[full-test]"* ]]; then
-          echo "Skipping comprehensive tests (only runs on main or with [full-test] tag)"
-          exit 0
-        fi
-    
     - uses: actions/checkout@v4
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
     
     - name: Set up Python
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
     
     - name: Cache dependencies
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
@@ -81,6 +76,7 @@ jobs:
           Linux-pip-
     
     - name: Install dependencies
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
@@ -88,7 +84,7 @@ jobs:
     
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
-      if: matrix.test-type == 'contracts'
+      if: (matrix.test-type == 'contracts') || (matrix.test-type == 'comprehensive' && (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')))
       run: |
         # Start mock server in background
         python -m mock_server.run_server &
@@ -113,6 +109,7 @@ jobs:
         FLASK_ENV: production
     
     - name: Run Tests with Coverage
+      if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
         # coverage 파일명을 명시적으로 지정
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
