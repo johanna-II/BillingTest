@@ -213,7 +213,7 @@ jobs:
           echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Integration Tests (Real Mock Server)" >> $GITHUB_STEP_SUMMARY
-          if [[ -f test-results-integration.xml ]]; then
+          if [[ -f test-results-integration/test-results-integration.xml ]]; then
             echo "✓ Integration tests completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "✗ Integration tests failed or incomplete" >> $GITHUB_STEP_SUMMARY
