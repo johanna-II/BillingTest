@@ -220,7 +220,7 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Component Tests (responses)" >> $GITHUB_STEP_SUMMARY
-          if [[ -f test-results-component.xml ]]; then
+          if [[ -f test-results-component/test-results-component.xml ]]; then
             echo "✓ Component tests completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "✗ Component tests failed or incomplete" >> $GITHUB_STEP_SUMMARY
