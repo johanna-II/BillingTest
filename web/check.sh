@@ -9,7 +9,7 @@ echo ""
 
 npm run check
 
-if [ $? -eq 0 ]; then
+if [[ $? -eq 0 ]]; then
     echo ""
     echo "========================================"
     echo "  All checks passed! ✓"

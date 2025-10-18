@@ -83,9 +83,9 @@ else
 fi
 
 # Setup frontend (if Node.js is available)
-if [ "$NODE_AVAILABLE" = true ]; then
+if [[ "$NODE_AVAILABLE" = true ]]; then
     echo "🎨 Setting up frontend..."
-    if [ -d "web" ]; then
+    if [[ -d "web" ]]; then
         cd web
         npm install
         cd ..
@@ -94,7 +94,7 @@ if [ "$NODE_AVAILABLE" = true ]; then
 fi
 
 # Setup Docker (if available)
-if [ "$DOCKER_AVAILABLE" = true ]; then
+if [[ "$DOCKER_AVAILABLE" = true ]]; then
     echo "🐳 Building Docker images..."
     docker-compose -f docker-compose.test.yml build --quiet
     echo -e "${GREEN}✓ Docker images built${NC}\n"
@@ -112,7 +112,7 @@ echo -e "${GREEN}✓ Directories created${NC}\n"
 echo "✅ Running validation tests..."
 $PYTEST_CMD tests/unit/ -v -n auto --maxfail=5 -q
 
-if [ $? -eq 0 ]; then
+if [[ $? -eq 0 ]]; then
     echo -e "\n${GREEN}✅ Validation passed!${NC}\n"
 else
     echo -e "\n${YELLOW}⚠ Some tests failed, but setup is complete${NC}\n"
@@ -140,14 +140,14 @@ echo "    $PYTEST_CMD --cov=libs --cov-report=html"
 echo "    open htmlcov/index.html"
 echo ""
 
-if [ "$DOCKER_AVAILABLE" = true ]; then
+if [[ "$DOCKER_AVAILABLE" = true ]]; then
     echo "  Mock Server:"
     echo "    python -m mock_server.run_server   # Start locally"
     echo "    docker-compose -f docker-compose.test.yml up mock-server"
     echo ""
 fi
 
-if [ "$NODE_AVAILABLE" = true ]; then
+if [[ "$NODE_AVAILABLE" = true ]]; then
     echo "  Frontend:"
     echo "    cd web && npm run dev              # Start dev server"
     echo "    cd web && npm run build            # Build for production"
