@@ -1,68 +1,111 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base",
+    "config:recommended",
     ":dependencyDashboard",
     ":semanticCommits",
     "group:allNonMajor",
     "schedule:weekly"
   ],
   "pip_requirements": {
-    "fileMatch": ["(^|/)requirements[\\w-]*\\.txt$"]
+    "managerFilePatterns": [
+      "/(^|/)requirements[\\w-]*\\.txt$/"
+    ]
   },
   "pip_setup": {
-    "fileMatch": ["(^|/)setup\\.py$", "(^|/)setup\\.cfg$"]
+    "managerFilePatterns": [
+      "/(^|/)setup\\.py$/",
+      "/(^|/)setup\\.cfg$/"
+    ]
   },
   "poetry": {
-    "fileMatch": ["(^|/)pyproject\\.toml$"]
+    "managerFilePatterns": [
+      "/(^|/)pyproject\\.toml$/"
+    ]
   },
   "packageRules": [
     {
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "labels": ["major-update"]
+      "labels": [
+        "major-update"
+      ]
     },
     {
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
       "automergeType": "pr",
-      "labels": ["minor-update"]
+      "labels": [
+        "minor-update"
+      ]
     },
     {
-      "matchPackagePatterns": ["^pytest"],
       "groupName": "pytest packages",
-      "schedule": ["before 3am on Monday"]
+      "schedule": [
+        "before 3am on Monday"
+      ],
+      "matchPackageNames": [
+        "/^pytest/"
+      ]
     },
     {
-      "matchPackagePatterns": ["^mypy", "^ruff", "^black"],
       "groupName": "linting tools",
-      "schedule": ["before 3am on Monday"]
+      "schedule": [
+        "before 3am on Monday"
+      ],
+      "matchPackageNames": [
+        "/^mypy/",
+        "/^ruff/",
+        "/^black/"
+      ]
     },
     {
-      "matchPackagePatterns": ["^opentelemetry"],
       "groupName": "OpenTelemetry packages",
-      "schedule": ["before 3am on Monday"]
+      "schedule": [
+        "before 3am on Monday"
+      ],
+      "matchPackageNames": [
+        "/^opentelemetry/"
+      ]
     },
     {
-      "matchPackagePatterns": ["^flask"],
       "groupName": "Flask packages",
-      "schedule": ["before 3am on Monday"]
+      "schedule": [
+        "before 3am on Monday"
+      ],
+      "matchPackageNames": [
+        "/^flask/"
+      ]
     },
     {
-      "matchDatasources": ["npm"],
+      "matchDatasources": [
+        "npm"
+      ],
       "groupName": "frontend dependencies",
-      "schedule": ["before 3am on Tuesday"]
+      "schedule": [
+        "before 3am on Tuesday"
+      ]
     }
   ],
   "prConcurrentLimit": 5,
   "prCreation": "immediate",
   "rangeStrategy": "auto",
-  "labels": ["dependencies", "renovate"],
+  "labels": [
+    "dependencies",
+    "renovate"
+  ],
   "assignees": [],
   "reviewers": [],
   "timezone": "Asia/Seoul",
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security"]
+    "labels": [
+      "security"
+    ]
   }
 }
