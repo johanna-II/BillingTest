@@ -97,7 +97,7 @@ jobs:
             echo "✓ Mock server is ready with rate limit 500 req/sec"
             break
           fi
-          if [ $i -eq 30 ]; then
+          if [[ $i -eq 30 ]]; then
             echo "✗ Mock server failed to start in 30 seconds"
             exit 1
           fi
@@ -117,7 +117,7 @@ jobs:
         # 단위 테스트는 병렬 실행 (auto) + 60초 타임아웃
         # 계약 테스트는 순차 실행 + 300초 타임아웃
         # 통합 테스트는 integration-tests-service.yml에서 별도 실행
-        if [ "${{ matrix.test-type }}" = "unit" ]; then
+        if [[ "${{ matrix.test-type }}" = "unit" ]]; then
           # Unit tests run directly (faster, no mock server needed)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             -n auto \
@@ -125,7 +125,7 @@ jobs:
             --cov=libs --cov-report=term-missing \
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml
-        elif [ "${{ matrix.test-type }}" = "contracts" ]; then
+        elif [[ "${{ matrix.test-type }}" = "contracts" ]]; then
           # Contracts run directly (sequential)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             --timeout=300 \
@@ -133,7 +133,7 @@ jobs:
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock
-        elif [ "${{ matrix.test-type }}" = "comprehensive" ]; then
+        elif [[ "${{ matrix.test-type }}" = "comprehensive" ]]; then
           # Build and run Mock Server as separate container
           echo "Building Mock Server Docker image..."
           docker build -f Dockerfile.mock -t billing-mock-server:ci .
@@ -368,7 +368,7 @@ jobs:
     - name: Create coverage badge
       run: |
         # Extract coverage percentage from XML if exists
-        if [ -f coverage-combined.xml ]; then
+        if [[ -f coverage-combined.xml ]]; then
           COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage-combined.xml'); root = tree.getroot(); coverage = float(root.attrib.get('line-rate', 0)) * 100; print(f'{coverage:.1f}')")
           echo "Coverage: ${COVERAGE}%"
 

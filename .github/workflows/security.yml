@@ -57,7 +57,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## Bandit Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f bandit_summary.txt ]; then
+          if [[ -f bandit_summary.txt ]]; then
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat bandit_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -65,7 +65,7 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
-          if [ -f safety_summary.txt ]; then
+          if [[ -f safety_summary.txt ]]; then
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat safety_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY

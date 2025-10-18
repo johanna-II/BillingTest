@@ -40,7 +40,7 @@ jobs:
       - name: Set test month
         id: set-month
         run: |
-          if [ "${{ matrix.month }}" = "current" ]; then
+          if [[ "${{ matrix.month }}" = "current" ]]; then
             echo "MONTH=$(date +%Y-%m)" >> $GITHUB_OUTPUT
           else
             echo "MONTH=$(date -d "1 month ago" +%Y-%m)" >> $GITHUB_OUTPUT
@@ -190,7 +190,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Parse test results if available
-          if [ -f "test-results-kr-current/test-results-kr-current.xml" ]; then
+          if [[ -f "test-results-kr-current/test-results-kr-current.xml" ]]; then
             echo "## Test Metrics" >> $GITHUB_STEP_SUMMARY
             echo "Processing test results..." >> $GITHUB_STEP_SUMMARY
           fi

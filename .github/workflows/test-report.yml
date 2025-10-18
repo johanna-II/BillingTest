@@ -16,6 +16,11 @@ jobs:
     if: github.event.workflow_run.conclusion != 'skipped'
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
       - name: Download artifacts
         uses: actions/github-script@v7
         with:
@@ -43,7 +48,7 @@ jobs:
       - name: Extract artifacts
         run: |
           for file in test-results-*.zip; do
-            if [ -f "$file" ]; then
+            if [[ -f "$file" ]]; then
               unzip -o "$file" || true
             fi
           done
