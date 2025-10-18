@@ -35,7 +35,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ onLoadEntry }) => {
   const formatCurrency = (amount: number): string => {
     return `₩${amount.toLocaleString('ko-KR')}`
   }
-  
+
   const formatDate = (timestamp: Date | string): string => {
     const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
     return format(date, 'PPp')
@@ -204,4 +204,3 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ onLoadEntry }) => {
 }
 
 export default React.memo(HistoryPanel)
-

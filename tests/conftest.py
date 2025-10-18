@@ -512,9 +512,7 @@ def assert_api_response():
 
     def _assert_response(response: dict, expected_status: str = "SUCCESS") -> None:
         assert "header" in response, "Response missing header"
-        assert response[
-            "header"
-        ].get(
+        assert response["header"].get(
             "isSuccessful", False
         ), f"API request failed: {response['header'].get('resultMessage', 'Unknown error')}"
 

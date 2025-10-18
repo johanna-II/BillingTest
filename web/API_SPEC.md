@@ -1,8 +1,8 @@
 # API Specification
 
-## Mock Server API 엔드포인트
+## Mock Server API Endpoints
 
-### 1. Metering (사용량 전송)
+### 1. Metering (Usage Submission)
 
 ```http
 POST /billing/meters
@@ -28,6 +28,7 @@ uuid: {uuid}
 ```
 
 **Response:**
+
 ```json
 {
   "header": {
@@ -40,7 +41,7 @@ uuid: {uuid}
 }
 ```
 
-### 2. Calculate (계산 실행)
+### 2. Calculate (Execute Calculation)
 
 ```http
 POST /billing/admin/calculate
@@ -55,6 +56,7 @@ uuid: {uuid}
 ```
 
 **Response:**
+
 ```json
 {
   "header": {
@@ -66,7 +68,7 @@ uuid: {uuid}
 }
 ```
 
-### 3. Get Statements (명세서 조회)
+### 3. Get Statements (Retrieve Statements)
 
 ```http
 GET /billing/payments/{month}/statements?uuid={uuid}
@@ -74,6 +76,7 @@ uuid: {uuid}
 ```
 
 **Response:**
+
 ```json
 {
   "header": {
@@ -97,7 +100,7 @@ uuid: {uuid}
 }
 ```
 
-### 4. Process Payment (결제)
+### 4. Process Payment (Payment Processing)
 
 ```http
 POST /billing/payments/{month}
@@ -111,6 +114,7 @@ uuid: {uuid}
 ```
 
 **Response:**
+
 ```json
 {
   "header": {
@@ -118,96 +122,93 @@ uuid: {uuid}
     "resultCode": "0",
     "resultMessage": "SUCCESS"
   },
-  "paymentId": "PAY-20251004120000",
-  "paymentGroupId": "bg-kr-test",
+  "paymentId": "pay-001",
   "status": "COMPLETED",
+  "paymentMethod": "CREDIT_CARD",
   "amount": 100000,
+  "transactionId": "txn-001",
   "paymentDate": "2025-10-04T12:00:00Z",
   "month": "2025-10"
 }
 ```
 
-## Web UI → Mock Server 플로우
+## Web UI to Mock Server Flow
 
-```
+```text
 1. User Input
    ↓
-2. POST /api/billing/meters (프론트엔드)
-   ↓ (프록시)
-3. POST /billing/meters (Mock 서버)
+2. POST /api/billing/meters (Frontend)
+   ↓ (Proxy)
+3. POST /billing/meters (Mock Server)
    ↓
-4. POST /api/billing/admin/calculate (프론트엔드)
-   ↓ (프록시)
-5. POST /billing/admin/calculate (Mock 서버)
+4. POST /api/billing/admin/calculate (Frontend)
+   ↓ (Proxy)
+5. POST /billing/admin/calculate (Mock Server)
    ↓
-6. GET /api/billing/payments/{month}/statements (프론트엔드)
-   ↓ (프록시)
-7. GET /billing/payments/{month}/statements (Mock 서버)
+6. GET /api/billing/payments/{month}/statements (Frontend)
+   ↓ (Proxy)
+7. GET /billing/payments/{month}/statements (Mock Server)
    ↓
 8. Display Statement
    ↓
-9. POST /api/billing/payments/{month} (프론트엔드)
-   ↓ (프록시)
-10. POST /billing/payments/{month} (Mock 서버)
+9. POST /api/billing/payments/{month} (Frontend)
+   ↓ (Proxy)
+10. POST /billing/payments/{month} (Mock Server)
    ↓
 11. Display Payment Result
 ```
 
-## Next.js API Routes (CORS 우회)
+## Next.js API Routes (CORS Bypass)
 
 ### `/api/billing/meters`
-- 프록시: → `/billing/meters` (Mock 서버)
-- Method: POST
-- Purpose: metering 데이터 전송
+
+- Proxies to `POST /billing/meters`
+- Adds CORS headers
 
 ### `/api/billing/admin/calculate`
-- 프록시: → `/billing/admin/calculate` (Mock 서버)
-- Method: POST
-- Purpose: 계산 job 실행
 
-### `/api/billing/payments/[month]/statements`
-- 프록시: → `/billing/payments/{month}/statements` (Mock 서버)
-- Method: GET
-- Purpose: 명세서 조회
+- Proxies to `POST /billing/admin/calculate`
 
-### `/api/billing/payments/[month]`
-- 프록시: → `/billing/payments/{month}` (Mock 서버)
-- Method: POST
-- Purpose: 결제 처리
+### `/api/billing/payments/{month}/statements`
 
-## 에러 처리
+- Proxies to `GET /billing/payments/{month}/statements`
 
-### Client-Side Fallback
-API가 statement를 반환하지 않으면, 프론트엔드에서 자체 계산:
+### `/api/billing/payments/{month}`
 
-```typescript
-// Client-side billing calculation
-const subtotal = usage.reduce((sum, u) => sum + u.volume * 1000, 0)
-const adjustmentTotal = adjustments.reduce(...)
+- Proxies to `POST /billing/payments/{month}`
+
+## Calculation Logic
+
+```javascript
+const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0)
+const adjustmentTotal = adjustments.reduce((sum, adj) => sum + adj.amount, 0)
 const creditApplied = credits.reduce(...)
 const total = subtotal + adjustmentTotal - creditApplied + unpaid + lateFee
 ```
 
 ### Error Response Format
+
 ```json
 {
   "header": {
     "isSuccessful": false,
-    "resultCode": "400|500",
-    "resultMessage": "Error description"
+    "resultCode": "400",
+    "resultMessage": "ERROR"
   },
   "error": "Additional error details"
 }
 ```
 
-## 테스트 방법
+## Testing Methods
 
-### 1. Mock 서버 확인
+### 1. Health Check
+
 ```bash
 curl http://localhost:5000/health
 ```
 
-### 2. Metering 테스트
+### 2. Metering Test
+
 ```bash
 curl -X POST http://localhost:5000/billing/meters \
   -H "Content-Type: application/json" \
@@ -215,7 +216,8 @@ curl -X POST http://localhost:5000/billing/meters \
   -d '{"meterList":[{"appKey":"app-kr-master-001","counterName":"test","counterVolume":100}]}'
 ```
 
-### 3. Calculate 테스트
+### 3. Calculate Test
+
 ```bash
 curl -X POST http://localhost:5000/billing/admin/calculate \
   -H "Content-Type: application/json" \
@@ -223,13 +225,16 @@ curl -X POST http://localhost:5000/billing/admin/calculate \
   -d '{"month":"2025-10","uuid":"test-uuid-001","billingGroupId":"bg-kr-test"}'
 ```
 
-### 4. Statements 테스트
+### 4. Statements Test
+
 ```bash
-curl "http://localhost:5000/billing/payments/2025-10/statements?uuid=test-uuid-001" \
+curl "http://localhost:5000/billing/payments/2025-10/statements?\
+uuid=test-uuid-001" \
   -H "uuid: test-uuid-001"
 ```
 
-### 5. Payment 테스트
+### 5. Payment Test
+
 ```bash
 curl -X POST http://localhost:5000/billing/payments/2025-10 \
   -H "Content-Type: application/json" \
@@ -237,43 +242,28 @@ curl -X POST http://localhost:5000/billing/payments/2025-10 \
   -d '{"paymentGroupId":"bg-kr-test","amount":100000}'
 ```
 
-## 환경 변수
+## Environment Variables
 
-```env
+```bash
 # .env.local
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
-## 디버깅 팁
+## Debugging Tips
 
-### CORS 에러 발생 시
-- Next.js dev server 재시작: `npm run dev`
-- API routes가 제대로 프록시하고 있는지 확인
-- 브라우저 Network 탭에서 요청 확인
+- Check Mock Server logs
+- Use browser DevTools Network tab
+- Verify CORS headers
+- Check request/response format
 
-### "Unexpected token '<'" 에러
-- HTML 응답을 받았다는 의미 (404 페이지일 가능성)
-- URL 경로 확인
-- Mock 서버가 해당 엔드포인트를 지원하는지 확인
-
-### Mock 서버 로그 확인
 ```bash
-# Mock 서버 실행 시 로그 출력
+# Mock server with logging
 python -m mock_server.run_server
 ```
 
-## 추가 엔드포인트 (향후)
+## Additional Endpoints (Future)
 
-### Credits 관리
-- `POST /billing/admin/campaign/{id}/credits` - 크레딧 부여
-- `DELETE /billing/credits/cancel` - 크레딧 취소
-
-### Adjustments 관리
-- `POST /billing/admin/projects/adjustments` - 프로젝트 조정
-- `POST /billing/admin/billing-groups/adjustments` - 빌링그룹 조정
-
-### Contracts
-- `POST /billing/contracts` - 계약 생성
-- `GET /billing/contracts` - 계약 조회
-
-
+- Batch operations
+- Reporting endpoints
+- Admin operations
+- Analytics APIs

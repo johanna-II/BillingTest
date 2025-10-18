@@ -29,6 +29,7 @@ class CalculationManager:
         self._client = client or BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
+        """Return string representation of CalculationManager."""
         return f"CalculationManager(month={self.month}, uuid={self.uuid})"
 
     def recalculate_all(

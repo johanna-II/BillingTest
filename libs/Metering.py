@@ -34,6 +34,7 @@ class MeteringManager:
         self._iaas_template = self._create_default_template()
 
     def __repr__(self) -> str:
+        """Return string representation of MeteringManager."""
         return f"MeteringManager(month={self.month})"
 
     @staticmethod

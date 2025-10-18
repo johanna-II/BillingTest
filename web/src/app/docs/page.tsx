@@ -13,7 +13,7 @@ export default function DocsPage(): JSX.Element {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="flex-1 bg-kinfolk-beige-50">
         <div className="kinfolk-container py-16">
           {/* Hero */}
@@ -61,11 +61,11 @@ export default function DocsPage(): JSX.Element {
               <h2 className="text-3xl font-kinfolk-serif mb-6">Overview</h2>
               <div className="space-y-4 text-kinfolk-gray-700 leading-relaxed">
                 <p>
-                  The Billing Calculator is a modern web application designed for calculating and testing 
+                  The Billing Calculator is a modern web application designed for calculating and testing
                   complex billing scenarios. Built with Next.js, TypeScript, and a KINFOLK-inspired minimal design.
                 </p>
                 <p>
-                  It provides a comprehensive solution for managing usage-based billing, adjustments, 
+                  It provides a comprehensive solution for managing usage-based billing, adjustments,
                   credits, and payment processing with real-time calculations and PDF export capabilities.
                 </p>
               </div>
@@ -107,7 +107,7 @@ export default function DocsPage(): JSX.Element {
           <section id="getting-started" className="mb-16">
             <div className="kinfolk-card p-12">
               <h2 className="text-3xl font-kinfolk-serif mb-6">Getting Started</h2>
-              
+
               <div className="mb-8">
                 <h3 className="kinfolk-subheading mb-4">1. Basic Information</h3>
                 <p className="text-sm text-kinfolk-gray-700 mb-4">
@@ -165,7 +165,7 @@ export default function DocsPage(): JSX.Element {
           <section id="api-integration" className="mb-16">
             <div className="kinfolk-card p-12">
               <h2 className="text-3xl font-kinfolk-serif mb-6">API Integration</h2>
-              
+
               <div className="mb-8">
                 <h3 className="kinfolk-subheading mb-4">Frontend API Client</h3>
                 <p className="text-sm text-kinfolk-gray-700 mb-4">
@@ -220,7 +220,7 @@ const statement = await calculateBilling({
           <section id="architecture" className="mb-16">
             <div className="kinfolk-card p-12">
               <h2 className="text-3xl font-kinfolk-serif mb-6">System Architecture</h2>
-              
+
               <div className="mb-8">
                 <h3 className="kinfolk-subheading mb-6">Architecture Diagram</h3>
                 <div className="bg-kinfolk-beige-50 p-8 border border-kinfolk-gray-200">
@@ -491,7 +491,7 @@ const statement = await calculateBilling({
           <section id="billing-flow" className="mb-16">
             <div className="kinfolk-card p-12">
               <h2 className="text-3xl font-kinfolk-serif mb-6">Billing Flow</h2>
-              
+
               <div className="space-y-6">
                 <div className="flex items-start space-x-4">
                   <div className="w-8 h-8 bg-kinfolk-gray-900 text-white flex items-center justify-center text-sm font-bold">1</div>
@@ -550,7 +550,7 @@ const statement = await calculateBilling({
           <section id="examples" className="mb-16">
             <div className="kinfolk-card p-12">
               <h2 className="text-3xl font-kinfolk-serif mb-6">Code Examples</h2>
-              
+
               <div className="mb-8">
                 <h3 className="kinfolk-subheading mb-4">React Hook Usage</h3>
                 <pre className="bg-kinfolk-gray-900 text-white p-4 text-xs overflow-x-auto rounded">

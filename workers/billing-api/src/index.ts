@@ -14,15 +14,15 @@ app.use('/*', cors({
       /^https:\/\/.*\.pages\.dev$/,  // 모든 .pages.dev 서브도메인
       /^https:\/\/.*\.workers\.dev$/  // 모든 .workers.dev 서브도메인
     ]
-    
+
     if (!origin) return '*' // non-browser requests
-    
+
     // 정규식 또는 문자열 매칭
     const isAllowed = allowedOrigins.some(allowed => {
       if (typeof allowed === 'string') return allowed === origin
       return allowed.test(origin)
     })
-    
+
     return isAllowed ? origin : 'https://billingtest.pages.dev'
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -126,10 +126,10 @@ app.post('/api/billing/admin/calculate', async (c) => {
   } catch (error) {
     console.error('Calculate billing error:', error)
     return c.json({
-      header: { 
-        isSuccessful: false, 
-        resultCode: -1, 
-        resultMessage: error instanceof Error ? error.message : 'Calculation failed' 
+      header: {
+        isSuccessful: false,
+        resultCode: -1,
+        resultMessage: error instanceof Error ? error.message : 'Calculation failed'
       }
     }, 500)
   }
@@ -169,10 +169,10 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
   } catch (error) {
     console.error('Get statements error:', error)
     return c.json({
-      header: { 
-        isSuccessful: false, 
-        resultCode: -1, 
-        resultMessage: error instanceof Error ? error.message : 'Failed to get statements' 
+      header: {
+        isSuccessful: false,
+        resultCode: -1,
+        resultMessage: error instanceof Error ? error.message : 'Failed to get statements'
       }
     }, 500)
   }
@@ -198,10 +198,10 @@ app.post('/api/billing/payments/:month', async (c) => {
   } catch (error) {
     console.error('Payment processing error:', error)
     return c.json({
-      header: { 
-        isSuccessful: false, 
-        resultCode: -1, 
-        resultMessage: error instanceof Error ? error.message : 'Payment processing failed' 
+      header: {
+        isSuccessful: false,
+        resultCode: -1,
+        resultMessage: error instanceof Error ? error.message : 'Payment processing failed'
       }
     }, 500)
   }
@@ -219,4 +219,3 @@ function getUnitPrice(counterName: string): number {
 }
 
 export default app
-

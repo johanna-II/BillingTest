@@ -31,5 +31,3 @@ export function usePaymentProcessing() {
     retry: 1,
   })
 }
-
-

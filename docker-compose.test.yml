@@ -166,7 +166,7 @@ services:
       --use-mock
     networks:
       - test-network
-  
+
   # Comprehensive test runner (450 combinations)
   test-comprehensive:
     build:

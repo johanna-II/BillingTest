@@ -44,6 +44,7 @@ class ContractManager:
         self._client = client if client else BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
+        """Return string representation of ContractManager."""
         return f"ContractManager(month={self.month}, billing_group_id={self.billing_group_id})"
 
     def apply_contract(

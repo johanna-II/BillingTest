@@ -16,7 +16,7 @@ jobs:
   security-scan:
     name: Security Analysis
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,14 +55,14 @@ jobs:
         run: |
           echo "# Security Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "## Bandit Results" >> $GITHUB_STEP_SUMMARY
           if [ -f bandit_summary.txt ]; then
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat bandit_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
           if [ -f safety_summary.txt ]; then
@@ -90,7 +90,7 @@ jobs:
           script: |
             const fs = require('fs');
             let comment = '## 🔒 Security Scan Results\n\n';
-            
+
             try {
               // Read Bandit summary
               if (fs.existsSync('bandit_summary.txt')) {
@@ -98,7 +98,7 @@ jobs:
                 const lines = banditSummary.split('\n').slice(0, 20);
                 comment += '### Bandit (Code Security)\n```\n' + lines.join('\n') + '\n```\n\n';
               }
-              
+
               // Read Safety summary
               if (fs.existsSync('safety_summary.txt')) {
                 const safetySummary = fs.readFileSync('safety_summary.txt', 'utf8');
@@ -108,7 +108,7 @@ jobs:
             } catch (error) {
               comment += '❌ Error reading security scan results\n';
             }
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

@@ -17,7 +17,7 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="kinfolk-label mb-4">About</h3>
             <p className="text-sm text-kinfolk-gray-600 leading-relaxed">
-              A minimal billing calculator for testing and validation. 
+              A minimal billing calculator for testing and validation.
               Built with precision and simplicity in mind.
             </p>
           </div>
@@ -27,24 +27,24 @@ const Footer: React.FC = () => {
             <h3 className="kinfolk-label mb-4">Resources</h3>
             <ul className="space-y-2">
               <li>
-                <a 
-                  href="/docs" 
+                <a
+                  href="/docs"
                   className="text-sm text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
                 >
                   Documentation
                 </a>
               </li>
               <li>
-                <a 
-                  href="/api-reference" 
+                <a
+                  href="/api-reference"
                   className="text-sm text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
                 >
                   API Reference
                 </a>
               </li>
               <li>
-                <a 
-                  href="https://github.com/johanna-II/BillingTest" 
+                <a
+                  href="https://github.com/johanna-II/BillingTest"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
@@ -61,8 +61,8 @@ const Footer: React.FC = () => {
             <p className="text-sm text-kinfolk-gray-600">
               For support and inquiries
             </p>
-            <a 
-              href="mailto:jane@janetheglory.org" 
+            <a
+              href="mailto:jane@janetheglory.org"
               className="text-sm text-kinfolk-gray-900 hover:underline"
             >
               jane@janetheglory.org
@@ -76,8 +76,8 @@ const Footer: React.FC = () => {
           <p className="text-xs uppercase tracking-widest text-kinfolk-gray-500">
             © {currentYear} Billing Calculator
           </p>
-          <a 
-            href="/license" 
+          <a
+            href="/license"
             className="text-xs uppercase tracking-widest text-kinfolk-gray-500 hover:text-kinfolk-gray-900 transition-colors"
           >
             MIT License
@@ -89,4 +89,3 @@ const Footer: React.FC = () => {
 }
 
 export default React.memo(Footer)
-

@@ -115,6 +115,7 @@ class CreditAPIClient:
     CREDIT_HISTORY_ENDPOINT = "billing/credits/history"
 
     def __init__(self, client: BillingAPIClient) -> None:
+        """Initialize the CreditAPI with a billing client."""
         self._client = client
 
     def grant_coupon(self, coupon_code: str, uuid: str) -> CreditData:
@@ -239,6 +240,7 @@ class CreditManager:
         logger.info(f"Initialized CreditManager for UUID: {uuid}")
 
     def __repr__(self) -> str:
+        """Return string representation of CreditManager."""
         return f"CreditManager(uuid={self.uuid!r})"
 
     def __enter__(self) -> Self:

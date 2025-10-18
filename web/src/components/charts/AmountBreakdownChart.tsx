@@ -133,5 +133,3 @@ const AmountBreakdownChart: React.FC<AmountBreakdownChartProps> = ({
 }
 
 export default React.memo(AmountBreakdownChart)
-
-

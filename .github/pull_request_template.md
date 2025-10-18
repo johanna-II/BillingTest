@@ -1,34 +1,37 @@
-## 📋 PR 체크리스트
+# PR Checklist
 
-### 변경 사항
-- [ ] 버그 수정
-- [ ] 새 기능
-- [ ] 리팩토링
-- [ ] 문서 업데이트
-- [ ] 테스트 추가/수정
+## Changes
 
-### 테스트
-- [ ] 로컬에서 테스트 실행 (`python run_tests.py --mode fast`)
-- [ ] 새로운 테스트 추가 (해당 시)
-- [ ] 기존 테스트 통과
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactoring
+- [ ] Documentation update
+- [ ] Test addition/modification
 
-### 영향 범위
-- [ ] `libs/` - 핵심 로직
-- [ ] `tests/` - 테스트 코드
-- [ ] `mock_server/` - Mock 서버
-- [ ] 설정 파일 (`.yml`, `.toml`)
+### Testing
 
-### CI 최적화 힌트
+- [ ] Ran tests locally (`python run_tests.py --mode fast`)
+- [ ] Added new tests (if applicable)
+- [ ] All existing tests pass
+
+### Impact Scope
+
+- [ ] `libs/` - Core logic
+- [ ] `tests/` - Test code
+- [ ] `mock_server/` - Mock server
+- [ ] Configuration files (`.yml`, `.toml`)
+
+### CI Optimization Hints
+
 ```yaml
-# PR 설명에 다음 키워드 사용 시 CI 동작 변경
-[skip ci] - CI 완전 스킵
-[fast test] - 빠른 테스트만
-[full test] - 전체 테스트 실행
+# Use these keywords in PR description to change CI behavior
+[skip ci] - Skip CI completely
+[fast test] - Run fast tests only
+[full test] - Run full test suite
 ```
 
-### 설명
-<!-- 변경 사항에 대한 간단한 설명 -->
+### Description
+<!-- Brief description of changes -->
 
-
-### 관련 이슈
+### Related Issues
 <!-- fixes #123 -->

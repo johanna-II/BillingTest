@@ -57,25 +57,25 @@ const billingReducer = (state: BillingState, action: BillingAction): BillingStat
   switch (action.type) {
     case 'SET_BILLING_INPUT':
       return { ...state, billingInput: action.payload, error: null }
-    
+
     case 'SET_CALCULATED_STATEMENT':
       return { ...state, calculatedStatement: action.payload, error: null }
-    
+
     case 'SET_PAYMENT_RESULT':
       return { ...state, paymentResult: action.payload }
-    
+
     case 'SET_CALCULATING':
       return { ...state, isCalculating: action.payload }
-    
+
     case 'SET_PROCESSING_PAYMENT':
       return { ...state, isProcessingPayment: action.payload }
-    
+
     case 'SET_ERROR':
       return { ...state, error: action.payload, isCalculating: false, isProcessingPayment: false }
-    
+
     case 'RESET':
       return initialState
-    
+
     default:
       return state
   }
@@ -99,27 +99,27 @@ export const BillingProvider: React.FC<BillingProviderProps> = ({ children }) =>
       setBillingInput: (input: BillingInput) => {
         dispatch({ type: 'SET_BILLING_INPUT', payload: input })
       },
-      
+
       setCalculatedStatement: (statement: BillingStatement) => {
         dispatch({ type: 'SET_CALCULATED_STATEMENT', payload: statement })
       },
-      
+
       setPaymentResult: (result: PaymentResult) => {
         dispatch({ type: 'SET_PAYMENT_RESULT', payload: result })
       },
-      
+
       setCalculating: (isCalculating: boolean) => {
         dispatch({ type: 'SET_CALCULATING', payload: isCalculating })
       },
-      
+
       setProcessingPayment: (isProcessing: boolean) => {
         dispatch({ type: 'SET_PROCESSING_PAYMENT', payload: isProcessing })
       },
-      
+
       setError: (error: CalculationError | null) => {
         dispatch({ type: 'SET_ERROR', payload: error })
       },
-      
+
       reset: () => {
         dispatch({ type: 'RESET' })
       },
@@ -146,11 +146,11 @@ export const BillingProvider: React.FC<BillingProviderProps> = ({ children }) =>
 // Custom hook for using billing context
 export const useBilling = (): BillingContextValue => {
   const context = useContext(BillingContext)
-  
+
   if (!context) {
     throw new Error('useBilling must be used within BillingProvider')
   }
-  
+
   return context
 }
 
@@ -182,4 +182,3 @@ export const useBillingLoading = (): { isCalculating: boolean; isProcessingPayme
     isProcessingPayment: state.isProcessingPayment,
   }
 }
-

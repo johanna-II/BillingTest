@@ -108,13 +108,13 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({ onBackToInput }) => {
         </div>
 
         <div className="flex justify-center">
-          <button 
+          <button
             onClick={() => {
               actions.reset()
               if (onBackToInput) {
                 onBackToInput()
               }
-            }} 
+            }}
             className="kinfolk-button-secondary"
           >
             Start New Calculation
@@ -190,4 +190,3 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({ onBackToInput }) => {
 }
 
 export default React.memo(PaymentSection)
-
