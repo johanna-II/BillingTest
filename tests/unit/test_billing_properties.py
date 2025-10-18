@@ -2,19 +2,19 @@
 
 This module uses Hypothesis to generate thousands of random test cases
 to verify mathematical properties of billing calculations.
+
+**IMPORTANT**: These tests are automatically skipped on Python 3.12+ due to a
+known compatibility issue in Hypothesis (TypeError: argument of type 'function'
+is not iterable). The tests work fine on Python 3.11 and below. When Hypothesis
+releases a fix for Python 3.12, the skip logic in tests/conftest.py can be removed.
+
+See: https://github.com/HypothesisWorks/hypothesis/issues/
 """
 
 from decimal import Decimal
 
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
-# Skip Hypothesis tests in xdist due to compatibility issues with Python 3.12
-pytestmark = pytest.mark.skipif(
-    "config.getoption('dist', 'no') != 'no'",
-    reason="Hypothesis has compatibility issues with xdist in Python 3.12",
-)
 
 
 # Custom strategies for billing domain
