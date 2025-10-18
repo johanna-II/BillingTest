@@ -81,7 +81,7 @@ jobs:
               echo "✓ Mock server is ready after ${i} seconds"
               break
             fi
-            if [ $i -eq 60 ]; then
+            if [[ $i -eq 60 ]]; then
               echo "✗ Mock server failed to start in 60 seconds"
               docker logs mock-server
               exit 1
@@ -213,14 +213,14 @@ jobs:
           echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Integration Tests (Real Mock Server)" >> $GITHUB_STEP_SUMMARY
-          if [ -f integration-test-results/test-results-integration.xml ]; then
+          if [[ -f integration-test-results/test-results-integration.xml ]]; then
             echo "✓ Integration tests completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "✗ Integration tests failed or incomplete" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Component Tests (responses)" >> $GITHUB_STEP_SUMMARY
-          if [ -f component-test-results/test-results-component.xml ]; then
+          if [[ -f component-test-results/test-results-component.xml ]]; then
             echo "✓ Component tests completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "✗ Component tests failed or incomplete" >> $GITHUB_STEP_SUMMARY
