@@ -270,7 +270,7 @@ def pytest_configure(config):
     )
 
 
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(session):
     """Generate performance report at end of test session."""
     if hasattr(session.config, "getoption"):
         if session.config.getoption("--benchmark-only", default=False):

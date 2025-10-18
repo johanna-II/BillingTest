@@ -85,11 +85,12 @@ class AdjustmentManager:
             if isinstance(adjustment_type, AdjustmentType)
             else str(adjustment_type) if adjustment_type else None
         )
-        adjustment_target_str = (
-            adjustment_target.value
-            if isinstance(adjustment_target, AdjustmentTarget)
-            else str(adjustment_target) if adjustment_target else None
-        )
+        if isinstance(adjustment_target, AdjustmentTarget):
+            adjustment_target_str = adjustment_target.value
+        elif adjustment_target:
+            adjustment_target_str = str(adjustment_target)
+        else:
+            adjustment_target_str = None
 
         return (
             adjustment_amount,
