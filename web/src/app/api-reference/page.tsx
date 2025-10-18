@@ -24,7 +24,7 @@ export default function APIReferencePage(): JSX.Element {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="flex-1 bg-kinfolk-beige-50">
         <div className="kinfolk-container py-16">
           {/* Hero */}
@@ -41,7 +41,7 @@ export default function APIReferencePage(): JSX.Element {
               <div>
                 <h3 className="kinfolk-subheading mb-4">Swagger UI</h3>
                 <p className="text-sm text-kinfolk-gray-700 leading-relaxed mb-4">
-                  Interactive API documentation powered by OpenAPI specification. 
+                  Interactive API documentation powered by OpenAPI specification.
                   Test endpoints directly from your browser.
                 </p>
                 <div className="space-y-2 text-sm text-kinfolk-gray-700">
@@ -76,40 +76,40 @@ export default function APIReferencePage(): JSX.Element {
                 <h3 className="kinfolk-subheading mb-4">Quick Links</h3>
                 <ul className="space-y-2">
                   <li>
-                    <a 
-                      href="#contracts" 
+                    <a
+                      href="#contracts"
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
                       → Contract Management
                     </a>
                   </li>
                   <li>
-                    <a 
-                      href="#credits" 
+                    <a
+                      href="#credits"
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
                       → Credits & Adjustments
                     </a>
                   </li>
                   <li>
-                    <a 
-                      href="#metering" 
+                    <a
+                      href="#metering"
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
                       → Metering Endpoints
                     </a>
                   </li>
                   <li>
-                    <a 
-                      href="#payments" 
+                    <a
+                      href="#payments"
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
                       → Payment Processing
                     </a>
                   </li>
                   <li>
-                    <a 
-                      href="#batch" 
+                    <a
+                      href="#batch"
                       className="text-sm text-kinfolk-gray-700 hover:text-kinfolk-gray-900 transition-colors"
                     >
                       → Batch Operations
@@ -127,7 +127,7 @@ export default function APIReferencePage(): JSX.Element {
             </div>
             <div className="bg-white">
               {isLoaded ? (
-                <SwaggerUI 
+                <SwaggerUI
                   url="/openapi.yaml"
                   docExpansion="list"
                   defaultModelsExpandDepth={1}

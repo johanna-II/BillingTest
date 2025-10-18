@@ -107,5 +107,3 @@ const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCre
 }
 
 export default React.memo(CreditInputSection)
-
-

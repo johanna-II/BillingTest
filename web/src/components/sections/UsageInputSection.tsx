@@ -14,27 +14,27 @@ interface UsageInputSectionProps {
 
 // Available instance types with pricing
 const INSTANCE_TYPES = [
-  { 
-    value: 'compute.c2.c8m8', 
-    label: 'compute.c2.c8m8 (8 vCPU, 8GB RAM)', 
+  {
+    value: 'compute.c2.c8m8',
+    label: 'compute.c2.c8m8 (8 vCPU, 8GB RAM)',
     unit: 'HOURS',
     description: '일반 컴퓨팅 인스턴스 - ₩397/시간'
   },
-  { 
-    value: 'compute.g2.t4.c8m64', 
-    label: 'compute.g2.t4.c8m64 (GPU T4, 8 vCPU, 64GB RAM)', 
+  {
+    value: 'compute.g2.t4.c8m64',
+    label: 'compute.g2.t4.c8m64 (GPU T4, 8 vCPU, 64GB RAM)',
     unit: 'HOURS',
     description: 'GPU 인스턴스 - ₩166.67/시간'
   },
-  { 
-    value: 'storage.volume.ssd', 
-    label: 'storage.volume.ssd (SSD Storage)', 
+  {
+    value: 'storage.volume.ssd',
+    label: 'storage.volume.ssd (SSD Storage)',
     unit: 'GB',
     description: 'SSD 블록 스토리지 - ₩100/GB/월'
   },
-  { 
-    value: 'network.floating_ip', 
-    label: 'network.floating_ip (Floating IP)', 
+  {
+    value: 'network.floating_ip',
+    label: 'network.floating_ip (Floating IP)',
     unit: 'HOURS',
     description: 'Floating IP - ₩25/시간'
   },
@@ -183,5 +183,3 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
 }
 
 export default React.memo(UsageInputSection)
-
-

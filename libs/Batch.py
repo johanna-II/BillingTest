@@ -39,6 +39,7 @@ class BatchManager:
         self._client = client if client else BillingAPIClient(url.BASE_BILLING_URL)
 
     def __repr__(self) -> str:
+        """Return string representation of BatchManager."""
         return f"BatchManager(month={self.month})"
 
     def request_batch_job(

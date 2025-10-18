@@ -1,0 +1,239 @@
+name: Test Report
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline", "Integration Tests (Service Container)"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion != 'skipped'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            });
+
+            for (const artifact of artifacts.data.artifacts) {
+              if (artifact.name.startsWith('test-results-')) {
+                const download = await github.rest.actions.downloadArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id,
+                  archive_format: 'zip',
+                });
+
+                const fs = require('fs');
+                fs.writeFileSync(`${artifact.name}.zip`, Buffer.from(download.data));
+              }
+            }
+
+      - name: Extract artifacts
+        run: |
+          for file in test-results-*.zip; do
+            if [ -f "$file" ]; then
+              unzip -o "$file" || true
+            fi
+          done
+
+      - name: Publish Test Report
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test Results
+          path: 'test-results-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Generate Summary
+        id: summary
+        run: |
+          # Parse JUnit XML files and generate summary
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import glob
+          import json
+
+          results = {
+              "unit": {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "time": 0},
+              "integration": {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "time": 0},
+              "contracts": {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "time": 0},
+              "comprehensive": {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "time": 0},
+          }
+
+          for xml_file in glob.glob("test-results-*.xml"):
+              try:
+                  tree = ET.parse(xml_file)
+                  root = tree.getroot()
+
+                  # Determine test type from filename
+                  test_type = "unit"
+                  if "integration" in xml_file:
+                      test_type = "integration"
+                  elif "contract" in xml_file:
+                      test_type = "contracts"
+                  elif "comprehensive" in xml_file:
+                      test_type = "comprehensive"
+
+                  # Parse testsuite
+                  for testsuite in root.findall('.//testsuite'):
+                      tests = int(testsuite.get('tests', 0))
+                      failures = int(testsuite.get('failures', 0))
+                      errors = int(testsuite.get('errors', 0))
+                      skipped = int(testsuite.get('skipped', 0))
+                      time = float(testsuite.get('time', 0))
+
+                      results[test_type]["total"] += tests
+                      results[test_type]["failed"] += failures + errors
+                      results[test_type]["skipped"] += skipped
+                      results[test_type]["passed"] += tests - failures - errors - skipped
+                      results[test_type]["time"] += time
+              except Exception as e:
+                  print(f"Error parsing {xml_file}: {e}")
+
+          # Output as JSON
+          print(json.dumps(results, indent=2))
+
+          # Save to file
+          with open('test_summary.json', 'w') as f:
+              json.dumps(results, f, indent=2)
+          EOF
+
+      - name: Comment PR
+        if: github.event.workflow_run.event == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let results;
+            try {
+              results = JSON.parse(fs.readFileSync('test_summary.json', 'utf8'));
+            } catch (e) {
+              console.log('No test summary found');
+              return;
+            }
+
+            // Calculate totals
+            let totalTests = 0;
+            let totalPassed = 0;
+            let totalFailed = 0;
+            let totalTime = 0;
+
+            for (const [type, data] of Object.entries(results)) {
+              totalTests += data.total;
+              totalPassed += data.passed;
+              totalFailed += data.failed;
+              totalTime += data.time;
+            }
+
+            // Calculate pass rate
+            const passRate = totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(1) : 0;
+
+            // Determine emoji
+            const emoji = totalFailed === 0 ? '✅' : '⚠️';
+
+            // Build comment
+            const comment = `
+            ## ${emoji} Test Results
+
+            **Overall:** ${totalPassed}/${totalTests} tests passed (${passRate}%)
+            **Duration:** ${totalTime.toFixed(1)}s
+
+            ### Test Breakdown
+
+            | Test Type | Total | Passed | Failed | Skipped | Duration |
+            |-----------|-------|--------|--------|---------|----------|
+            | **Unit** | ${results.unit.total} | ${results.unit.passed} | ${results.unit.failed} | ${results.unit.skipped} | ${results.unit.time.toFixed(1)}s |
+            | **Integration** | ${results.integration.total} | ${results.integration.passed} | ${results.integration.failed} | ${results.integration.skipped} | ${results.integration.time.toFixed(1)}s |
+            | **Contracts** | ${results.contracts.total} | ${results.contracts.passed} | ${results.contracts.failed} | ${results.contracts.skipped} | ${results.contracts.time.toFixed(1)}s |
+            | **Comprehensive** | ${results.comprehensive.total} | ${results.comprehensive.passed} | ${results.comprehensive.failed} | ${results.comprehensive.skipped} | ${results.comprehensive.time.toFixed(1)}s |
+
+            ${totalFailed > 0 ? '⚠️ **Some tests failed.** Please review the workflow logs.' : '✅ **All tests passed!**'}
+
+            <details>
+            <summary>📊 Test Execution Metrics</summary>
+
+            - **Fastest Suite:** ${Object.entries(results).sort((a, b) => a[1].time - b[1].time)[0][0]}
+            - **Total Test Count:** ${totalTests}
+            - **Pass Rate:** ${passRate}%
+
+            </details>
+            `;
+
+            // Find PR number
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
+
+            const pr = pulls.data.find(p =>
+              p.head.sha === context.payload.workflow_run.head_sha
+            );
+
+            if (pr) {
+              // Find existing comment
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+              });
+
+              const botComment = comments.data.find(c =>
+                c.user.type === 'Bot' && c.body.includes('Test Results')
+              );
+
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: comment,
+                });
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: comment,
+                });
+              }
+            }
+
+      - name: Add to Job Summary
+        run: |
+          cat test_summary.json | python3 << 'EOF'
+          import json
+          import sys
+
+          results = json.load(sys.stdin)
+
+          print("# 📊 Test Execution Summary\n")
+
+          for test_type, data in results.items():
+            if data["total"] > 0:
+              pass_rate = (data["passed"] / data["total"]) * 100
+              emoji = "✅" if data["failed"] == 0 else "⚠️"
+
+              print(f"## {emoji} {test_type.capitalize()} Tests\n")
+              print(f"- **Total:** {data['total']}")
+              print(f"- **Passed:** {data['passed']}")
+              print(f"- **Failed:** {data['failed']}")
+              print(f"- **Skipped:** {data['skipped']}")
+              print(f"- **Duration:** {data['time']:.2f}s")
+              print(f"- **Pass Rate:** {pass_rate:.1f}%\n")
+          EOF >> $GITHUB_STEP_SUMMARY

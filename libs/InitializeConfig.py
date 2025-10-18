@@ -591,6 +591,7 @@ class InitializeConfig:
             raise ValueError(msg)
 
     def __repr__(self) -> str:
+        """Return string representation of InitializeConfig."""
         return (
             f"InitializeConfig(env={self.env!r}, member={self.member!r}, "
             f"month={self.month!r}, use_mock={self.use_mock})"

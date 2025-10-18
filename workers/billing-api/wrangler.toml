@@ -15,4 +15,3 @@ route = "api.your-domain.com/*"  # 나중에 커스텀 도메인 설정
 # CORS 설정
 [env.production.vars]
 ALLOWED_ORIGINS = "https://your-project.pages.dev"
-

@@ -24,4 +24,3 @@ custom_domain = true
 [env.production.route]
 zone_name = "yourdomain.com"  # 실제 도메인으로 변경
 pattern = "billing.yourdomain.com/*"  # 실제 서브도메인으로 변경
-

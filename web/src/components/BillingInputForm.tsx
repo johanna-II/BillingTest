@@ -20,7 +20,7 @@ interface BillingInputFormProps {
 
 const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
   const { actions } = useBilling()
-  
+
   // Basic info
   const [targetDate, setTargetDate] = useState<Date>(new Date())
   const [uuid, setUuid] = useState('test-uuid-001')
@@ -64,13 +64,13 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
     try {
       actions.setCalculating(true)
       actions.setBillingInput(billingInput)
-      
+
       // Calculate billing via API
       const statement = await calculateBilling(billingInput)
-      
+
       actions.setCalculatedStatement(statement)
       actions.setCalculating(false)
-      
+
       onComplete()
     } catch (err) {
       actions.setCalculating(false)
@@ -144,5 +144,3 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
 }
 
 export default React.memo(BillingInputForm)
-
-

@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-→ http://localhost:8787 에서 테스트
+→ <http://localhost:8787> 에서 테스트
 
 ### 3. 배포
 
@@ -29,16 +29,18 @@ npx wrangler login
 npm run deploy
 ```
 
-→ https://billing-api.your-subdomain.workers.dev
+→ <https://billing-api.your-subdomain.workers.dev>
 
 ## 🎯 API 엔드포인트
 
 ### Health Check
+
 ```bash
 GET /health
 ```
 
 ### Calculate Billing
+
 ```bash
 POST /api/billing/admin/calculate
 Headers: uuid: test-uuid
@@ -53,12 +55,14 @@ Body: {
 ```
 
 ### Get Payment Statements
+
 ```bash
 GET /api/billing/payments/{month}/statements
 Headers: uuid: test-uuid
 ```
 
 ### Process Payment
+
 ```bash
 POST /api/billing/payments/{month}
 Headers: uuid: test-uuid
@@ -71,6 +75,7 @@ Body: {
 ## 💰 비용
 
 **완전 무료!**
+
 - 10만 요청/일 (= 300만 요청/월)
 - 10ms CPU 시간/요청
 - 무제한 대역폭
@@ -79,7 +84,7 @@ Body: {
 
 배포 후 Cloudflare Dashboard에서 설정:
 
-```
+```text
 ALLOWED_ORIGINS=https://your-project.pages.dev,https://your-domain.com
 ```
 
@@ -95,4 +100,3 @@ npm run tail
 1. Cloudflare Dashboard → Workers → 프로젝트 선택
 2. Settings → Triggers → Custom Domains
 3. Add Custom Domain: `api.your-domain.com`
-

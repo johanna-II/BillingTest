@@ -19,20 +19,39 @@
   "packageRules": [
     {
       "matchUpdateTypes": ["major"],
-      "automerge": false
+      "automerge": false,
+      "labels": ["major-update"]
     },
     {
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true,
-      "automergeType": "pr"
+      "automergeType": "pr",
+      "labels": ["minor-update"]
     },
     {
       "matchPackagePatterns": ["^pytest"],
-      "groupName": "pytest packages"
+      "groupName": "pytest packages",
+      "schedule": ["before 3am on Monday"]
     },
     {
       "matchPackagePatterns": ["^mypy", "^ruff", "^black"],
-      "groupName": "linting tools"
+      "groupName": "linting tools",
+      "schedule": ["before 3am on Monday"]
+    },
+    {
+      "matchPackagePatterns": ["^opentelemetry"],
+      "groupName": "OpenTelemetry packages",
+      "schedule": ["before 3am on Monday"]
+    },
+    {
+      "matchPackagePatterns": ["^flask"],
+      "groupName": "Flask packages",
+      "schedule": ["before 3am on Monday"]
+    },
+    {
+      "matchDatasources": ["npm"],
+      "groupName": "frontend dependencies",
+      "schedule": ["before 3am on Tuesday"]
     }
   ],
   "prConcurrentLimit": 5,

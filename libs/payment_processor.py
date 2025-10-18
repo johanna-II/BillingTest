@@ -42,6 +42,7 @@ class PaymentRequest:
     metadata: Optional[Dict[str, str]] = None
 
     def __post_init__(self) -> None:
+        """Initialize default metadata if not provided."""
         if self.metadata is None:
             self.metadata = {}
 
@@ -84,6 +85,7 @@ class RetryPolicy:
     retriable_error_codes: Optional[List[str]] = None
 
     def __post_init__(self) -> None:
+        """Initialize default retriable error codes if not provided."""
         if self.retriable_error_codes is None:
             self.retriable_error_codes = [
                 "TIMEOUT",

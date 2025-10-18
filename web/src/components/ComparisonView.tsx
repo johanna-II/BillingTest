@@ -93,9 +93,9 @@ const ComparisonView: React.FC = () => {
                   </span>
                   <span className="text-xs text-kinfolk-gray-500 ml-2">
                     ({format(
-                      typeof entry.timestamp === 'string' 
-                        ? new Date(entry.timestamp) 
-                        : entry.timestamp, 
+                      typeof entry.timestamp === 'string'
+                        ? new Date(entry.timestamp)
+                        : entry.timestamp,
                       'PP'
                     )})
                   </span>
@@ -248,4 +248,3 @@ const ComparisonView: React.FC = () => {
 }
 
 export default React.memo(ComparisonView)
-

@@ -87,6 +87,7 @@ class TelemetryManager:
     """Manages telemetry integration."""
 
     def __init__(self) -> None:
+        """Initialize the telemetry manager."""
         self._telemetry: Any = None
         self._enabled = False
         self._initialize_telemetry()
@@ -234,7 +235,7 @@ class BillingAPIClient:
         """Get the current session, creating if necessary."""
         if self._session is None:
             self._setup_session()
-        assert self._session is not None
+        assert self._session is not None  # nosec B101
         return self._session
 
     def close(self) -> None:

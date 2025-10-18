@@ -19,4 +19,3 @@ venv
 # Next.js cache (exceeds Cloudflare 25MB limit)
 .next/cache
 .next/**/*.pack
-

@@ -60,7 +60,7 @@ export default function HomePage(): JSX.Element {
               Calculate · Test · Verify
             </p>
             <p className="kinfolk-body max-w-2xl mx-auto fade-in" style={{ animationDelay: '0.2s' }}>
-              Calculate billing with precision. Test scenarios with credits, adjustments, 
+              Calculate billing with precision. Test scenarios with credits, adjustments,
               and late fees. Verify payment processing through mock APIs.
             </p>
           </div>
@@ -125,13 +125,13 @@ interface StepIndicatorProps {
   onClick: () => void
 }
 
-function StepIndicator({ 
-  number, 
-  label, 
-  active, 
-  completed, 
+function StepIndicator({
+  number,
+  label,
+  active,
+  completed,
   disabled = false,
-  onClick 
+  onClick
 }: StepIndicatorProps): JSX.Element {
   return (
     <button
@@ -147,9 +147,9 @@ function StepIndicator({
         className={`
           w-12 h-12 rounded-full flex items-center justify-center
           text-sm font-medium transition-colors duration-300
-          ${completed 
-            ? 'bg-kinfolk-gray-900 text-white' 
-            : active 
+          ${completed
+            ? 'bg-kinfolk-gray-900 text-white'
+            : active
             ? 'border-2 border-kinfolk-gray-900 text-kinfolk-gray-900'
             : 'border border-kinfolk-gray-300 text-kinfolk-gray-400'
           }
@@ -166,4 +166,3 @@ function StepIndicator({
     </button>
   )
 }
-

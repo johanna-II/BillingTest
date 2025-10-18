@@ -35,7 +35,7 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   return (
     <div>
       <h3 className="kinfolk-subheading">Basic Information</h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Target Date */}
         <div>
@@ -116,5 +116,3 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
 }
 
 export default React.memo(BasicInfoSection)
-
-

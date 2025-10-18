@@ -1,4 +1,4 @@
-import type { 
+import type {
   BillingInput,
   BillingStatement,
   PaymentResult
@@ -86,11 +86,11 @@ export const billingAPI = new BillingAPIClient();
 // Export convenience functions with client-side enhancements
 export const calculateBilling = async (request: BillingInput): Promise<BillingStatement> => {
   const statement = await billingAPI.calculateBilling(request);
-  
+
   // Add unpaid amount and late fee client-side (doesn't affect backend/tests)
   const unpaidAmount = request.unpaidAmount || 0;
   const lateFee = request.isOverdue && unpaidAmount > 0 ? unpaidAmount * 0.05 : 0;
-  
+
   return {
     ...statement,
     unpaidAmount,

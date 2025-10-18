@@ -2430,7 +2430,9 @@ def generate_openapi_response(api_path):
 # Catch-all route for undefined API endpoints
 # NOSONAR: python:S5122 - This is a mock server for testing, not production code
 # All methods (GET, POST, PUT, PATCH, DELETE) are safe in this test environment
-@app.route("/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])  # noqa: S104
+@app.route(
+    "/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"]
+)  # noqa: S104
 def handle_undefined_api(path):
     """Handle undefined API endpoints using OpenAPI if available.
 

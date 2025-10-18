@@ -19,20 +19,20 @@ const Header: React.FC = () => {
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <a 
-              href="/" 
+            <a
+              href="/"
               className="text-sm uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
             >
               Calculator
             </a>
-            <a 
-              href="/docs" 
+            <a
+              href="/docs"
               className="text-sm uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
             >
               Documentation
             </a>
-            <a 
-              href="/api-reference" 
+            <a
+              href="/api-reference"
               className="text-sm uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
             >
               API Reference
@@ -45,4 +45,3 @@ const Header: React.FC = () => {
 }
 
 export default React.memo(Header)
-

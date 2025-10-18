@@ -194,4 +194,3 @@ export interface CalculationError {
   /** Additional details */
   details?: Record<string, unknown>
 }
-

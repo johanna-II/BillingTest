@@ -172,6 +172,7 @@ class PaymentAPIWrapper:
     CONSOLE_API_PREFIX = "billing/payments"
 
     def __init__(self, client: BillingAPIClient) -> None:
+        """Initialize the PaymentAPI with a billing client."""
         self._client = client
 
     def get_statements_admin(
@@ -295,6 +296,7 @@ class PaymentManager:
         logger.info(f"Initialized PaymentManager for {month}, UUID: {uuid}")
 
     def __repr__(self) -> str:
+        """Return string representation of PaymentManager."""
         return f"PaymentManager(month={self.month!r}, uuid={self.uuid!r})"
 
     def __enter__(self) -> Self:

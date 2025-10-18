@@ -155,5 +155,3 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
 }
 
 export default React.memo(AdjustmentInputSection)
-
-

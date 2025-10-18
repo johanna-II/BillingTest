@@ -2,20 +2,31 @@
 
 [![CI](https://github.com/johanna-II/BillingTest/actions/workflows/ci.yml/badge.svg)](https://github.com/johanna-II/BillingTest/actions/workflows/ci.yml)
 [![Integration Tests](https://github.com/johanna-II/BillingTest/actions/workflows/integration-tests-service.yml/badge.svg)](https://github.com/johanna-II/BillingTest/actions/workflows/integration-tests-service.yml)
-[![codecov](https://codecov.io/gh/johanna-II/BillingTest/branch/main/graph/badge.svg)](https://codecov.io/gh/johanna-II/BillingTest)
 [![Security](https://github.com/johanna-II/BillingTest/actions/workflows/security.yml/badge.svg)](https://github.com/johanna-II/BillingTest/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/johanna-II/BillingTest/branch/main/graph/badge.svg)](https://codecov.io/gh/johanna-II/BillingTest)
 
-Production-grade usage-based billing system with comprehensive testing infrastructure. Handles metering, pricing, adjustments, credits, and payment processing with 80%+ test coverage.
+Production-grade usage-based billing system with comprehensive testing
+infrastructure. Handles metering, pricing, adjustments, credits, and payment
+processing with 80%+ test coverage.
+
+> 📖 **[Portfolio Case Study](PORTFOLIO.md)** - Detailed technical breakdown
+> of framework design, architecture decisions, and measurable impact.
+>
+> 🏗️ **[Architecture Documentation](docs/ARCHITECTURE.md)** - System
+> architecture diagrams, technology stack, and design patterns.
 
 ## What is This?
 
 A complete billing platform consisting of:
-- **Backend Services** (Python): Core billing engine with metering, contracts, adjustments, and payment processing
+
+- **Backend Services** (Python): Core billing engine with metering,
+  contracts, adjustments, and payment processing
 - **Web UI** (Next.js): Interactive billing calculator and history management
 - **Edge API** (Cloudflare Workers): Serverless billing API
 - **Mock Server** (Flask): High-fidelity API mocking for testing (500 req/s)
 
-Built with enterprise-grade testing: unit, integration, contract, performance, and security tests with automated CI/CD.
+Built with enterprise-grade testing: unit, integration, contract,
+performance, and security tests with automated CI/CD.
 
 ---
 
@@ -34,7 +45,7 @@ Built with enterprise-grade testing: unit, integration, contract, performance, a
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐       ┌──────────────────┐      ┌─────────────────┐
 │   Web UI    │──────>│  Cloudflare      │─────>│   Billing API   │
 │  (Next.js)  │       │   Workers        │      │   (Internal)    │
@@ -55,7 +66,8 @@ Built with enterprise-grade testing: unit, integration, contract, performance, a
 ```
 
 **Test Infrastructure:**
-```
+
+```text
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                              CI/CD Pipelines                              │
 ├────────────────┬───────────────────────────────┬──────────────────────────┤
@@ -72,19 +84,47 @@ Built with enterprise-grade testing: unit, integration, contract, performance, a
 ## Quick Start
 
 ### Prerequisites
+
 - **Python**: 3.11 or 3.12
 - **Node.js**: 18+ (for frontend)
 - **Docker**: For integration tests
 
 ### Installation
 
+#### Option 1: Automated Setup (Recommended)
+
 ```bash
 # Clone repository
 git clone https://github.com/johanna-II/BillingTest.git
 cd BillingTest
 
+# Run setup script
+# Linux/macOS:
+chmod +x scripts/setup-dev.sh
+./scripts/setup-dev.sh
+
+# Windows:
+scripts\setup-dev.bat
+```
+
+The setup script will:
+
+- ✅ Install all Python dependencies
+- ✅ Install development tools (ruff, mypy, black, etc.)
+- ✅ Setup pre-commit hooks
+- ✅ Build Docker images (if Docker is available)
+- ✅ Install frontend dependencies (if Node.js is available)
+- ✅ Run validation tests
+
+#### Option 2: Manual Setup
+
+```bash
 # Backend setup
 pip install -r requirements.txt
+pip install -r requirements-mock.txt
+
+# Development tools
+pip install ruff mypy black bandit pre-commit
 
 # Frontend setup (optional)
 cd web && npm install
@@ -115,7 +155,7 @@ npm run dev
 
 ## Project Structure
 
-```
+```text
 BillingTest/
 ├── libs/                      # Core billing engine
 │   ├── Calculation.py         # Billing calculations
@@ -164,9 +204,9 @@ BillingTest/
 | Type | Description | Runs On | Mock Server |
 |------|-------------|---------|-------------|
 | **Unit** | Isolated component tests | Every PR/push | No |
-| **Integration** | End-to-end with real Mock Server | Every PR/push | Docker container |
-| **Contracts** | API contract validation | Every PR/push | Local process |
-| **Comprehensive** | Heavy business logic combinations | main branch only | Docker container |
+| **Integration** | End-to-end with Mock Server | Every PR/push | Docker |
+| **Contracts** | API contract validation | Every PR/push | Local |
+| **Comprehensive** | Business logic combos | main only | Docker |
 | **Performance** | Benchmarking & profiling | Every PR/push | Yes |
 | **Security** | Vulnerability scanning | Every PR/push | Yes |
 
@@ -199,6 +239,7 @@ pytest tests/integration/test_all_business_combinations.py \
 ## CI/CD Pipelines
 
 ### 1. **Main CI** (`ci.yml`)
+
 - **Triggers**: All PRs, pushes to `main`/`develop`
 - **Jobs**:
   - Lint (ruff, mypy)
@@ -210,6 +251,7 @@ pytest tests/integration/test_all_business_combinations.py \
   - Security tests
 
 ### 2. **Integration Tests** (`integration-tests-service.yml`)
+
 - **Triggers**: All PRs, pushes
 - **Jobs**:
   - Real Mock Server in Docker
@@ -217,6 +259,7 @@ pytest tests/integration/test_all_business_combinations.py \
   - Parallel execution (2 workers)
 
 ### 3. **Scheduled Tests** (`scheduled-tests.yml`)
+
 - **Triggers**: Daily at 2 AM UTC
 - **Jobs**:
   - Full regression test matrix (members × months)
@@ -224,6 +267,7 @@ pytest tests/integration/test_all_business_combinations.py \
   - Security scans
 
 ### 4. **Security** (`security.yml`)
+
 - **Triggers**: Weekly, on security updates
 - **Jobs**:
   - Dependency vulnerability checks
@@ -264,6 +308,7 @@ open http://localhost:5000/docs
 ```
 
 **Features:**
+
 - OpenAPI 3.0 spec serving
 - Configurable rate limiting (default: 500 req/s)
 - Realistic response data
@@ -298,6 +343,7 @@ open htmlcov/index.html
 ## Key Features
 
 ### Billing Engine
+
 - ✅ **Usage-based metering**: Aggregate and calculate usage charges
 - ✅ **Tiered pricing**: Support for volume-based pricing tiers
 - ✅ **Credits system**: Apply credits with priority rules
@@ -306,6 +352,7 @@ open htmlcov/index.html
 - ✅ **Payment processing**: Multi-step payment state machine
 
 ### Testing Infrastructure
+
 - ✅ **80%+ coverage**: Comprehensive test suite with high coverage
 - ✅ **Parallel execution**: pytest-xdist with optimal worker counts
 - ✅ **Retry logic**: Auto-retry flaky tests (3 attempts)
@@ -314,6 +361,7 @@ open htmlcov/index.html
 - ✅ **Security**: Automated vulnerability scanning
 
 ### Observability
+
 - ✅ **OpenTelemetry**: Distributed tracing support
 - ✅ **Prometheus metrics**: Performance monitoring
 - ✅ **Structured logging**: JSON logs for production
@@ -333,6 +381,7 @@ open htmlcov/index.html
 8. Open a Pull Request
 
 **PR Requirements:**
+
 - ✅ All tests passing
 - ✅ Coverage ≥ 80%
 - ✅ No linter errors

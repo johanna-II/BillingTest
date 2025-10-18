@@ -1,90 +1,120 @@
-# Pre-commit hooks for code quality
-# Install: pip install pre-commit
-# Setup: pre-commit install
-# Run: pre-commit run --all-files
+# Pre-commit hooks configuration
+# See https://pre-commit.com for more information
 
-repos:
-  # Ruff - Fast Python linter and formatter (replaces black, isort, and more)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
-    hooks:
-      # Run the linter first
-      - id: ruff
-        args: ['--fix', '--exit-non-zero-on-fix']
-      # Then run the formatter
-      - id: ruff-format
-
-  # MyPy - Static type checker
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-requests, types-PyYAML]
-        args: ['--ignore-missing-imports', '--no-strict-optional']
-        files: ^libs/
-
-  # Standard pre-commit hooks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-        args: ['--maxkb=1000']
-      - id: check-json
-      - id: check-merge-conflict
-      - id: check-ast
-      - id: debug-statements
-      - id: detect-private-key
-
-  # Docstring coverage
-  - repo: https://github.com/econchick/interrogate
-    rev: 1.5.0
-    hooks:
-      - id: interrogate
-        args: ['-vv', '--fail-under=80', '--ignore-init-module', '--ignore-init-method']
-        files: ^libs/
-        additional_dependencies: [setuptools]
-
-  # Security checks
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.6
-    hooks:
-      - id: bandit
-        args: ['-ll', '-r', 'libs/']
-        files: ^libs/
-
-  # Unit test runner (fast feedback)
-  - repo: local
-    hooks:
-      - id: unit-tests-check
-        name: Run fast unit tests
-        entry: python -m pytest tests/unit/ -x --tb=short -q --disable-warnings -k "not slow"
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
-
-# Configuration for specific tools
 default_language_version:
   python: python3.12
 
-# Only run on Python files by default
-files: \.py$
-exclude: |
-  (?x)^(
-    .*\.egg-info/|
-    \.git/|
-    \.tox/|
-    dist/|
-    build/|
-    __pycache__/|
-    \.pytest_cache/|
-    htmlcov/|
-    \.coverage|
-    \.mypy_cache/|
-    \.ruff_cache/|
-    test-results/|
-    mock_server/static/|
-    docs/_build/
-  )
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom YAML tags
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: detect-private-key
+
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 25.9.0
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: [--line-length=88]
+
+  # Python linting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.1
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-python-dateutil]
+        args: [--ignore-missing-imports, --no-strict-optional]
+        files: ^libs/
+
+  # Secret detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package.lock.json
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.6
+    hooks:
+      - id: bandit
+        args: ['-c', 'pyproject.toml']
+        additional_dependencies: ['bandit[toml]']
+        files: ^libs/
+
+  # Docstring validation
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        files: ^libs/
+        args: [--convention=google]
+
+  # Check for debug statements
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-check-blanket-noqa
+      - id: python-check-blanket-type-ignore
+      - id: python-no-eval
+      - id: python-no-log-warn
+      - id: python-use-type-annotations
+      - id: text-unicode-replacement-char
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint.yaml, --no-warnings]
+        exclude: ^(\.secrets\.baseline|\.github/workflows/.*\.yml)$
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009]
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

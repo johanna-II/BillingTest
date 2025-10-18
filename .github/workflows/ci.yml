@@ -21,12 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
+
     - name: Cache dependencies
       uses: actions/cache@v4
       with:
@@ -34,16 +34,16 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install ruff mypy
-    
+
     - name: Run ruff
       run: ruff check .
-    
+
     - name: Run mypy
       run: mypy libs --ignore-missing-imports
 
@@ -54,18 +54,18 @@ jobs:
       fail-fast: false
       matrix:
         test-type: [unit, contracts, comprehensive]
-    
+
     steps:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
     - uses: actions/checkout@v4
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
-    
+
     - name: Set up Python
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
+
     - name: Cache dependencies
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       uses: actions/cache@v4
@@ -74,14 +74,14 @@ jobs:
         key: Linux-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           Linux-pip-
-    
+
     - name: Install dependencies
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest-xdist pytest-cov pytest-html pytest-rerunfailures pytest-timeout
-    
+
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
       if: (matrix.test-type == 'contracts') || (matrix.test-type == 'comprehensive' && (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')))
@@ -90,7 +90,7 @@ jobs:
         python -m mock_server.run_server &
         MOCK_PID=$!
         echo "Mock server started with PID: $MOCK_PID"
-        
+
         # Wait for server to be ready (up to 30 seconds)
         for i in {1..30}; do
           if curl -s --max-time 2 http://localhost:5000/health > /dev/null 2>&1; then
@@ -107,13 +107,13 @@ jobs:
       env:
         MOCK_SERVER_RATE_LIMIT: 500
         FLASK_ENV: production
-    
+
     - name: Run Tests with Coverage
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
         # coverage 파일명을 명시적으로 지정
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
-        
+
         # 단위 테스트는 병렬 실행 (auto) + 60초 타임아웃
         # 계약 테스트는 순차 실행 + 300초 타임아웃
         # 통합 테스트는 integration-tests-service.yml에서 별도 실행
@@ -137,7 +137,7 @@ jobs:
           # Build and run Mock Server as separate container
           echo "Building Mock Server Docker image..."
           docker build -f Dockerfile.mock -t billing-mock-server:ci .
-          
+
           echo "Starting Mock Server..."
           docker run -d \
             --name mock-server-ci \
@@ -148,7 +148,7 @@ jobs:
             -e PYTHONUNBUFFERED=1 \
             -e MOCK_SERVER_RATE_LIMIT=500 \
             billing-mock-server:ci
-          
+
           echo "Waiting for Mock Server..."
           for i in {1..60}; do
             if curl -f http://localhost:5000/health 2>/dev/null; then
@@ -158,7 +158,7 @@ jobs:
             [ $i -eq 60 ] && { echo "✗ Failed to start"; docker logs mock-server-ci; exit 1; }
             sleep 1
           done
-          
+
           echo "Running Comprehensive Tests..."
           pytest tests/integration/test_all_business_combinations.py \
             tests/integration/test_comprehensive_business_logic.py \
@@ -173,12 +173,12 @@ jobs:
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock \
             || { TEST_EXIT_CODE=$?; echo "::warning::Comprehensive tests had failures"; }
-          
+
           echo "Cleanup..."
           docker logs mock-server-ci | tail -50
           docker stop mock-server-ci || true
           docker rm mock-server-ci || true
-          
+
           exit ${TEST_EXIT_CODE:-0}
         fi
       env:
@@ -188,7 +188,7 @@ jobs:
         MOCK_SERVER_URL: http://localhost:5000
         MOCK_SERVER_PORT: '5000'
         PYTHONUNBUFFERED: '1'
-    
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
@@ -205,19 +205,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-mock.txt
         pip install pytest-benchmark
-    
+
     - name: Start Mock Server
       run: |
         python -m mock_server.run_server &
@@ -231,7 +231,7 @@ jobs:
         done
       env:
         MOCK_SERVER_RATE_LIMIT: 500
-    
+
     - name: Run Performance Tests
       run: |
         pytest tests/performance/ -v --tb=short \
@@ -240,7 +240,7 @@ jobs:
         CI: true
         MOCK_SERVER_PORT: 5000
         MOCK_SERVER_RATE_LIMIT: 500
-    
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
@@ -254,18 +254,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-mock.txt
-    
+
     - name: Start Mock Server
       run: |
         python -m mock_server.run_server &
@@ -279,7 +279,7 @@ jobs:
         done
       env:
         MOCK_SERVER_RATE_LIMIT: 50
-    
+
     - name: Run Security Tests
       run: |
         pytest tests/security/ -v --tb=short \
@@ -287,7 +287,7 @@ jobs:
       env:
         CI: true
         MOCK_SERVER_PORT: 5000
-    
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
@@ -302,27 +302,27 @@ jobs:
     needs: test
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-    
+
     - name: Download coverage reports
       uses: actions/download-artifact@v4
       with:
         pattern: test-results-*
         merge-multiple: true
-    
+
     - name: Install coverage
       run: pip install coverage
-    
+
     - name: Combine coverage reports
       run: |
         # Debug: 다운로드된 파일 확인
         echo "Downloaded files:"
         ls -la
-        
+
         # coverage 파일 찾기 및 combine
         if ls .coverage.* 1> /dev/null 2>&1; then
           coverage combine .coverage.*
@@ -341,7 +341,7 @@ jobs:
             exit 1
           fi
         fi
-    
+
     - name: Upload to Codecov
       # Using specific commit SHA for security (codecov-action v5.0.7)
       uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a  # v5.0.7
@@ -358,24 +358,24 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Download coverage reports
       uses: actions/download-artifact@v4
       with:
         pattern: test-results-*
         merge-multiple: true
-    
+
     - name: Create coverage badge
       run: |
         # Extract coverage percentage from XML if exists
         if [ -f coverage-combined.xml ]; then
           COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage-combined.xml'); root = tree.getroot(); coverage = float(root.attrib.get('line-rate', 0)) * 100; print(f'{coverage:.1f}')")
           echo "Coverage: ${COVERAGE}%"
-          
+
           # Create a simple JSON for the badge
           echo "{\"coverage\": \"${COVERAGE}%\"}" > coverage-badge.json
         fi
-    
+
     - name: Upload coverage summary
       uses: actions/upload-artifact@v4
       with:

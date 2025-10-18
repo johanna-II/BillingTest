@@ -14,7 +14,7 @@ export default function LicensePage(): JSX.Element {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="flex-1 bg-kinfolk-beige-50">
         <div className="kinfolk-container py-16">
           {/* Hero */}
@@ -93,8 +93,8 @@ export default function LicensePage(): JSX.Element {
             <p className="text-sm text-kinfolk-gray-700 mb-4">
               For more information about the MIT License
             </p>
-            <a 
-              href="https://opensource.org/licenses/MIT" 
+            <a
+              href="https://opensource.org/licenses/MIT"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-kinfolk-gray-900 hover:underline"

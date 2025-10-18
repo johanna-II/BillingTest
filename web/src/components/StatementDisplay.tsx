@@ -376,4 +376,3 @@ const StatementDisplay: React.FC<StatementDisplayProps> = ({ onProceedToPayment 
 }
 
 export default React.memo(StatementDisplay)
-
