@@ -207,11 +207,11 @@ jobs:
 
       - name: Add to Job Summary
         run: |
-          cat test_summary.json | python3 << 'EOF'
+          python3 << 'EOF' >> $GITHUB_STEP_SUMMARY
           import json
-          import sys
 
-          results = json.load(sys.stdin)
+          with open('test_summary.json') as f:
+              results = json.load(f)
 
           print("# 📊 Test Execution Summary\n")
 
@@ -227,4 +227,4 @@ jobs:
               print(f"- **Skipped:** {data['skipped']}")
               print(f"- **Duration:** {data['time']:.2f}s")
               print(f"- **Pass Rate:** {pass_rate:.1f}%\n")
-          EOF >> $GITHUB_STEP_SUMMARY
+          EOF
