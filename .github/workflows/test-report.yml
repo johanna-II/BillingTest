@@ -207,11 +207,11 @@ jobs:
 
       - name: Add to Job Summary
         run: |
-          cat test_summary.json | python3 << 'EOF' >> $GITHUB_STEP_SUMMARY
+          python3 << 'EOF' >> $GITHUB_STEP_SUMMARY
           import json
-          import sys
 
-          results = json.load(sys.stdin)
+          with open('test_summary.json') as f:
+              results = json.load(f)
 
           print("# 📊 Test Execution Summary\n")
 
