@@ -1,7 +1,7 @@
-"""Compatibility layer for pact-python imports.
+"""Compatibility layer for pact-python v3.
 
-This module provides a compatibility layer to handle different versions
-of pact-python and potential import issues in CI environments.
+This module provides compatibility wrappers to make pact-python v3
+work with v2-style test code.
 """
 
 import logging
@@ -9,96 +9,89 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Constants
-PACT_NOT_INSTALLED_MSG = "pact-python not properly installed"
-
-# Try to import pact components with fallbacks
-# Using Pact v3 as primary (stable release)
-PACT_AVAILABLE = False
-
 try:
-    # Try v3 top-level imports first (pact-python v3.x)
-    from pact import (
-        Consumer,
-        EachLike,
-        Format,
-        Like,
-        Pact,
-        Provider,
-        Term,
-        Verifier,
-    )
+    # Core classes
+    # Import v3 match module (recommended way)
+    from pact import Pact, Verifier, match
 
-    PACT_AVAILABLE = True
-    print(
-        f"✅ Successfully imported pact v3 components (top-level, PACT_AVAILABLE={PACT_AVAILABLE})"
-    )
-    logger.debug("Successfully imported pact v3 components (top-level)")
+    _like = match.like
+    _regex = match.regex
+    _each_like = match.each_like
+    _datetime = match.datetime
+    _date = match.date
+
+    # Create v2-compatible wrapper classes
+    class Like:
+        """Wrapper for pact.match.like to match v2 API."""
+
+        def __init__(self, value: Any) -> None:
+            self._matcher = _like(value)
+
+        def __repr__(self) -> str:
+            return f"Like({self._matcher})"
+
+        def generate(self) -> dict:
+            """Generate matcher dict for v3."""
+            return self._matcher
+
+    class Term:
+        """Wrapper for pact.match.regex to match v2 API."""
+
+        def __init__(self, regex: str, example: str) -> None:
+            # v3 API: regex(value, *, regex=pattern)
+            # v2 API: Term(pattern, example)
+            self._matcher = _regex(example, regex=regex)
+
+        def __repr__(self) -> str:
+            return f"Term({self._matcher})"
+
+        def generate(self) -> dict:
+            """Generate matcher dict for v3."""
+            return self._matcher
+
+    class EachLike:
+        """Wrapper for pact.match.each_like to match v2 API."""
+
+        def __init__(self, value: Any, minimum: int = 1) -> None:
+            self._matcher = _each_like(value, min=minimum)
+
+        def __repr__(self) -> str:
+            return f"EachLike({self._matcher})"
+
+        def generate(self) -> dict:
+            """Generate matcher dict for v3."""
+            return self._matcher
+
+    class Format:
+        """Wrapper for pact.match date/time formatters to match v2 API."""
+
+        @property
+        def iso_datetime(self) -> Any:
+            """ISO 8601 datetime matcher."""
+            return _datetime()
+
+        @property
+        def date(self) -> Any:
+            """ISO date matcher."""
+            return _date()
+
+        def __repr__(self) -> str:
+            return "Format()"
+
+    logger.info("Successfully imported pact v3 components")
+
 except ImportError as e:
-    print(f"❌ Failed to import pact v3 (top-level): {e}")
-    logger.error(f"Failed to import from pact (v3 top-level): {e}")
-
-    try:
-        # Fallback to v2 submodule imports (pact-python v2.x)
-        from pact import Pact, Verifier  # Main classes available in both versions
-        from pact.consumer import Consumer, Provider
-        from pact.matchers import EachLike, Format, Like, Term
-
-        PACT_AVAILABLE = True
-        print(
-            f"✅ Successfully imported pact v2 components (submodules, PACT_AVAILABLE={PACT_AVAILABLE})"
-        )
-        logger.debug("Successfully imported pact v2 components from submodules")
-    except ImportError as e2:
-        print(f"❌ Failed to import pact v2 (submodules): {e2}")
-        logger.error(f"Failed to import pact v2 components: {e2}")
-
-        # Create dummy classes for when pact is not available
-        class Consumer:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class Provider:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class Like:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class Term:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class EachLike:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class Format:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class Pact:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        class Verifier:  # type: ignore[misc]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError(PACT_NOT_INSTALLED_MSG)
-
-        print(
-            f"⚠️ Pact contract testing disabled - all import attempts failed (PACT_AVAILABLE={PACT_AVAILABLE})"
-        )
-        logger.warning("Pact contract testing disabled - all import attempts failed")
+    logger.error(f"Failed to import pact v3: {e}")
+    raise ImportError(
+        "pact-python v3 is required for contract testing. "
+        "Install with: pip install 'pact-python>=3.1.0'"
+    ) from e
 
 __all__ = [
-    "Consumer",
-    "Provider",
     "Like",
     "Term",
     "EachLike",
     "Format",
     "Pact",
     "Verifier",
-    "PACT_AVAILABLE",
 ]

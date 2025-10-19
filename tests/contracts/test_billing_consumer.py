@@ -7,17 +7,11 @@ import pytest
 from pytest import approx
 
 from tests.contracts.pact_compat import (
-    PACT_AVAILABLE,
     EachLike,
     Format,
     Like,
     Pact,
     Term,
-)
-
-# Skip all tests if pact is not available
-pytestmark = pytest.mark.skipif(
-    not PACT_AVAILABLE, reason="pact-python not available - skipping contract tests"
 )
 
 # Pact configuration
@@ -27,11 +21,11 @@ os.makedirs(PACT_DIR, exist_ok=True)
 
 @pytest.fixture(scope="session")
 def pact():
-    """Set up Pact consumer."""
-    pact = Pact(consumer="BillingTest", provider="BillingAPI")
-    yield pact
+    """Set up Pact consumer (v3 API)."""
+    pact_instance = Pact(consumer="BillingTest", provider="BillingAPI")
+    yield pact_instance
     # Persist contracts after all consumer tests
-    pact.write_file(directory=PACT_DIR)
+    pact_instance.write_file(directory=PACT_DIR)
 
 
 @pytest.mark.contract

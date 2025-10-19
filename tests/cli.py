@@ -189,7 +189,7 @@ def benchmark(open):
                         click.echo(f"Total runs: {len(history)}")
                         latest = history[-1]
                         click.echo(
-                            f'Latest: {latest["name"]} - {latest["stats"]["mean"]:.6f}s'
+                            f"Latest: {latest['name']} - {latest['stats']['mean']:.6f}s"
                         )
     else:
         click.echo(click.style("❌ Benchmarks failed", fg="red"))
@@ -359,7 +359,7 @@ def info():
 
     # Test configuration
     click.echo("\n⚙️  Test Configuration:")
-    click.echo(f'  Mock Server: {os.getenv("USE_MOCK_SERVER", "not set")}')
+    click.echo(f"  Mock Server: {os.getenv('USE_MOCK_SERVER', 'not set')}")
     click.echo(f"  Python Path: {sys.executable}")
 
 

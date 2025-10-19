@@ -10,12 +10,7 @@ import pytest
 import requests
 
 # Import from compatibility layer
-from tests.contracts.pact_compat import PACT_AVAILABLE, Verifier
-
-# Skip all tests if pact is not available
-pytestmark = pytest.mark.skipif(
-    not PACT_AVAILABLE, reason="pact-python not available - skipping contract tests"
-)
+from tests.contracts.pact_compat import Verifier
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
 MOCK_SERVER_URL = "http://localhost:5000"
@@ -90,6 +85,7 @@ class TestProviderVerification:
 
         # Run mock server and verify contracts
         with mock_server_running():
+            # Pact v3 API
             verifier = Verifier(
                 provider="BillingAPI",
                 provider_base_url=MOCK_SERVER_URL,
