@@ -4,10 +4,15 @@ import os
 from datetime import datetime, timezone
 
 import pytest
-
-# Pact v3 is now stable - import normally
-from pact import EachLike, Format, Like, Pact, Term
 from pytest import approx
+
+from tests.contracts.pact_compat import EachLike, Format, Like, Pact, Term
+
+# Skip all tests if pact is not available
+pytestmark = pytest.mark.skipif(
+    not __import__("tests.contracts.pact_compat").contracts.pact_compat.PACT_AVAILABLE,
+    reason="pact-python not available - skipping contract tests",
+)
 
 # Pact configuration
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")

@@ -15,7 +15,7 @@ PACT_AVAILABLE = False
 
 try:
     # Try v3 style imports (primary)
-    from pact import Consumer, EachLike, Format, Like, Provider, Term
+    from pact import Consumer, EachLike, Format, Like, Pact, Provider, Term, Verifier
 
     PACT_AVAILABLE = True
     logger.debug("Successfully imported pact v3 components")
@@ -25,6 +25,7 @@ except ImportError as e:
 
     try:
         # Fallback to v2 style imports
+        from pact import Pact, Verifier  # Common classes
         from pact.consumer import Consumer, Provider
         from pact.matchers import EachLike, Format, Like, Term
 
@@ -60,6 +61,14 @@ except ImportError as e:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 raise ImportError("pact-python not properly installed")
 
+        class Pact:  # type: ignore[misc]
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise ImportError("pact-python not properly installed")
+
+        class Verifier:  # type: ignore[misc]
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise ImportError("pact-python not properly installed")
+
         # If both import attempts fail, create dummy classes
         if not PACT_AVAILABLE:
             logger.warning(
@@ -73,5 +82,7 @@ __all__ = [
     "Term",
     "EachLike",
     "Format",
+    "Pact",
+    "Verifier",
     "PACT_AVAILABLE",
 ]

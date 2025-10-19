@@ -9,8 +9,14 @@ from pathlib import Path
 import pytest
 import requests
 
-# Pact v3 is now stable - import normally
-from pact import Verifier
+# Import from compatibility layer
+from tests.contracts.pact_compat import Verifier
+
+# Skip all tests if pact is not available
+pytestmark = pytest.mark.skipif(
+    not __import__("tests.contracts.pact_compat").contracts.pact_compat.PACT_AVAILABLE,
+    reason="pact-python not available - skipping contract tests",
+)
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
 MOCK_SERVER_URL = "http://localhost:5000"
