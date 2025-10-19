@@ -2083,8 +2083,8 @@ def provider_states():
             ],
             "total_amount": 500.0,
             "currency": "USD",
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+            "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
         }
     elif state == "Customer exists":
         # Customer data is already available
@@ -2117,6 +2117,18 @@ def provider_states():
     elif state == "Contract does not exist":
         # Remove contract 99999 if it exists
         contracts.pop("99999", None)
+    elif state == "Invoice exists":
+        # Ensure invoice data exists for adjustments
+        billing_data["INV001"] = {
+            "invoice_id": "INV001",
+            "status": "PENDING",
+            "amount": 1500.0,
+            "currency": "USD",
+            "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
+        }
+    elif state == "Resource exists":
+        # Ensure resource RES001 exists for metering
+        pass  # Resources are created on-the-fly in metering endpoints
 
     return jsonify({"result": "success"}), 200
 
@@ -2158,8 +2170,10 @@ def get_contract_v1(contract_id):
         ],
         "total_amount": 500.0,
         "currency": "USD",
-        "created_at": contract.get("startDate", datetime.now().isoformat()),
-        "updated_at": datetime.now().isoformat(),
+        "created_at": contract.get(
+            "startDate", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        ),
+        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
     }
     return jsonify(pact_contract), 200
 
@@ -2183,9 +2197,11 @@ def create_credit_v1():
             400,
         )
 
-    credit_id = str(uuid.uuid4())
+    # Generate credit ID in contract-compliant format
+    credit_id = f"CREDIT_{uuid.uuid4().hex[:8].upper()}"
 
-    # Create response that matches both existing tests and Pact expectations
+    # Create response that matches Pact contract expectations
+    now = datetime.now(timezone.utc)
     credit = {
         "id": credit_id,
         "creditId": credit_id,  # For backward compatibility
@@ -2195,8 +2211,9 @@ def create_credit_v1():
         "description": data.get("description", ""),
         "reason": data.get("reason", data.get("description", "")),  # Pact uses "reason"
         "type": data.get("type", "ADJUSTMENT"),
-        "status": "APPROVED",
-        "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "status": "ACTIVE",  # Contract expects ACTIVE, PENDING, or APPLIED
+        "created_at": now.strftime("%Y-%m-%dT%H:%M:%S"),
+        "expires_at": (now + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%S"),
     }
 
     credit_data[credit_id] = credit
@@ -2474,7 +2491,7 @@ def submit_meter_contract():
         "id": meter_id,
         "status": "ACCEPTED",
         "resource_id": data.get("resource_id"),
-        "timestamp": data.get("timestamp", datetime.now().isoformat() + "Z"),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
     }
 
     return jsonify(response), 201
@@ -2577,7 +2594,7 @@ def create_adjustment():
         "status": "APPLIED",
         "original_amount": original_amount,
         "adjusted_amount": original_amount - amount,
-        "applied_at": datetime.now().isoformat() + "Z",
+        "applied_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
     }
 
     return jsonify(response), 201

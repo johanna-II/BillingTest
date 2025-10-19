@@ -94,6 +94,20 @@ jobs:
         pip list | grep pact
         python -c "import pact; print(f'✅ pact version: {pact.__version__}')"
 
+    - name: Publish Pacts to Broker (contracts only, main branch)
+      if: matrix.test-type == 'contracts' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        cd tests/contracts
+        python publish_pacts.py \
+          --version ${{ github.sha }} \
+          --tag main \
+          --tag production
+      env:
+        PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+        PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        GIT_COMMIT: ${{ github.sha }}
+        GIT_BRANCH: ${{ github.ref_name }}
+
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
       if: (matrix.test-type == 'contracts') || (matrix.test-type == 'comprehensive' && (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')))

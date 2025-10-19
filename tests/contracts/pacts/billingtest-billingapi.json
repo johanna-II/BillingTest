@@ -1169,7 +1169,7 @@
             },
             "meter_name": "cpu.usage",
             "resource_id": "RES001",
-            "timestamp": "2025-10-19T23:07:44.292724+00:00",
+            "timestamp": "2025-10-19T23:45:27.861969+00:00",
             "unit": "percent",
             "value": 85.5
           },
