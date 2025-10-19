@@ -37,8 +37,8 @@ def mock_server_running():
     # Start mock server
     server_process = subprocess.Popen(
         ["python", "-m", "mock_server.run_server"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
     )
 
     # Wait for server to start
@@ -90,16 +90,16 @@ class TestProviderVerification:
 
         # Run mock server and verify contracts
         with mock_server_running():
-            verifier = Verifier()
-
-            # Configure verifier
-            verifier.provider_base_url = MOCK_SERVER_URL
-            verifier.provider_states_setup_url = f"{MOCK_SERVER_URL}/pact-states"
+            verifier = Verifier(
+                provider="BillingAPI",
+                provider_base_url=MOCK_SERVER_URL,
+            ).state_handler(f"{MOCK_SERVER_URL}/pact-states", body=True)
 
             # Verify each pact file
             for pact_file in pact_files:
                 print(f"Verifying pact: {pact_file}")
-                verifier.verify_pacts(pact_file)
+                success, logs = verifier.verify_pacts(pact_file)
+                assert success == 0, logs
 
     def test_mock_server_contract_compliance(self):
         """Test that mock server responses match contract expectations."""

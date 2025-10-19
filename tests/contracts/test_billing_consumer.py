@@ -28,23 +28,10 @@ os.makedirs(PACT_DIR, exist_ok=True)
 @pytest.fixture(scope="session")
 def pact():
     """Set up Pact consumer."""
-    pact = Pact(
-        consumer_name="BillingTest",
-        provider_name="BillingAPI",
-        log_dir=os.path.join(os.path.dirname(__file__), "logs"),
-        pact_dir=PACT_DIR,
-    )
-
-    pact.start_service()
+    pact = Pact(consumer="BillingTest", provider="BillingAPI")
     yield pact
-    try:
-        pact.stop_service()
-    except RuntimeError as e:
-        if "error when stopping the Pact mock service" in str(e):
-            # Ignore cleanup errors
-            pass
-        else:
-            raise
+    # Persist contracts after all consumer tests
+    pact.write_file(directory=PACT_DIR)
 
 
 @pytest.mark.contract
@@ -76,8 +63,8 @@ class TestContractBilling:
             ),
             "total_amount": Like(500.0),
             "currency": Term(r"[A-Z]{3}", "USD"),
-            "created_at": Format().iso_8601_datetime(),
-            "updated_at": Format().iso_8601_datetime(),
+            "created_at": Format().iso_datetime,
+            "updated_at": Format().iso_datetime,
         }
 
         # Define the interaction
@@ -115,8 +102,8 @@ class TestContractBilling:
             "customer_id": Like("CUST001"),
             "amount": Like(500.0),
             "currency": Like("USD"),
-            "created_at": Format().iso_8601_datetime(),
-            "expires_at": Format().iso_8601_datetime(),
+            "created_at": Format().iso_datetime,
+            "expires_at": Format().iso_datetime,
         }
 
         # Define the interaction
@@ -157,7 +144,7 @@ class TestContractBilling:
             "meter_name": Like("cpu.usage"),
             "value": Like(85.5),
             "unit": Term(r"(percent|count|bytes|seconds)", "percent"),
-            "timestamp": Format().iso_8601_datetime(),
+            "timestamp": Format().iso_datetime,
             "metadata": Like({"region": "us-east-1", "instance_type": "t2.micro"}),
         }
 
@@ -165,7 +152,7 @@ class TestContractBilling:
             "id": Term(r"METER_[0-9A-F]+", "METER_67890"),
             "status": "ACCEPTED",
             "resource_id": Like("RES001"),
-            "timestamp": Format().iso_8601_datetime(),
+            "timestamp": Format().iso_datetime,
         }
 
         # Define the interaction
@@ -206,7 +193,7 @@ class TestContractBilling:
             "status": Term(r"(PENDING|PROCESSING|COMPLETED|FAILED)", "PENDING"),
             "amount": Like(1500.0),
             "currency": Like("USD"),
-            "due_date": Format().iso_8601_date(),
+            "due_date": Format().date,
             "invoice": {
                 "id": Like("INV001"),
                 "url": Term(
@@ -246,7 +233,7 @@ class TestContractBilling:
             "status": "APPLIED",
             "original_amount": Like(1500.0),
             "adjusted_amount": Like(1400.0),
-            "applied_at": Format().iso_8601_datetime(),
+            "applied_at": Format().iso_datetime,
         }
 
         # Define the interaction
