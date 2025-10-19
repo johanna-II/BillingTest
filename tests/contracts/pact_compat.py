@@ -17,39 +17,41 @@ PACT_NOT_INSTALLED_MSG = "pact-python not properly installed"
 PACT_AVAILABLE = False
 
 try:
-    # Try importing from pact submodules (works for both v2 and v3)
-    from pact import Pact, Verifier  # Main classes available in both versions
-    from pact.consumer import Consumer, Provider
-    from pact.matchers import EachLike, Format, Like, Term
+    # Try v3 top-level imports first (pact-python v3.x)
+    from pact import (
+        Consumer,
+        EachLike,
+        Format,
+        Like,
+        Pact,
+        Provider,
+        Term,
+        Verifier,
+    )
 
     PACT_AVAILABLE = True
-    print(f"✅ Successfully imported pact components (PACT_AVAILABLE={PACT_AVAILABLE})")
-    logger.debug("Successfully imported pact components")
+    print(
+        f"✅ Successfully imported pact v3 components (top-level, PACT_AVAILABLE={PACT_AVAILABLE})"
+    )
+    logger.debug("Successfully imported pact v3 components (top-level)")
 except ImportError as e:
-    print(f"❌ Failed to import pact components: {e}")
-    logger.error(f"Failed to import pact components: {e}")
+    print(f"❌ Failed to import pact v3 (top-level): {e}")
+    logger.error(f"Failed to import from pact (v3 top-level): {e}")
 
     try:
-        # Last resort: try v3 top-level imports
-        from pact import (
-            Consumer,
-            EachLike,
-            Format,
-            Like,
-            Pact,
-            Provider,
-            Term,
-            Verifier,
-        )
+        # Fallback to v2 submodule imports (pact-python v2.x)
+        from pact import Pact, Verifier  # Main classes available in both versions
+        from pact.consumer import Consumer, Provider
+        from pact.matchers import EachLike, Format, Like, Term
 
         PACT_AVAILABLE = True
         print(
-            f"✅ Successfully imported pact v3 components (top-level, PACT_AVAILABLE={PACT_AVAILABLE})"
+            f"✅ Successfully imported pact v2 components (submodules, PACT_AVAILABLE={PACT_AVAILABLE})"
         )
-        logger.debug("Successfully imported pact v3 components (top-level)")
+        logger.debug("Successfully imported pact v2 components from submodules")
     except ImportError as e2:
-        print(f"❌ Failed to import from pact (v3 top-level): {e2}")
-        logger.error(f"Failed to import from pact (v3 top-level): {e2}")
+        print(f"❌ Failed to import pact v2 (submodules): {e2}")
+        logger.error(f"Failed to import pact v2 components: {e2}")
 
         # Create dummy classes for when pact is not available
         class Consumer:  # type: ignore[misc]
