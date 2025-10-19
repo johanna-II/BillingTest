@@ -2,332 +2,1257 @@
   "consumer": {
     "name": "BillingTest"
   },
-  "provider": {
-    "name": "BillingAPI"
-  },
   "interactions": [
     {
       "description": "A request for contract details",
-      "providerState": "A contract exists",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "A contract exists"
+        }
+      ],
       "request": {
         "method": "GET",
         "path": "/api/v1/contracts/12345"
       },
       "response": {
-        "status": 200,
-        "headers": {
-        },
         "body": {
-          "id": "12345",
-          "status": "ACTIVE",
-          "customer": {
-            "id": "CUST001",
-            "name": "Test Customer",
-            "email": "test@example.com"
-          },
-          "items": [
-            {
-              "id": "ITEM001",
-              "description": "Compute Instance",
-              "quantity": 1,
-              "unit_price": 100.0
+          "content": "eyJjcmVhdGVkX2F0IjoiMjAyNS0wMS0wMVQwMDowMDowMCIsImN1c3RvbWVyIjp7ImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImlkIjoiQ1VTVDAwMSIsIm5hbWUiOiJUZXN0IEN1c3RvbWVyIn0sImlkIjoiMTIzNDUiLCJpdGVtcyI6W3siZGVzY3JpcHRpb24iOiJDb21wdXRlIEluc3RhbmNlIiwiaWQiOiJJVEVNMDAxIiwicXVhbnRpdHkiOjEsInVuaXRfcHJpY2UiOjEwMC4wfV0sInN0YXR1cyI6IkFDVElWRSJ9",
+          "contentType": "*/*",
+          "encoded": "base64"
+        },
+        "headers": {},
+        "matchingRules": {
+          "body": {
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+                }
+              ]
+            },
+            "$.customer.email": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": ".+@.+\\..+"
+                }
+              ]
+            },
+            "$.customer.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.customer.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9]+"
+                }
+              ]
+            },
+            "$.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[0].description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[0].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[0].quantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[0].unit_price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "(ACTIVE|INACTIVE|PENDING)"
+                }
+              ]
             }
-          ],
-          "created_at": "2025-01-01T00:00:00"
-        },
-        "matchingRules": {
-          "$.body.id": {
-            "match": "regex",
-            "regex": "[0-9]+"
-          },
-          "$.body.status": {
-            "match": "regex",
-            "regex": "(ACTIVE|INACTIVE|PENDING)"
-          },
-          "$.body.customer.id": {
-            "match": "type"
-          },
-          "$.body.customer.name": {
-            "match": "type"
-          },
-          "$.body.customer.email": {
-            "match": "regex",
-            "regex": ".+@.+\\..+"
-          },
-          "$.body.items": {
-            "match": "type"
-          },
-          "$.body.items[0].id": {
-            "match": "type"
-          },
-          "$.body.items[0].description": {
-            "match": "type"
-          },
-          "$.body.items[0].quantity": {
-            "match": "type"
-          },
-          "$.body.items[0].unit_price": {
-            "match": "type"
-          },
-          "$.body.created_at": {
-            "match": "regex",
-            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
           }
-        }
-      }
-    },
-    {
-      "description": "A request to create credit",
-      "providerState": "Customer exists",
-      "request": {
-        "method": "POST",
-        "path": "/api/v1/credits",
-        "headers": {
-          "Content-Type": "application/json"
         },
-        "body": {
-          "customer_id": "CUST001",
-          "amount": 500.0,
-          "currency": "USD",
-          "description": "Monthly credit",
-          "type": "ADJUSTMENT"
-        }
+        "status": 200
       },
-      "response": {
-        "status": 201,
-        "headers": {
-        },
-        "body": {
-          "id": "550e8400-e29b-41d4-a716-446655440000",
-          "customer_id": "CUST001",
-          "amount": 500.0,
-          "currency": "USD",
-          "description": "Monthly credit",
-          "type": "ADJUSTMENT",
-          "status": "APPROVED",
-          "created_at": "2025-01-01T00:00:00"
-        },
-        "matchingRules": {
-          "$.body.id": {
-            "match": "regex",
-            "regex": "[0-9a-f-]+"
-          },
-          "$.body.customer_id": {
-            "match": "type"
-          },
-          "$.body.amount": {
-            "match": "type"
-          },
-          "$.body.currency": {
-            "match": "type"
-          },
-          "$.body.description": {
-            "match": "type"
-          },
-          "$.body.type": {
-            "match": "type"
-          },
-          "$.body.status": {
-            "match": "regex",
-            "regex": "(PENDING|APPROVED|REJECTED)"
-          },
-          "$.body.created_at": {
-            "match": "regex",
-            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
-          }
-        }
-      }
+      "type": "Synchronous/HTTP"
     },
     {
       "description": "A request for metering data",
-      "providerState": "Metering data exists for project",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Metering data exists for project"
+        }
+      ],
       "request": {
         "method": "GET",
         "path": "/api/v1/metering",
-        "query": "project_id=PROJ001&month=2025-01"
-      },
-      "response": {
-        "status": 200,
-        "headers": {
-        },
-        "body": {
-          "project_id": "PROJ001",
-          "period": {
-            "start": "2025-01-01T00:00:00",
-            "end": "2025-01-31T23:59:59"
-          },
-          "usage": [
-            {
-              "resource_type": "compute",
-              "resource_id": "vm-001",
-              "quantity": 744.0,
-              "unit": "hours",
-              "cost": 74.4
-            }
+        "query": {
+          "month": [
+            "2025-01"
           ],
-          "total_cost": 74.4
-        },
-        "matchingRules": {
-          "$.body.project_id": {
-            "match": "type"
-          },
-          "$.body.period.start": {
-            "match": "regex",
-            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
-          },
-          "$.body.period.end": {
-            "match": "regex",
-            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
-          },
-          "$.body.usage": {
-            "match": "type"
-          },
-          "$.body.usage[0].resource_type": {
-            "match": "type"
-          },
-          "$.body.usage[0].resource_id": {
-            "match": "type"
-          },
-          "$.body.usage[0].quantity": {
-            "match": "type"
-          },
-          "$.body.usage[0].unit": {
-            "match": "type"
-          },
-          "$.body.usage[0].cost": {
-            "match": "type"
-          },
-          "$.body.total_cost": {
-            "match": "type"
-          }
-        }
-      }
-    },
-    {
-      "description": "A request to update payment status",
-      "providerState": "Payment exists",
-      "request": {
-        "method": "PATCH",
-        "path": "/api/v1/payments/PAY001",
-        "headers": {
-          "Content-Type": "application/json"
-        },
-        "body": {
-          "status": "COMPLETED",
-          "transaction_id": "TXN123456",
-          "completed_at": "2025-01-15T10:30:00"
+          "project_id": [
+            "PROJ001"
+          ]
         }
       },
       "response": {
-        "status": 200,
-        "headers": {
-        },
         "body": {
-          "payment_id": "PAY001",
-          "status": "COMPLETED",
-          "transaction_id": "TXN123456",
-          "amount": 1000.0,
-          "currency": "USD",
-          "updated_at": "2025-01-15T10:30:00"
+          "content": "eyJwZXJpb2QiOnsiZW5kIjoiMjAyNS0wMS0zMVQyMzo1OTo1OSIsInN0YXJ0IjoiMjAyNS0wMS0wMVQwMDowMDowMCJ9LCJwcm9qZWN0X2lkIjoiUFJPSjAwMSIsInRvdGFsX2Nvc3QiOjc0LjQsInVzYWdlIjpbeyJjb3N0Ijo3NC40LCJxdWFudGl0eSI6NzQ0LjAsInJlc291cmNlX2lkIjoidm0tMDAxIiwicmVzb3VyY2VfdHlwZSI6ImNvbXB1dGUiLCJ1bml0IjoiaG91cnMifV19",
+          "contentType": "*/*",
+          "encoded": "base64"
         },
+        "headers": {},
         "matchingRules": {
-          "$.body.payment_id": {
-            "match": "type"
-          },
-          "$.body.status": {
-            "match": "type"
-          },
-          "$.body.transaction_id": {
-            "match": "type"
-          },
-          "$.body.amount": {
-            "match": "type"
-          },
-          "$.body.currency": {
-            "match": "type"
-          },
-          "$.body.updated_at": {
-            "match": "regex",
-            "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+          "body": {
+            "$.period.end": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+                }
+              ]
+            },
+            "$.period.start": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+                }
+              ]
+            },
+            "$.project_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.total_cost": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usage": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usage[0].cost": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usage[0].quantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usage[0].resource_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usage[0].resource_type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usage[0].unit": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
           }
-        }
-      }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
     },
     {
       "description": "A request for non-existent contract",
-      "providerState": "Contract does not exist",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Contract does not exist"
+        }
+      ],
       "request": {
         "method": "GET",
         "path": "/api/v1/contracts/99999"
       },
       "response": {
-        "status": 404,
-        "headers": {
-        },
         "body": {
-          "error": "NOT_FOUND",
-          "message": "Contract not found",
-          "code": 404
+          "content": "eyJjb2RlIjo0MDQsImVycm9yIjoiTk9UX0ZPVU5EIiwibWVzc2FnZSI6IkNvbnRyYWN0IG5vdCBmb3VuZCJ9",
+          "contentType": "*/*",
+          "encoded": "base64"
         },
+        "headers": {},
         "matchingRules": {
-          "$.body.error": {
-            "match": "type"
-          },
-          "$.body.message": {
-            "match": "type"
-          },
-          "$.body.code": {
-            "match": "type"
+          "body": {
+            "$.code": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
           }
+        },
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "A request to create credit",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Customer exists"
         }
-      }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 500.0,
+            "currency": "USD",
+            "customer_id": "CUST001",
+            "description": "Monthly credit",
+            "type": "ADJUSTMENT"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/v1/credits"
+      },
+      "response": {
+        "body": {
+          "content": "eyJhbW91bnQiOjUwMC4wLCJjcmVhdGVkX2F0IjoiMjAyNS0wMS0wMVQwMDowMDowMCIsImN1cnJlbmN5IjoiVVNEIiwiY3VzdG9tZXJfaWQiOiJDVVNUMDAxIiwiZGVzY3JpcHRpb24iOiJNb250aGx5IGNyZWRpdCIsImlkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAwIiwic3RhdHVzIjoiQVBQUk9WRUQiLCJ0eXBlIjoiQURKVVNUTUVOVCJ9",
+          "contentType": "*/*",
+          "encoded": "base64"
+        },
+        "headers": {},
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.customer_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f-]+"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "(PENDING|APPROVED|REJECTED)"
+                }
+              ]
+            },
+            "$.type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "A request to update payment status",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Payment exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "completed_at": "2025-01-15T10:30:00",
+            "status": "COMPLETED",
+            "transaction_id": "TXN123456"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "PATCH",
+        "path": "/api/v1/payments/PAY001"
+      },
+      "response": {
+        "body": {
+          "content": "eyJhbW91bnQiOjEwMDAuMCwiY3VycmVuY3kiOiJVU0QiLCJwYXltZW50X2lkIjoiUEFZMDAxIiwic3RhdHVzIjoiQ09NUExFVEVEIiwidHJhbnNhY3Rpb25faWQiOiJUWE4xMjM0NTYiLCJ1cGRhdGVkX2F0IjoiMjAyNS0wMS0xNVQxMDozMDowMCJ9",
+          "contentType": "*/*",
+          "encoded": "base64"
+        },
+        "headers": {},
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.payment_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.transaction_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.updated_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
     },
     {
       "description": "A request with invalid credit amount",
-      "providerState": "Customer exists",
-      "request": {
-        "method": "POST",
-        "path": "/api/v1/credits",
-        "headers": {
-          "Content-Type": "application/json"
-        },
-        "body": {
-          "customer_id": "CUST001",
-          "amount": -100.0,
-          "currency": "USD",
-          "description": "Invalid credit"
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Customer exists"
         }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": -100.0,
+            "currency": "USD",
+            "customer_id": "CUST001",
+            "description": "Invalid credit"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/v1/credits"
       },
       "response": {
-        "status": 400,
-        "headers": {
-        },
         "body": {
-          "error": "VALIDATION_ERROR",
-          "message": "Invalid credit amount",
-          "field": "amount",
-          "code": 400
+          "content": "eyJjb2RlIjo0MDAsImVycm9yIjoiVkFMSURBVElPTl9FUlJPUiIsImZpZWxkIjoiYW1vdW50IiwibWVzc2FnZSI6IkludmFsaWQgY3JlZGl0IGFtb3VudCJ9",
+          "contentType": "*/*",
+          "encoded": "base64"
+        },
+        "headers": {},
+        "matchingRules": {
+          "body": {
+            "$.code": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.field": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 400
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for contract details",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "A contract exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/contracts/12345"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "created_at": null,
+            "currency": "USD",
+            "customer": {
+              "email": "test@example.com",
+              "id": "CUST001",
+              "name": "Test Customer"
+            },
+            "id": "12345",
+            "items": [
+              {
+                "description": "Compute Instance",
+                "id": "ITEM001",
+                "quantity": 1,
+                "total": 100.0,
+                "unit_price": 100.0
+              }
+            ],
+            "status": "ACTIVE",
+            "total_amount": 500.0,
+            "updated_at": null
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.created_at": {
+              "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+              "type": "DateTime"
+            },
+            "$.updated_at": {
+              "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+              "type": "DateTime"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
         },
         "matchingRules": {
-          "$.body.error": {
-            "match": "type"
-          },
-          "$.body.message": {
-            "match": "type"
-          },
-          "$.body.field": {
-            "match": "type"
-          },
-          "$.body.code": {
-            "match": "type"
+          "body": {
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[A-Z]{3}"
+                }
+              ]
+            },
+            "$.customer.email": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": ".+@.+\\..+"
+                }
+              ]
+            },
+            "$.customer.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.customer.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9]+"
+                }
+              ]
+            },
+            "$.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].quantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].total": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.items[*].unit_price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "(ACTIVE|INACTIVE|PENDING)"
+                }
+              ]
+            },
+            "$.total_amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.updated_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+                  "match": "datetime"
+                }
+              ]
+            }
           }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for payment status",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Payment exists"
         }
-      }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/payments/PAY_ABC123"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "amount": 1500.0,
+            "currency": "USD",
+            "due_date": null,
+            "invoice": {
+              "id": "INV001",
+              "url": "https://api.example.com/invoices/INV001"
+            },
+            "payment_id": "PAY_ABC123",
+            "status": "PENDING"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.due_date": {
+              "format": "yyyy-MM-dd",
+              "type": "Date"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.due_date": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd",
+                  "match": "date"
+                }
+              ]
+            },
+            "$.invoice.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.invoice.url": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "https://.+/invoices/.+"
+                }
+              ]
+            },
+            "$.payment_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "PAY_[0-9A-F]+"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "(PENDING|PROCESSING|COMPLETED|FAILED)"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for payment status",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Payment exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/"
+      },
+      "response": {
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for payment status",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Payment exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/"
+      },
+      "response": {
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to create a credit",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Customer exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 500.0,
+            "currency": "USD",
+            "customer_id": "CUST001",
+            "reason": "Monthly adjustment",
+            "type": "ADJUSTMENT"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/v1/credits"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "amount": 500.0,
+            "created_at": null,
+            "currency": "USD",
+            "customer_id": "CUST001",
+            "expires_at": null,
+            "id": "CREDIT_12345",
+            "status": "ACTIVE"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.created_at": {
+              "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+              "type": "DateTime"
+            },
+            "$.expires_at": {
+              "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+              "type": "DateTime"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.created_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.currency": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.customer_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.expires_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "CREDIT_[0-9A-F]+"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "(ACTIVE|PENDING|APPLIED)"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "adjustment application request",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Invoice exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 100.0,
+            "reason": "Promotional discount",
+            "target_invoice": "INV001",
+            "type": "DISCOUNT"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/v1/adjustments"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "adjusted_amount": 1400.0,
+            "adjustment_id": "ADJ_XYZ789",
+            "applied_at": null,
+            "original_amount": 1500.0,
+            "status": "APPLIED"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.applied_at": {
+              "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+              "type": "DateTime"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.adjusted_amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.adjustment_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "ADJ_[0-9A-F]+"
+                }
+              ]
+            },
+            "$.applied_at": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.original_amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "adjustment application request",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Invoice exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/"
+      },
+      "response": {
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "adjustment application request",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Invoice exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/"
+      },
+      "response": {
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "meter data submission",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "Resource exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "metadata": {
+              "instance_type": "t2.micro",
+              "region": "us-east-1"
+            },
+            "meter_name": "cpu.usage",
+            "resource_id": "RES001",
+            "timestamp": "2025-10-19T23:07:44.292724+00:00",
+            "unit": "percent",
+            "value": 85.5
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/v1/meters"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "id": "METER_67890",
+            "resource_id": "RES001",
+            "status": "ACCEPTED",
+            "timestamp": null
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "generators": {
+          "body": {
+            "$.timestamp": {
+              "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+              "type": "DateTime"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "METER_[0-9A-F]+"
+                }
+              ]
+            },
+            "$.resource_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.timestamp": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+                  "match": "datetime"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
     }
   ],
   "metadata": {
+    "pactRust": {
+      "ffi": "0.4.28",
+      "models": "1.3.5"
+    },
     "pactSpecification": {
-      "version": "2.0.0"
+      "version": "4.0"
     }
+  },
+  "provider": {
+    "name": "BillingAPI"
   }
 }

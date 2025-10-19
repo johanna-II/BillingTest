@@ -25,15 +25,7 @@ def pytest_configure(config):
     os.makedirs(logs_dir, exist_ok=True)
 
 
-def pytest_collection_modifyitems(config, items):
-    """Modify test collection based on configuration."""
-    # Check if we should skip all Pact tests
-    skip_pact_tests = os.environ.get("SKIP_PACT_TESTS", "false").lower() == "true"
-
-    for item in items:
-        # Skip all Pact tests if requested
-        if skip_pact_tests and "contracts" in str(item.fspath):
-            skip_marker = pytest.mark.skip(
-                reason="Pact tests are disabled (SKIP_PACT_TESTS=true)"
-            )
-            item.add_marker(skip_marker)
+@pytest.fixture(scope="class")
+def pact_dir():
+    """Get pact directory."""
+    return os.path.join(os.path.dirname(__file__), "pacts")

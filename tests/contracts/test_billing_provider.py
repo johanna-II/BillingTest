@@ -8,9 +8,7 @@ from pathlib import Path
 
 import pytest
 import requests
-
-# Import from compatibility layer
-from tests.contracts.pact_compat import Verifier
+from pact import Verifier
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
 MOCK_SERVER_URL = "http://localhost:5000"
@@ -86,28 +84,36 @@ class TestProviderVerification:
         # Run mock server and verify contracts
         with mock_server_running():
             # Pact v3 API
-            verifier = Verifier(
-                provider="BillingAPI",
-                provider_base_url=MOCK_SERVER_URL,
-            ).state_handler(f"{MOCK_SERVER_URL}/pact-states", body=True)
+            verifier = Verifier("BillingAPI", host=MOCK_SERVER_URL)
 
-            # Verify each pact file
+            # Add pact sources
             for pact_file in pact_files:
-                print(f"Verifying pact: {pact_file}")
-                success, logs = verifier.verify_pacts(pact_file)
-                assert success == 0, logs
+                print(f"Adding pact file: {pact_file}")
+                verifier.add_source(pact_file)
+
+            # Set provider state handler (body=True means state changes in request body)
+            verifier.state_handler(f"{MOCK_SERVER_URL}/pact-states", body=True)
+
+            # Verify
+            print("Running verification...")
+            verifier.verify()
 
     def test_mock_server_contract_compliance(self):
         """Test that mock server responses match contract expectations."""
         with mock_server_running():
             # First set up the provider state
             response = requests.post(
-                f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
+                f"{MOCK_SERVER_URL}/pact-states",
+                json={"state": "A contract exists"},
+                timeout=5,
             )
             assert response.status_code == 200
 
             # Test contract endpoint
-            response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/12345")
+            response = requests.get(
+                f"{MOCK_SERVER_URL}/api/v1/contracts/12345",
+                timeout=5,
+            )
             assert response.status_code == 200
             data = response.json()
 
@@ -126,7 +132,9 @@ class TestProviderVerification:
                 "type": "ADJUSTMENT",
             }
             response = requests.post(
-                f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data
+                f"{MOCK_SERVER_URL}/api/v1/credits",
+                json=credit_data,
+                timeout=5,
             )
             assert response.status_code == 201
             data = response.json()
@@ -146,6 +154,7 @@ class TestProviderVerification:
                 f"{MOCK_SERVER_URL}/api/v1/billing/meters",
                 json=meter_data,
                 headers={"uuid": "test-uuid"},
+                timeout=5,
             )
             assert response.status_code == 200
 
@@ -162,6 +171,7 @@ class TestProviderVerification:
             response = requests.put(
                 f"{MOCK_SERVER_URL}/api/v1/billing/admin/billing-groups/bg-123",
                 json=contract_data,
+                timeout=5,
             )
             assert response.status_code == 200
             data = response.json()
@@ -170,7 +180,8 @@ class TestProviderVerification:
 
             # Test delete contract
             response = requests.delete(
-                f"{MOCK_SERVER_URL}/api/v1/billing/admin/billing-groups/bg-123/contracts"
+                f"{MOCK_SERVER_URL}/api/v1/billing/admin/billing-groups/bg-123/contracts",
+                timeout=5,
             )
             assert response.status_code == 200
             data = response.json()
@@ -196,7 +207,9 @@ class TestProviderStates:
 
             for state in states:
                 response = requests.post(
-                    f"{MOCK_SERVER_URL}/pact-states", json={"state": state}
+                    f"{MOCK_SERVER_URL}/pact-states",
+                    json={"state": state},
+                    timeout=5,
                 )
                 assert response.status_code == 200
                 data = response.json()
