@@ -9,6 +9,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Constants
+PACT_NOT_INSTALLED_MSG = "pact-python not properly installed"
+
 # Try to import pact components with fallbacks
 # Using Pact v3 as primary (stable release)
 PACT_AVAILABLE = False
@@ -39,41 +42,37 @@ except ImportError as e:
         # Create dummy classes for when pact is not available
         class Consumer:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class Provider:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class Like:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class Term:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class EachLike:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class Format:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class Pact:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
         class Verifier:  # type: ignore[misc]
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                raise ImportError("pact-python not properly installed")
+                raise ImportError(PACT_NOT_INSTALLED_MSG)
 
-        # If both import attempts fail, create dummy classes
-        if not PACT_AVAILABLE:
-            logger.warning(
-                "Pact contract testing disabled - all import attempts failed"
-            )
+        logger.warning("Pact contract testing disabled - all import attempts failed")
 
 __all__ = [
     "Consumer",
