@@ -101,26 +101,26 @@ jobs:
 
         # Check pact.match (matchers for v3)
         try:
-            import pact.match as match_module
+            from pact import match as match_module
             matchers = [x for x in dir(match_module) if not x.startswith('_')]
             print(f"✅ pact.match has {len(matchers)} items:", matchers[:20])
-        except ImportError as e:
+        except (ImportError, TypeError) as e:
             print(f"❌ pact.match: {e}")
 
         # Check pact.types
         try:
-            import pact.types as types_module
+            from pact import types as types_module
             types_list = [x for x in dir(types_module) if not x.startswith('_')]
             print(f"✅ pact.types has {len(types_list)} items:", types_list[:20])
-        except ImportError as e:
+        except (ImportError, TypeError) as e:
             print(f"❌ pact.types: {e}")
 
         # Check pact.interaction
         try:
-            import pact.interaction as interaction_module
+            from pact import interaction as interaction_module
             interactions = [x for x in dir(interaction_module) if not x.startswith('_')]
             print(f"✅ pact.interaction has {len(interactions)} items:", interactions[:20])
-        except ImportError as e:
+        except (ImportError, TypeError) as e:
             print(f"❌ pact.interaction: {e}")
         EOF
 
