@@ -94,29 +94,34 @@ jobs:
         pip list | grep pact
         python -c "import pact; print(f'✅ pact version: {pact.__version__}')" || echo "❌ Failed to import pact"
         echo ""
-        echo "Exploring pact v3 structure:"
+        echo "Exploring pact v3 API structure:"
         python << 'EOF'
         import pact
-        print("Available in pact:", [x for x in dir(pact) if not x.startswith('_')])
+        print("✅ Main pact module:", [x for x in dir(pact) if not x.startswith('_')])
 
-        # Try different import paths
+        # Check pact.match (matchers for v3)
         try:
-            from pact.v3 import Pact
-            print("✅ pact.v3.Pact exists")
+            import pact.match as match_module
+            matchers = [x for x in dir(match_module) if not x.startswith('_')]
+            print(f"✅ pact.match has {len(matchers)} items:", matchers[:20])
         except ImportError as e:
-            print(f"❌ pact.v3.Pact: {e}")
+            print(f"❌ pact.match: {e}")
 
+        # Check pact.types
         try:
-            from pact.v3.pact import Pact as PactV3
-            print("✅ pact.v3.pact.Pact exists")
+            import pact.types as types_module
+            types_list = [x for x in dir(types_module) if not x.startswith('_')]
+            print(f"✅ pact.types has {len(types_list)} items:", types_list[:20])
         except ImportError as e:
-            print(f"❌ pact.v3.pact.Pact: {e}")
+            print(f"❌ pact.types: {e}")
 
+        # Check pact.interaction
         try:
-            import pact.v3.matchers as matchers
-            print(f"✅ pact.v3.matchers: {[x for x in dir(matchers) if not x.startswith('_')][:10]}")
+            import pact.interaction as interaction_module
+            interactions = [x for x in dir(interaction_module) if not x.startswith('_')]
+            print(f"✅ pact.interaction has {len(interactions)} items:", interactions[:20])
         except ImportError as e:
-            print(f"❌ pact.v3.matchers: {e}")
+            print(f"❌ pact.interaction: {e}")
         EOF
 
     - name: Start Mock Server
