@@ -10,12 +10,11 @@ import pytest
 import requests
 
 # Import from compatibility layer
-from tests.contracts.pact_compat import Verifier
+from tests.contracts.pact_compat import PACT_AVAILABLE, Verifier
 
 # Skip all tests if pact is not available
 pytestmark = pytest.mark.skipif(
-    not __import__("tests.contracts.pact_compat").contracts.pact_compat.PACT_AVAILABLE,
-    reason="pact-python not available - skipping contract tests",
+    not PACT_AVAILABLE, reason="pact-python not available - skipping contract tests"
 )
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
@@ -44,7 +43,7 @@ def mock_server_running():
 
     # Wait for server to start
     max_retries = 30
-    for i in range(max_retries):
+    for _ in range(max_retries):
         try:
             response = requests.get(f"{MOCK_SERVER_URL}/health", timeout=1)
             if response.status_code == 200:

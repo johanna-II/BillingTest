@@ -17,27 +17,39 @@ PACT_NOT_INSTALLED_MSG = "pact-python not properly installed"
 PACT_AVAILABLE = False
 
 try:
-    # Try v3 style imports (primary)
-    from pact import Consumer, EachLike, Format, Like, Pact, Provider, Term, Verifier
+    # Try importing from pact submodules (works for both v2 and v3)
+    from pact import Pact, Verifier  # Main classes available in both versions
+    from pact.consumer import Consumer, Provider
+    from pact.matchers import EachLike, Format, Like, Term
 
     PACT_AVAILABLE = True
-    logger.debug("Successfully imported pact v3 components")
+    print(f"✅ Successfully imported pact components (PACT_AVAILABLE={PACT_AVAILABLE})")
+    logger.debug("Successfully imported pact components")
 except ImportError as e:
-    logger.warning(f"Failed to import from pact (v3 style): {e}")
-    logger.info("Attempting v2 fallback imports from pact submodules...")
+    print(f"❌ Failed to import pact components: {e}")
+    logger.error(f"Failed to import pact components: {e}")
 
     try:
-        # Fallback to v2 style imports
-        from pact import Pact, Verifier  # Common classes
-        from pact.consumer import Consumer, Provider
-        from pact.matchers import EachLike, Format, Like, Term
+        # Last resort: try v3 top-level imports
+        from pact import (
+            Consumer,
+            EachLike,
+            Format,
+            Like,
+            Pact,
+            Provider,
+            Term,
+            Verifier,
+        )
 
         PACT_AVAILABLE = True
-        logger.debug(
-            "Successfully imported pact v2 components from submodules (fallback)"
+        print(
+            f"✅ Successfully imported pact v3 components (top-level, PACT_AVAILABLE={PACT_AVAILABLE})"
         )
+        logger.debug("Successfully imported pact v3 components (top-level)")
     except ImportError as e2:
-        logger.error(f"Failed to import from pact submodules (v2 style): {e2}")
+        print(f"❌ Failed to import from pact (v3 top-level): {e2}")
+        logger.error(f"Failed to import from pact (v3 top-level): {e2}")
 
         # Create dummy classes for when pact is not available
         class Consumer:  # type: ignore[misc]
@@ -72,6 +84,9 @@ except ImportError as e:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 raise ImportError(PACT_NOT_INSTALLED_MSG)
 
+        print(
+            f"⚠️ Pact contract testing disabled - all import attempts failed (PACT_AVAILABLE={PACT_AVAILABLE})"
+        )
         logger.warning("Pact contract testing disabled - all import attempts failed")
 
 __all__ = [
