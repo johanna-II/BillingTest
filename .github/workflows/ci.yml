@@ -93,9 +93,31 @@ jobs:
         echo "Checking pact-python installation..."
         pip list | grep pact
         python -c "import pact; print(f'✅ pact version: {pact.__version__}')" || echo "❌ Failed to import pact"
-        python -c "from pact import Pact, Verifier; print('✅ Pact and Verifier imported successfully')" || echo "❌ Failed to import Pact/Verifier"
-        python -c "from pact import Consumer, Provider; print('✅ Consumer and Provider imported successfully (v3 top-level)')" || echo "❌ Failed to import Consumer/Provider"
-        python -c "from pact import Like, Term, EachLike, Format; print('✅ Matchers imported successfully (v3 top-level)')" || echo "❌ Failed to import matchers"
+        echo ""
+        echo "Exploring pact v3 structure:"
+        python << 'EOF'
+        import pact
+        print("Available in pact:", [x for x in dir(pact) if not x.startswith('_')])
+
+        # Try different import paths
+        try:
+            from pact.v3 import Pact
+            print("✅ pact.v3.Pact exists")
+        except ImportError as e:
+            print(f"❌ pact.v3.Pact: {e}")
+
+        try:
+            from pact.v3.pact import Pact as PactV3
+            print("✅ pact.v3.pact.Pact exists")
+        except ImportError as e:
+            print(f"❌ pact.v3.pact.Pact: {e}")
+
+        try:
+            import pact.v3.matchers as matchers
+            print(f"✅ pact.v3.matchers: {[x for x in dir(matchers) if not x.startswith('_')][:10]}")
+        except ImportError as e:
+            print(f"❌ pact.v3.matchers: {e}")
+        EOF
 
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
