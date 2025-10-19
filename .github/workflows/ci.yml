@@ -9,6 +9,11 @@ on:
     # Run nightly to catch flaky tests
     - cron: '0 2 * * *'
 
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: '3.12'
   USE_MOCK_SERVER: 'true'
@@ -28,7 +33,7 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Cache dependencies
-      uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -68,7 +73,7 @@ jobs:
 
     - name: Cache dependencies
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
-      uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: Linux-pip-${{ hashFiles('**/requirements.txt') }}

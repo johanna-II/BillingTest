@@ -18,6 +18,11 @@ on:
           - performance
           - contracts
 
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: '3.12'
   POETRY_VERSION: '2.2.1'
