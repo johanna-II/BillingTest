@@ -94,8 +94,8 @@ jobs:
         pip list | grep pact
         python -c "import pact; print(f'✅ pact version: {pact.__version__}')" || echo "❌ Failed to import pact"
         python -c "from pact import Pact, Verifier; print('✅ Pact and Verifier imported successfully')" || echo "❌ Failed to import Pact/Verifier"
-        python -c "from pact.consumer import Consumer, Provider; print('✅ Consumer and Provider imported successfully')" || echo "❌ Failed to import Consumer/Provider"
-        python -c "from pact.matchers import Like, Term; print('✅ Matchers imported successfully')" || echo "❌ Failed to import matchers"
+        python -c "from pact import Consumer, Provider; print('✅ Consumer and Provider imported successfully (v3 top-level)')" || echo "❌ Failed to import Consumer/Provider"
+        python -c "from pact import Like, Term, EachLike, Format; print('✅ Matchers imported successfully (v3 top-level)')" || echo "❌ Failed to import matchers"
 
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
