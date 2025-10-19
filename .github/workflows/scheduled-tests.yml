@@ -75,6 +75,8 @@ jobs:
             --junit-xml=test-results-${{ matrix.member }}-${{ matrix.month }}.xml \
             -v
         continue-on-error: true
+        env:
+          USE_PACT_V3: 'true'  # Use Pact v3 tests (stable)
 
       - name: Upload test results
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808  # v4.3.3

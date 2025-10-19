@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 import requests
+
+# Pact v3 is now stable - import normally
 from pact import Verifier
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")

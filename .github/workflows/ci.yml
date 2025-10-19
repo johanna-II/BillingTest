@@ -131,7 +131,8 @@ jobs:
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml
         elif [[ "${{ matrix.test-type }}" = "contracts" ]]; then
-          # Contracts run directly (sequential)
+          # Contracts run with Pact v3 (stable)
+          export USE_PACT_V3=true
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             --timeout=300 \
             --cov=libs --cov-report=term-missing \

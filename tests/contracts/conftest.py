@@ -27,8 +27,8 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on configuration."""
-    # Check if we should use v3 tests (opt-in via environment variable)
-    use_v3_tests = os.environ.get("USE_PACT_V3", "false").lower() == "true"
+    # Check if we should use v3 tests (now default = true since v3 is stable)
+    use_v3_tests = os.environ.get("USE_PACT_V3", "true").lower() == "true"
 
     # Additional safety check for CI environments
     is_ci = any(
@@ -38,14 +38,6 @@ def pytest_collection_modifyitems(config, items):
 
     # Check if we should skip all Pact tests
     skip_pact_tests = os.environ.get("SKIP_PACT_TESTS", "false").lower() == "true"
-
-    # In CI, force disable v3 tests unless explicitly enabled
-    if is_ci and not use_v3_tests:
-        use_v3_tests = False
-        print("CI environment detected: Pact v3 tests will be skipped")
-        print(
-            f"CI environment variables: CI={os.environ.get('CI')}, GITHUB_ACTIONS={os.environ.get('GITHUB_ACTIONS')}"
-        )
 
     for item in items:
         # Skip all Pact tests if requested
@@ -71,18 +63,20 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_marker)
             continue
 
+        # V3 is now default and stable
         if use_v3_tests:
-            # If v3 is requested, skip v2 tests
+            # If v3 is enabled (default), skip v2 tests
             if "test_billing_consumer.py" in str(
                 item.fspath
             ) or "test_billing_provider.py" in str(item.fspath):
                 skip_marker = pytest.mark.skip(
-                    reason="Using Pact v3 tests (USE_PACT_V3=true)"
+                    reason="Using Pact v3 tests (default). Set USE_PACT_V3=false to use v2."
                 )
                 item.add_marker(skip_marker)
-        # If v3 is NOT requested (default), skip v3 tests
-        elif "_v3.py" in str(item.fspath):
-            skip_marker = pytest.mark.skip(
-                reason="Pact v3 is beta - use USE_PACT_V3=true to enable v3 tests"
-            )
-            item.add_marker(skip_marker)
+        else:
+            # If explicitly disabled, skip v3 tests and use v2
+            if "_v3.py" in str(item.fspath):
+                skip_marker = pytest.mark.skip(
+                    reason="Pact v3 is disabled - using v2 tests (USE_PACT_V3=false)"
+                )
+                item.add_marker(skip_marker)

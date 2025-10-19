@@ -10,24 +10,30 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Try to import pact components with fallbacks
+# Using Pact v3 as primary (stable release)
+PACT_AVAILABLE = False
+
 try:
+    # Try v3 style imports (primary)
     from pact import Consumer, EachLike, Format, Like, Provider, Term
 
     PACT_AVAILABLE = True
-    logger.debug("Successfully imported pact components (Consumer, Provider API)")
+    logger.debug("Successfully imported pact v3 components")
 except ImportError as e:
-    logger.warning(f"Failed to import Consumer/Provider from pact: {e}")
-    logger.info("Attempting fallback imports from pact submodules...")
+    logger.warning(f"Failed to import from pact (v3 style): {e}")
+    logger.info("Attempting v2 fallback imports from pact submodules...")
 
     try:
-        # Try importing from submodules
+        # Fallback to v2 style imports
         from pact.consumer import Consumer, Provider
         from pact.matchers import EachLike, Format, Like, Term
 
         PACT_AVAILABLE = True
-        logger.debug("Successfully imported from pact submodules")
+        logger.debug(
+            "Successfully imported pact v2 components from submodules (fallback)"
+        )
     except ImportError as e2:
-        logger.error(f"Failed to import from pact submodules: {e2}")
+        logger.error(f"Failed to import from pact submodules (v2 style): {e2}")
 
         # Create dummy classes for when pact is not available
         class Consumer:  # type: ignore[misc]
@@ -54,8 +60,11 @@ except ImportError as e:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 raise ImportError("pact-python not properly installed")
 
-        PACT_AVAILABLE = False
-        logger.warning("Pact contract testing disabled - imports failed")
+        # If both import attempts fail, create dummy classes
+        if not PACT_AVAILABLE:
+            logger.warning(
+                "Pact contract testing disabled - all import attempts failed"
+            )
 
 __all__ = [
     "Consumer",

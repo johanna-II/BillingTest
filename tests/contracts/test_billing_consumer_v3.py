@@ -4,6 +4,8 @@ import os
 from datetime import datetime, timezone
 
 import pytest
+
+# Pact v3 is now stable - import normally
 from pact import EachLike, Format, Like, Pact, Term
 from pytest import approx
 
