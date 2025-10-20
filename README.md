@@ -38,6 +38,7 @@ performance, and security tests with automated CI/CD.
 | **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, Zustand |
 | **Edge API** | Cloudflare Workers, Hono |
 | **Testing** | pytest, Docker, GitHub Actions |
+| **Contract Testing** | Pact v3, Consumer-Driven Contracts, Broker Integration |
 | **Observability** | OpenTelemetry, Prometheus |
 | **Mocking** | Flask-based Mock Server with OpenAPI spec |
 
