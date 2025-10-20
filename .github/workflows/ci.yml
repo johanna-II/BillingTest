@@ -94,20 +94,6 @@ jobs:
         pip list | grep pact
         python -c "import pact; print(f'✅ pact version: {pact.__version__}')"
 
-    - name: Publish Pacts to Broker (contracts only, main branch)
-      if: matrix.test-type == 'contracts' && github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        cd tests/contracts
-        python publish_pacts.py \
-          --version ${{ github.sha }} \
-          --tag main \
-          --tag production
-      env:
-        PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
-        PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
-        GIT_COMMIT: ${{ github.sha }}
-        GIT_BRANCH: ${{ github.ref_name }}
-
     - name: Start Mock Server
       # Only for contracts (integration & comprehensive use Docker)
       if: (matrix.test-type == 'contracts') || (matrix.test-type == 'comprehensive' && (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')))
@@ -214,6 +200,43 @@ jobs:
         MOCK_SERVER_URL: http://localhost:5000
         MOCK_SERVER_PORT: '5000'
         PYTHONUNBUFFERED: '1'
+
+    - name: Publish Pacts to Broker
+      if: matrix.test-type == 'contracts' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        cd tests/contracts
+        python publish_pacts.py \
+          --version ${{ github.sha }} \
+          --tag main \
+          --tag production \
+          --branch ${{ github.ref_name }}
+      env:
+        PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+        PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        GIT_COMMIT: ${{ github.sha }}
+        GIT_BRANCH: ${{ github.ref_name }}
+
+    - name: Publish Pacts to Broker (PR/Develop)
+      if: matrix.test-type == 'contracts' && (github.ref == 'refs/heads/develop' || github.event_name == 'pull_request')
+      run: |
+        cd tests/contracts
+        python publish_pacts.py \
+          --version ${{ github.sha }} \
+          --tag ${{ github.ref_name }} \
+          --branch ${{ github.ref_name }}
+      env:
+        PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+        PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        GIT_COMMIT: ${{ github.sha }}
+        GIT_BRANCH: ${{ github.ref_name }}
+
+    - name: Upload Pact files
+      if: matrix.test-type == 'contracts'
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808  # v4.3.3
+      with:
+        name: pact-files
+        path: tests/contracts/pacts/*.json
+        retention-days: 30
 
     - name: Upload test results
       if: always()
