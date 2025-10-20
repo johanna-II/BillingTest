@@ -58,8 +58,14 @@ class TestContractBilling:
                     ),
                     "total_amount": match.like(500.0),
                     "currency": match.regex("USD", regex=r"[A-Z]{3}"),
-                    "created_at": match.datetime(),
-                    "updated_at": match.datetime(),
+                    "created_at": match.regex(
+                        "2025-01-01T00:00:00+00:00",
+                        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+                    ),
+                    "updated_at": match.regex(
+                        "2025-01-01T00:00:00+00:00",
+                        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+                    ),
                 }
             )
         )
@@ -104,8 +110,14 @@ class TestContractBilling:
                     "customer_id": match.like("CUST001"),
                     "amount": match.like(500.0),
                     "currency": match.like("USD"),
-                    "created_at": match.datetime(),
-                    "expires_at": match.datetime(),
+                    "created_at": match.regex(
+                        "2025-01-01T00:00:00+00:00",
+                        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+                    ),
+                    "expires_at": match.regex(
+                        "2025-01-01T00:00:00+00:00",
+                        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+                    ),
                 }
             )
         )
@@ -149,7 +161,10 @@ class TestContractBilling:
                     "id": match.regex("METER_67890", regex=r"METER_[0-9A-F]+"),
                     "status": "ACCEPTED",
                     "resource_id": match.like("RES001"),
-                    "timestamp": match.datetime(),
+                    "timestamp": match.regex(
+                        "2025-01-01T00:00:00+00:00",
+                        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+                    ),
                 }
             )
         )
@@ -232,7 +247,10 @@ class TestContractBilling:
                     "status": "APPLIED",
                     "original_amount": match.like(1500.0),
                     "adjusted_amount": match.like(1400.0),
-                    "applied_at": match.datetime(),
+                    "applied_at": match.regex(
+                        "2025-01-01T00:00:00+00:00",
+                        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+                    ),
                 }
             )
         )

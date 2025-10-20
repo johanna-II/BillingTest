@@ -68,9 +68,6 @@ def mock_server_running():
 class TestProviderVerification:
     """Provider verification tests."""
 
-    @pytest.mark.skip(
-        reason="Provider verification - datetime format needs fine-tuning"
-    )
     def test_verify_billing_api_contract(self):
         """Verify the mock server satisfies all consumer contracts."""
         # Find pact files - only verify our current BillingTest pacts

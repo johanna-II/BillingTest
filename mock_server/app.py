@@ -2083,8 +2083,8 @@ def provider_states():
             ],
             "total_amount": 500.0,
             "currency": "USD",
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
-            "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+            "created_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         }
     elif state == "Customer exists":
         # Customer data is already available
@@ -2171,9 +2171,9 @@ def get_contract_v1(contract_id):
         "total_amount": 500.0,
         "currency": "USD",
         "created_at": contract.get(
-            "startDate", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+            "startDate", datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         ),
-        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
     }
     return jsonify(pact_contract), 200
 
@@ -2212,8 +2212,8 @@ def create_credit_v1():
         "reason": data.get("reason", data.get("description", "")),  # Pact uses "reason"
         "type": data.get("type", "ADJUSTMENT"),
         "status": "ACTIVE",  # Contract expects ACTIVE, PENDING, or APPLIED
-        "created_at": now.strftime("%Y-%m-%dT%H:%M:%S"),
-        "expires_at": (now + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%S"),
+        "created_at": now.replace(microsecond=0).isoformat(),
+        "expires_at": (now + timedelta(days=365)).replace(microsecond=0).isoformat(),
     }
 
     credit_data[credit_id] = credit
@@ -2491,7 +2491,7 @@ def submit_meter_contract():
         "id": meter_id,
         "status": "ACCEPTED",
         "resource_id": data.get("resource_id"),
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
     }
 
     return jsonify(response), 201
@@ -2594,7 +2594,7 @@ def create_adjustment():
         "status": "APPLIED",
         "original_amount": original_amount,
         "adjusted_amount": original_amount - amount,
-        "applied_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        "applied_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
     }
 
     return jsonify(response), 201
