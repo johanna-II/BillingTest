@@ -179,7 +179,7 @@ Examples:
         sys.exit(0)
 
     # Perform can-i-deploy check
-    can_deploy, message = can_i_deploy(
+    can_deploy, _ = can_i_deploy(
         args.pacticipant,
         version,
         args.to_environment,
