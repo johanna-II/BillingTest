@@ -14,6 +14,9 @@ processing with 80%+ test coverage.
 >
 > 🏗️ **[Architecture Documentation](docs/ARCHITECTURE.md)** - System
 > architecture diagrams, technology stack, and design patterns.
+>
+> 🔄 **[Dependency Management](docs/RENOVATE_DEPENDENCY_DASHBOARD.md)** - 
+> Automated dependency updates with Renovate bot.
 
 ## What is This?
 
