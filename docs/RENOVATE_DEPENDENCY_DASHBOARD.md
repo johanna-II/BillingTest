@@ -18,9 +18,9 @@ The Dependency Dashboard (Issue) serves as a centralized location to:
 
 This section lists dependency updates that are scheduled to run at specific times based on the `renovate.json` configuration. The current configuration uses:
 - **Weekly schedule**: Updates are grouped and created once per week
-- **Package-specific schedules**: 
-  - pytest packages, linting tools, OpenTelemetry, Flask: Monday before 3am
-  - Frontend dependencies: Tuesday before 3am
+- **Package-specific schedules** (see `renovate.json` for current details):
+  - Example: pytest packages, linting tools, OpenTelemetry, Flask
+  - Example: Frontend dependencies
 
 To trigger an update immediately, simply check the box next to the update in the issue.
 
@@ -84,8 +84,8 @@ To manually trigger an update before its scheduled time:
 
 The issue will:
 - Update automatically as Renovate scans for updates
-- Close and reopen as needed
-- Always remain open to track pending updates
+- Remain persistently open to track pending updates
+- Display current status of scheduled and awaiting dependency updates
 
 ## Further Reading
 
