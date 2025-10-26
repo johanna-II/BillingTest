@@ -206,10 +206,10 @@ jobs:
       run: |
         cd tests/contracts
         python publish_pacts.py \
-          --version ${{ github.sha }} \
+          --version "$GIT_COMMIT" \
           --tag main \
           --tag production \
-          --branch ${{ github.ref_name }}
+          --branch "$GIT_BRANCH"
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
@@ -221,9 +221,9 @@ jobs:
       run: |
         cd tests/contracts
         python publish_pacts.py \
-          --version ${{ github.sha }} \
-          --tag ${{ github.head_ref || github.ref_name }} \
-          --branch ${{ github.head_ref || github.ref_name }}
+          --version "$GIT_COMMIT" \
+          --tag "$GIT_BRANCH" \
+          --branch "$GIT_BRANCH"
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
