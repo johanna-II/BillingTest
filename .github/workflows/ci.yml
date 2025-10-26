@@ -222,13 +222,13 @@ jobs:
         cd tests/contracts
         python publish_pacts.py \
           --version ${{ github.sha }} \
-          --tag ${{ github.ref_name }} \
-          --branch ${{ github.ref_name }}
+          --tag ${{ github.head_ref || github.ref_name }} \
+          --branch ${{ github.head_ref || github.ref_name }}
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
         GIT_COMMIT: ${{ github.sha }}
-        GIT_BRANCH: ${{ github.ref_name }}
+        GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
 
     - name: Upload Pact files
       if: matrix.test-type == 'contracts'

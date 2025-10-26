@@ -76,7 +76,7 @@ jobs:
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
           PROVIDER_URL: http://localhost:5000
           PROVIDER_VERSION: ${{ github.sha }}
-          PROVIDER_BRANCH: ${{ github.ref_name }}
+          PROVIDER_BRANCH: ${{ github.head_ref || github.ref_name }}
           PUBLISH_VERIFICATION_RESULTS: 'true'
 
       - name: Upload verification results
@@ -95,7 +95,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const logPath = 'tests/contracts/logs/pact_verification.log';
+            const logPath = 'tests/contracts/logs/pact.log';
             let comment = '## 🔍 Pact Provider Verification\n\n';
 
             if (fs.existsSync(logPath)) {
