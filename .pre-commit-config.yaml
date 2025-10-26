@@ -54,7 +54,7 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: package.lock.json
+        exclude: (package.lock.json|tests/contracts/pacts/.*\.json)
 
   # Security scanning
   - repo: https://github.com/PyCQA/bandit

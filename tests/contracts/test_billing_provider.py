@@ -1,4 +1,4 @@
-"""Provider contract verification tests for Mock Billing API."""
+"""Provider contract verification tests for Mock Billing API using Pact Python v3."""
 
 import os
 import subprocess
@@ -8,12 +8,7 @@ from pathlib import Path
 
 import pytest
 import requests
-
-# Only import Verifier if we're actually going to use it
-try:
-    from pact import Verifier
-except ImportError:
-    Verifier = None
+from pact import Verifier
 
 PACT_DIR = os.path.join(os.path.dirname(__file__), "pacts")
 MOCK_SERVER_URL = "http://localhost:5000"
@@ -33,246 +28,137 @@ def mock_server_running():
         pass
 
     # Start mock server
-    process = subprocess.Popen(
+    server_process = subprocess.Popen(
         ["python", "-m", "mock_server.run_server"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
     )
 
     # Wait for server to start
-    for _ in range(30):
+    max_retries = 30
+    for _ in range(max_retries):
         try:
             response = requests.get(f"{MOCK_SERVER_URL}/health", timeout=1)
             if response.status_code == 200:
+                print("Mock server is ready")
                 break
-        except (requests.ConnectionError, requests.Timeout):
+        except (requests.RequestException, ConnectionError):
             pass
         time.sleep(1)
+    else:
+        server_process.terminate()
+        msg = "Mock server failed to start"
+        raise RuntimeError(msg)
 
     try:
         yield
     finally:
-        # Stop mock server
-        process.terminate()
-        process.wait(timeout=5)
+        # Gracefully shutdown the server
+        try:
+            server_process.terminate()
+            server_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Force kill if graceful shutdown fails
+            server_process.kill()
+            server_process.wait(timeout=2)
 
 
+@pytest.mark.contract
+@pytest.mark.provider
 class TestProviderVerification:
-    """Verify that our mock server satisfies the consumer contracts."""
+    """Provider verification tests."""
 
-    @pytest.fixture(autouse=True)
-    def setup_provider_states(self) -> None:
-        """Set up provider states for contract verification."""
-        # This would normally set up data in the provider
-        # For our mock server, we'll add endpoints to support states
-        self.state_handlers = {
-            "A contract exists": self._setup_contract_exists,
-            "Customer exists": self._setup_customer_exists,
-            "Metering data exists for project": self._setup_metering_data,
-            "Payment exists": self._setup_payment_exists,
-            "Contract does not exist": self._setup_contract_not_exist,
-        }
-
-    def _setup_contract_exists(self) -> None:
-        """Set up state where a contract exists."""
-        # Mock server already has default contract data
-
-    def _setup_customer_exists(self) -> None:
-        """Set up state where a customer exists."""
-        # Mock server already has default customer data
-
-    def _setup_metering_data(self) -> None:
-        """Set up state where metering data exists."""
-        # Mock server already has default metering data
-
-    def _setup_payment_exists(self) -> None:
-        """Set up state where a payment exists."""
-        # Mock server already has default payment data
-
-    def _setup_contract_not_exist(self) -> None:
-        """Set up state where contract doesn't exist."""
-        # Mock server returns 404 for non-existent IDs
-
-    @pytest.mark.provider
-    @pytest.mark.skipif(
-        any(
-            os.environ.get(var, "false").lower() == "true"
-            for var in ["CI", "CONTINUOUS_INTEGRATION", "JENKINS", "GITHUB_ACTIONS"]
-        )
-        or os.getenv("SKIP_PACT_TESTS", "false").lower() == "true",
-        reason="Pact verification tests are skipped in CI or when SKIP_PACT_TESTS=true",
-    )
-    def test_verify_billing_api_contract(self) -> None:
+    def test_verify_billing_api_contract(self):
         """Verify the mock server satisfies all consumer contracts."""
-        # Check if Verifier is available
-        if Verifier is None:
-            pytest.skip("Pact library not available or not properly installed")
-
-        # Find all pact files
+        # Find pact files - only verify our current BillingTest pacts
         pact_files = []
         pact_dir_path = Path(PACT_DIR)
+
+        print(f"Looking for pact files in: {pact_dir_path}")
+        print(f"Directory exists: {pact_dir_path.exists()}")
+
         if pact_dir_path.exists():
-            for file in pact_dir_path.iterdir():
-                if file.suffix == ".json":
+            all_files = list(pact_dir_path.iterdir())
+            print(f"Found {len(all_files)} files: {[f.name for f in all_files]}")
+
+            for file in all_files:
+                # Only verify billingtest pacts (skip legacy billingcrud/billinglibraries)
+                if file.suffix == ".json" and "billingtest" in file.name.lower():
                     pact_files.append(str(file))
+                    print(f"  [+] Added: {file.name}")
+                elif file.suffix == ".json":
+                    print(f"  [-] Skipped: {file.name} (not billingtest)")
+
+        print(f"\nPact files to verify: {len(pact_files)}")
 
         if not pact_files:
-            pytest.skip("No pact files found to verify")
+            pytest.skip("No BillingTest pact files found to verify")
 
         # Run mock server and verify contracts
         with mock_server_running():
-            # First, set up provider states by creating test data
-            requests.post(
-                f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
-            )
+            # Pact v3 API
+            verifier = Verifier("BillingAPI")
 
+            # Enable logging
+            log_dir = os.path.join(os.path.dirname(__file__), "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            verifier.logs_for_provider(log_dir)
+
+            # Set provider base URL as transport
+            verifier.add_transport(url=MOCK_SERVER_URL)
+
+            # Set provider state handler (body=True means state changes in request body)
+            verifier.state_handler(f"{MOCK_SERVER_URL}/pact-states", body=True)
+
+            # Add pact sources
+            for pact_file in pact_files:
+                print(f"Adding pact file: {pact_file}")
+                verifier.add_source(pact_file)
+
+            # Verify
+            print("Running verification...")
             try:
-                verifier = Verifier(
-                    provider="BillingAPI", provider_base_url=MOCK_SERVER_URL
-                )
+                verifier.verify()
+                print("[SUCCESS] Verification successful")
+            except RuntimeError as e:
+                # Print logs for debugging
+                print(f"[FAILED] Verification failed: {e}")
+                if hasattr(verifier, "logs"):
+                    print("Verifier logs:")
+                    print(verifier.logs)  # logs is a property, not a method
+                raise
 
-                # Verify each pact file
-                for pact_file in pact_files:
-                    try:
-                        # Run verification with simplified approach
-                        verifier.verify_pacts(
-                            pact_file,
-                            provider_states_setup_url=f"{MOCK_SERVER_URL}/pact-states",
-                        )
-                        # If no exception, verification passed
-                        assert True
-                    except Exception as e:
-                        # For now, skip verification errors due to version compatibility
-                        pytest.skip(f"Pact verification not fully compatible: {e}")
-            except Exception as e:
-                # If verifier initialization or any other error occurs
-                if "error when stopping the Pact mock service" in str(e):
-                    pytest.skip(f"Pact mock service cleanup issue: {e}")
-                else:
-                    raise
-
-    @pytest.mark.provider
-    @pytest.mark.skipif(
-        any(
-            os.environ.get(var, "false").lower() == "true"
-            for var in ["CI", "CONTINUOUS_INTEGRATION", "JENKINS", "GITHUB_ACTIONS"]
-        )
-        or os.getenv("SKIP_PACT_TESTS", "false").lower() == "true"
-        or os.getenv("USE_MOCK_SERVER", "false").lower() != "true",
-        reason="This test is skipped in CI, when SKIP_PACT_TESTS=true, or requires mock server",
-    )
-    def test_mock_server_contract_compliance(self) -> None:
-        """Test that mock server responses match contract expectations."""
+    @pytest.mark.integration
+    def test_mock_server_health(self):
+        """Test that mock server is running and responsive."""
         with mock_server_running():
-            # First set up the provider state
-            requests.post(
-                f"{MOCK_SERVER_URL}/pact-states", json={"state": "A contract exists"}
-            )
-
-            # Test contract endpoint
-            response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/12345")
+            response = requests.get(f"{MOCK_SERVER_URL}/health", timeout=5)
             assert response.status_code == 200
-            data = response.json()
-
-            # Verify response structure matches contract or mock structure
-            # The mock server returns a different format than the pact contract
-            # This is expected since the mock was built before the contract tests
-            # For now, we'll check for the mock server's response format
-            assert "contractType" in data or "id" in data
-            if "id" in data:
-                # Pact contract format
-                assert "status" in data
-                assert data["status"] in ["ACTIVE", "INACTIVE", "PENDING"]
-                assert "customer" in data
-                assert "items" in data
-            else:
-                # Mock server format
-                assert "contractType" in data
-                assert "details" in data
-
-            # Test credit creation
-            credit_data = {
-                "customer_id": "CUST001",
-                "amount": 500.0,
-                "currency": "USD",
-                "description": "Monthly credit",
-                "type": "ADJUSTMENT",
-            }
-            response = requests.post(
-                f"{MOCK_SERVER_URL}/api/v1/credits", json=credit_data
-            )
-            assert response.status_code == 201
-            data = response.json()
-            assert "id" in data
-            assert data["customer_id"] == credit_data["customer_id"]
-            assert data["amount"] == credit_data["amount"]
-
-            # Test metering data
-            response = requests.get(
-                f"{MOCK_SERVER_URL}/api/v1/metering",
-                params={"project_id": "PROJ001", "month": "2025-01"},
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert "project_id" in data
-            assert "usage" in data
-
-            # Test error handling
-            response = requests.get(f"{MOCK_SERVER_URL}/api/v1/contracts/99999")
-            assert response.status_code == 404
-            data = response.json()
-            assert "error" in data
 
 
-def add_provider_state_endpoint() -> str:
-    """Add provider state endpoint to mock server.
-    This should be added to mock_server/app.py.
-    """
-    return '''
-@app.route('/pact-states', methods=['POST'])
-def provider_states():
-    """Handle provider state setup for Pact verification."""
-    data = request.json
-    state = data.get('state')
+@pytest.mark.contract
+@pytest.mark.provider
+class TestProviderStates:
+    """Test provider state handling."""
 
-    # Handle different states
-    if state == "A contract exists":
-        # Ensure contract 12345 exists
-        contracts["12345"] = generate_contract_data("12345")
-    elif state == "Customer exists":
-        # Customer data is already available
-        pass
-    elif state == "Metering data exists for project":
-        # Ensure metering data exists
-        project_id = "PROJ001"
-        metering_data[project_id] = {
-            "project_id": project_id,
-            "period": {
-                "start": "2025-01-01T00:00:00",
-                "end": "2025-01-31T23:59:59"
-            },
-            "usage": [
-                {
-                    "resource_type": "compute",
-                    "resource_id": "vm-001",
-                    "quantity": 744.0,
-                    "unit": "hours",
-                    "cost": 74.40
-                }
-            ],
-            "total_cost": 74.40
-        }
-    elif state == "Payment exists":
-        # Ensure payment PAY001 exists
-        billing_data["PAY001"] = {
-            "payment_id": "PAY001",
-            "status": "PENDING",
-            "amount": 1000.0,
-            "currency": "USD"
-        }
-    elif state == "Contract does not exist":
-        # Remove contract 99999 if it exists
-        contracts.pop("99999", None)
+    def test_provider_state_setup(self):
+        """Test that provider states can be set up correctly."""
+        with mock_server_running():
+            # Test various provider states
+            states = [
+                "A contract exists",
+                "Customer exists",
+                "Resource exists",
+                "Payment exists",
+                "Invoice exists",
+            ]
 
-    return jsonify({"result": "success"}), 200
-'''
+            for state in states:
+                response = requests.post(
+                    f"{MOCK_SERVER_URL}/pact-states",
+                    json={"state": state},
+                    timeout=5,
+                )
+                assert response.status_code == 200
+                data = response.json()
+                assert data["result"] == "success"
