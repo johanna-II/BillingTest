@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for running billing tests in isolation
 # Supports testing on different Python versions
 
-ARG PYTHON_VERSION=3.12-slim
+ARG PYTHON_VERSION=3.14-slim
 
 # Base stage with common dependencies
 FROM python:${PYTHON_VERSION} AS base
