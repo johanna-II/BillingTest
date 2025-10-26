@@ -210,6 +210,23 @@ def publish_pact_to_broker(
 
         return True
 
+    except requests.HTTPError as e:
+        # 409 Conflict means pact already exists - not a real error
+        if e.response.status_code == 409:
+            print("  ⚠ Pact already published for this version")
+            # Still try to apply tags/branch even if pact exists
+            try:
+                _apply_tags(consumer, consumer_version, tags, headers, auth)
+                if branch:
+                    _set_branch(consumer, consumer_version, branch, headers, auth)
+                return True
+            except requests.RequestException as tag_error:
+                print(f"  ✗ Failed to apply tags: {tag_error}")
+                return False
+        else:
+            print(f"  ✗ Failed to publish: {e}")
+            return False
+
     except requests.RequestException as e:
         print(f"  ✗ Failed to publish: {e}")
         return False
