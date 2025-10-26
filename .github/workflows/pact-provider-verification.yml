@@ -1,0 +1,122 @@
+name: Pact Provider Verification
+
+on:
+  # Provider가 변경되었을 때 실행
+  push:
+    branches: [main, develop]
+    paths:
+      - 'libs/**'
+      - 'mock_server/**'
+  # Consumer가 새 Pact를 발행했을 때 실행 (webhook으로 트리거)
+  repository_dispatch:
+    types: [pact-changed]
+  # 수동 실행
+  workflow_dispatch:
+    inputs:
+      pact_url:
+        description: 'Pact URL to verify (optional)'
+        required: false
+        type: string
+
+jobs:
+  verify-pacts:
+    name: Verify Provider Contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4.1.7
+
+      - name: Set up Python
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d  # v5.1.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-mock.txt
+          pip install pytest pytest-html
+
+      - name: Start Mock Server (Provider)
+        run: |
+          echo "Starting Mock Server as Provider..."
+          python -m mock_server.run_server &
+          MOCK_PID=$!
+          echo "Mock server started with PID: $MOCK_PID"
+
+          # Wait for server to be ready
+          for i in {1..30}; do
+            if curl -s --max-time 2 http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✓ Mock server (Provider) is ready"
+              break
+            fi
+            if [[ $i -eq 30 ]]; then
+              echo "✗ Mock server failed to start"
+              exit 1
+            fi
+            echo "Waiting for mock server... ($i/30)"
+            sleep 1
+          done
+        env:
+          FLASK_ENV: production
+          MOCK_SERVER_RATE_LIMIT: 500
+
+      - name: Run Provider Verification Tests
+        run: |
+          cd tests/contracts
+          python -m pytest test_billing_provider.py -v --tb=short \
+            --html=provider-verification-report.html \
+            --self-contained-html
+        env:
+          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+          PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+          PROVIDER_URL: http://localhost:5000
+          PROVIDER_VERSION: ${{ github.sha }}
+          PROVIDER_BRANCH: ${{ github.head_ref || github.ref_name }}
+          PUBLISH_VERIFICATION_RESULTS: 'true'
+
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808  # v4.3.3
+        with:
+          name: provider-verification-results
+          path: |
+            tests/contracts/provider-verification-report.html
+            tests/contracts/logs/*.log
+          retention-days: 30
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const logPath = 'tests/contracts/logs/pact.log';
+            let comment = '## 🔍 Pact Provider Verification\n\n';
+
+            if (fs.existsSync(logPath)) {
+              const log = fs.readFileSync(logPath, 'utf8');
+              const success = !log.includes('FAILED');
+
+              if (success) {
+                comment += '✅ **All pacts verified successfully!**\n\n';
+                comment += 'Provider implementation matches all consumer contracts.';
+              } else {
+                comment += '❌ **Pact verification failed!**\n\n';
+                comment += 'Provider implementation does not match consumer contracts.\n';
+                comment += 'Check the verification report for details.';
+              }
+            } else {
+              comment += '⚠️ Verification completed but log file not found.';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: comment
+            });

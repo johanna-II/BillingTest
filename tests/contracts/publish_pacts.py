@@ -10,6 +10,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 try:
     import requests
@@ -101,9 +102,10 @@ def _apply_tags(
     request_auth = _get_request_auth(auth)
 
     for tag in tags:
+        encoded_tag = quote(tag, safe="")
         tag_url = (
             f"{PACT_BROKER_URL}/pacticipants/{consumer}/versions/{consumer_version}"
-            f"/tags/{tag}"
+            f"/tags/{encoded_tag}"
         )
         tag_response = requests.put(
             tag_url,
@@ -133,8 +135,9 @@ def _set_branch(
         headers: Request headers
         auth: Authentication for requests
     """
+    encoded_branch = quote(branch, safe="")
     branch_url = (
-        f"{PACT_BROKER_URL}/pacticipants/{consumer}/branches/{branch}"
+        f"{PACT_BROKER_URL}/pacticipants/{consumer}/branches/{encoded_branch}"
         f"/versions/{consumer_version}"
     )
     request_auth = _get_request_auth(auth)
@@ -206,6 +209,23 @@ def publish_pact_to_broker(
             _set_branch(consumer, consumer_version, branch, headers, auth)
 
         return True
+
+    except requests.HTTPError as e:
+        # 409 Conflict means pact already exists - not a real error
+        if e.response.status_code == 409:
+            print("  ⚠ Pact already published for this version")
+            # Still try to apply tags/branch even if pact exists
+            try:
+                _apply_tags(consumer, consumer_version, tags, headers, auth)
+                if branch:
+                    _set_branch(consumer, consumer_version, branch, headers, auth)
+                return True
+            except requests.RequestException as tag_error:
+                print(f"  ✗ Failed to apply tags: {tag_error}")
+                return False
+        else:
+            print(f"  ✗ Failed to publish: {e}")
+            return False
 
     except requests.RequestException as e:
         print(f"  ✗ Failed to publish: {e}")
