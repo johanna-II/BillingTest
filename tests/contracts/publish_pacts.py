@@ -10,6 +10,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 try:
     import requests
@@ -101,9 +102,10 @@ def _apply_tags(
     request_auth = _get_request_auth(auth)
 
     for tag in tags:
+        encoded_tag = quote(tag, safe="")
         tag_url = (
             f"{PACT_BROKER_URL}/pacticipants/{consumer}/versions/{consumer_version}"
-            f"/tags/{tag}"
+            f"/tags/{encoded_tag}"
         )
         tag_response = requests.put(
             tag_url,
@@ -133,8 +135,9 @@ def _set_branch(
         headers: Request headers
         auth: Authentication for requests
     """
+    encoded_branch = quote(branch, safe="")
     branch_url = (
-        f"{PACT_BROKER_URL}/pacticipants/{consumer}/branches/{branch}"
+        f"{PACT_BROKER_URL}/pacticipants/{consumer}/branches/{encoded_branch}"
         f"/versions/{consumer_version}"
     )
     request_auth = _get_request_auth(auth)
