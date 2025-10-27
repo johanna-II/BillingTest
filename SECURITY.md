@@ -7,10 +7,10 @@ Only versions 5.1.x and 4.0.x are actively supported; all earlier versions are n
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| 2.3.x   | :white_check_mark: |
+| 2.2.x   | :white_check_mark: |
+| 2.1.x   | :x:                |
+| < 2.1   | :x:                |
 
 ## Reporting a Vulnerability
 
