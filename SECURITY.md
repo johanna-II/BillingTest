@@ -14,8 +14,6 @@ Only versions 5.1.x and 4.0.x are actively supported; all earlier versions are n
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+To report a security vulnerability, please email us at [security@example.com](mailto:security@example.com) or use the [GitHub Security Advisories](https://github.com/your-org/your-repo/security/advisories) feature.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+We aim to acknowledge your report within 3 business days and provide a more detailed response within 7 business days. We will keep you informed of the progress and let you know when the issue has been addressed or if it is declined.
