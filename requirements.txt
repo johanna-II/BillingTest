@@ -47,9 +47,10 @@ openapi-spec-validator>=0.7.1
 jsonschema>=4.20.0
 
 # Performance testing
-locust>=2.31.0
+locust>=2.42.1
 pytest-benchmark>=5.0.0
 psutil>=6.1.0
+python-socketio>=5.14.0
 
 # Security testing
 safety>=3.2.0

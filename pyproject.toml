@@ -37,10 +37,11 @@ hypothesis = "^6.98.0"
 flask = "^3.1.2"
 flask-cors = "^6.0.1"
 flask-caching = "^2.3.1"
-locust = "^2.41.6"
+locust = "^2.42.1"
 pact-python = "^3.1.0"
 pytest-timeout = "^2.4.0"
 responses = "^0.25.8"
+python-socketio = "^5.14.0"
 
 [tool.poetry.group.observability.dependencies]
 opentelemetry-api = "^1.29.0"

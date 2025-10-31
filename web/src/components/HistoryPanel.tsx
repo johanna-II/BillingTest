@@ -8,7 +8,7 @@
 import React, { useState, useMemo } from 'react'
 import { useHistoryStore } from '@/stores/historyStore'
 import { format } from 'date-fns'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 
 interface HistoryPanelProps {
   onLoadEntry: (entryId: string) => void
