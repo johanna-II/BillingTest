@@ -1,26 +1,18 @@
-# Cloudflare Pages 배포 설정
-name = "billing-calculator"
-compatibility_date = "2024-01-01"
+# Cloudflare Pages Configuration for Next.js Static Export
+# This file is optional - Cloudflare Pages auto-detects Next.js
 
-# Next.js 호환성
+name = "billing-calculator"
+pages_build_output_dir = "out"
+
+# Compatibility settings
+compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-[env.production]
-# 프로덕션 환경 변수
-vars = { NODE_ENV = "production" }
-
-# 빌드 설정
+# Build configuration (Cloudflare Pages will use these)
 [build]
 command = "npm run build"
-cwd = "."
-watch_dir = "src"
+cwd = ""
 
-# 라우팅 설정 (Next.js)
-[[routes]]
-pattern = "/*"
-custom_domain = true
-
-# 에러 페이지
-[env.production.route]
-zone_name = "yourdomain.com"  # 실제 도메인으로 변경
-pattern = "billing.yourdomain.com/*"  # 실제 서브도메인으로 변경
+# Environment variables for production
+[env.production]
+vars = { NODE_ENV = "production" }
