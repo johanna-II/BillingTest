@@ -44,10 +44,15 @@ jobs:
           poetry run bandit -r libs/ -f json -o bandit_report.json || true
           poetry run bandit -r libs/ -f txt -o bandit_summary.txt || true
 
-      - name: Run Safety check
+      - name: Run Safety scan
         run: |
-          poetry run safety check --json > safety_report.json || true
-          poetry run safety check > safety_summary.txt || true
+          poetry run safety scan --json > safety_report.json || true
+          poetry run safety scan > safety_summary.txt || true
+
+      - name: Run pip-audit (modern alternative)
+        run: |
+          poetry run pip-audit --format json > pip_audit_report.json || true
+          poetry run pip-audit > pip_audit_summary.txt || true
 
       - name: Check for hardcoded secrets
         run: |
@@ -69,10 +74,18 @@ jobs:
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "## Dependency Vulnerabilities (Safety)" >> $GITHUB_STEP_SUMMARY
           if [[ -f safety_summary.txt ]]; then
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat safety_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Dependency Vulnerabilities (pip-audit)" >> $GITHUB_STEP_SUMMARY
+          if [[ -f pip_audit_summary.txt ]]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat pip_audit_summary.txt | head -50 >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -86,6 +99,8 @@ jobs:
             bandit_summary.txt
             safety_report.json
             safety_summary.txt
+            pip_audit_report.json
+            pip_audit_summary.txt
             secrets_report.json
 
       - name: Comment PR with security results
@@ -108,7 +123,14 @@ jobs:
               if (fs.existsSync('safety_summary.txt')) {
                 const safetySummary = fs.readFileSync('safety_summary.txt', 'utf8');
                 const lines = safetySummary.split('\n').slice(0, 20);
-                comment += '### Safety (Dependency Check)\n```\n' + lines.join('\n') + '\n```\n';
+                comment += '### Safety (Dependency Check)\n```\n' + lines.join('\n') + '\n```\n\n';
+              }
+
+              // Read pip-audit summary
+              if (fs.existsSync('pip_audit_summary.txt')) {
+                const pipAuditSummary = fs.readFileSync('pip_audit_summary.txt', 'utf8');
+                const lines = pipAuditSummary.split('\n').slice(0, 20);
+                comment += '### pip-audit (Modern Dependency Check)\n```\n' + lines.join('\n') + '\n```\n';
               }
             } catch (error) {
               comment += '❌ Error reading security scan results\n';
