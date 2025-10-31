@@ -1498,14 +1498,14 @@ files = [
 
 [[package]]
 name = "locust"
-version = "2.41.6"
+version = "2.42.1"
 description = "Developer-friendly load testing framework"
 optional = false
 python-versions = ">=3.10"
 groups = ["test"]
 files = [
-    {file = "locust-2.41.6-py3-none-any.whl", hash = "sha256:6679bf9e2d92e3c6500551f29dfa58a84d6f767d398cedefbc8a4765659a2126"},
-    {file = "locust-2.41.6.tar.gz", hash = "sha256:1fd76545f41639ba8c1ee57b5cafdf8bd426a264a0656fd927a99040bb86150b"},
+    {file = "locust-2.42.1-py3-none-any.whl", hash = "sha256:747085a2324f37164594c8063a1c6f3cdef870eea2588710361b45d5e5598e1e"},
+    {file = "locust-2.42.1.tar.gz", hash = "sha256:4510dfa92213a9b4965d4a7a9aa40f105b6f886695bd27655cd3a5ba13040a6d"},
 ]
 
 [package.dependencies]
@@ -1513,9 +1513,9 @@ configargparse = ">=1.7.1"
 flask = ">=2.0.0"
 flask-cors = ">=3.0.10"
 flask-login = ">=0.6.3"
-gevent = ">=24.10.1,<25.8.1"
+gevent = ">=24.10.1,<25.8.1 || >25.8.1,<26.0.0"
 geventhttpclient = ">=2.3.1"
-locust-cloud = ">=1.27.2"
+locust-cloud = ">=1.27.8"
 msgpack = ">=1.0.0"
 psutil = ">=5.9.1"
 pytest = ">=8.3.3,<9.0.0"
@@ -1523,24 +1523,25 @@ python-engineio = ">=4.12.2"
 python-socketio = {version = ">=5.13.0", extras = ["client"]}
 pywin32 = {version = "*", markers = "sys_platform == \"win32\""}
 pyzmq = ">=25.0.0"
-requests = ">=2.32.2"
+requests = ">=2.32.2,<2.32.5"
 setuptools = ">=70.0.0"
 werkzeug = ">=2.0.0"
 
 [package.extras]
+dns = ["dnspython (>=2.8.0)"]
 milvus = ["pymilvus (>=2.5.0)"]
 mqtt = ["paho-mqtt (>=2.1.0)"]
 
 [[package]]
 name = "locust-cloud"
-version = "1.27.2"
+version = "1.27.12"
 description = "Locust Cloud"
 optional = false
 python-versions = ">=3.10"
 groups = ["test"]
 files = [
-    {file = "locust_cloud-1.27.2-py3-none-any.whl", hash = "sha256:cd21ee33e5ea721c0e4f3c0e691e9c637fc88783d234b060ae1693c26010604e"},
-    {file = "locust_cloud-1.27.2.tar.gz", hash = "sha256:0d80d63ba722a45c39dcdce66ca5a389944db2123a5fff59d1438e4ee3701258"},
+    {file = "locust_cloud-1.27.12-py3-none-any.whl", hash = "sha256:a7b9941b77ebfd99c765570885c3aa5e3e58ad5161d1799aa05a35f670fa51e3"},
+    {file = "locust_cloud-1.27.12.tar.gz", hash = "sha256:d226fb74a1fdc9d3ed319ccbf328897310a2e04160ed31714322485531ad54e4"},
 ]
 
 [package.dependencies]
@@ -1548,7 +1549,7 @@ configargparse = ">=1.7.1"
 gevent = ">=24.10.1,<26.0.0"
 platformdirs = ">=4.3.6,<5.0.0"
 python-engineio = ">=4.12.2"
-python-socketio = {version = "5.13.0", extras = ["client"]}
+python-socketio = {version = ">=5.14.1,<6.0.0", extras = ["client"]}
 
 [[package]]
 name = "markdown-it-py"
@@ -2812,14 +2813,14 @@ docs = ["sphinx"]
 
 [[package]]
 name = "python-socketio"
-version = "5.13.0"
+version = "5.14.3"
 description = "Socket.IO server and client for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["test"]
 files = [
-    {file = "python_socketio-5.13.0-py3-none-any.whl", hash = "sha256:51f68d6499f2df8524668c24bcec13ba1414117cfb3a90115c559b601ab10caf"},
-    {file = "python_socketio-5.13.0.tar.gz", hash = "sha256:ac4e19a0302ae812e23b712ec8b6427ca0521f7c582d6abb096e36e24a263029"},
+    {file = "python_socketio-5.14.3-py3-none-any.whl", hash = "sha256:a5208c1bbf45a8d6328d01ed67e3fa52ec8b186fd3ea44cfcfcbd120f0c71fbe"},
+    {file = "python_socketio-5.14.3.tar.gz", hash = "sha256:cd8da5e0666e741b4be19e07882e880f57a4751d1645f92c2bc746c95f23b1eb"},
 ]
 
 [package.dependencies]
@@ -2831,6 +2832,7 @@ websocket-client = {version = ">=0.54.0", optional = true, markers = "extra == \
 [package.extras]
 asyncio-client = ["aiohttp (>=3.4)"]
 client = ["requests (>=2.21.0)", "websocket-client (>=0.54.0)"]
+dev = ["tox"]
 docs = ["sphinx"]
 
 [[package]]
@@ -3194,14 +3196,14 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.32.5"
+version = "2.32.4"
 description = "Python HTTP for Humans."
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.8"
 groups = ["main", "dev", "observability", "test"]
 files = [
-    {file = "requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6"},
-    {file = "requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf"},
+    {file = "requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c"},
+    {file = "requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422"},
 ]
 
 [package.dependencies]
@@ -3973,4 +3975,4 @@ test = []
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "a75c3a77d58693778930afc801df636d06fdce599f14d2d2fe44d3561e804d48"
+content-hash = "300f58a53f3c624edc6acf49171c2f29bc2314b2afb2148ebda5813a7b012ac3"
