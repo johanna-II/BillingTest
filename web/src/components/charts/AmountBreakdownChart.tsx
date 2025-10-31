@@ -83,7 +83,7 @@ const AmountBreakdownChart: React.FC<AmountBreakdownChartProps> = ({
               cx="50%"
               cy="50%"
               outerRadius={100}
-              label={(entry) => `${entry.name}: ${formatCurrency(entry.amount)}`}
+              label={(entry: any) => `${entry.name}: ${formatCurrency(entry.amount)}`}
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
