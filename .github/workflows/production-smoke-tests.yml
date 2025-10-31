@@ -28,6 +28,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Test Production API Health
+        id: health-check
+        continue-on-error: true
         run: |
           echo "Testing production Cloudflare Workers API"
           echo "URL: https://billing-api.janetheglory.workers.dev"
@@ -40,36 +42,44 @@ jobs:
           if [[ $status -eq 200 ]]; then
             echo "✅ Health check passed"
             echo "$body" | jq '.'
+            echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "❌ Health check failed (HTTP $status)"
             echo "$body"
+            echo "result=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: Test Calculate Billing Endpoint
+        id: calculate-billing
+        continue-on-error: true
         run: |
           echo "Testing /api/billing/admin/calculate endpoint"
+
+          # Use current date for targetDate (always valid)
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          echo "Using current date: $CURRENT_DATE"
 
           response=$(curl -s -w "\n%{http_code}" \
             -X POST https://billing-api.janetheglory.workers.dev/api/billing/admin/calculate \
             -H "Content-Type: application/json" \
             -H "uuid: smoke-test-001" \
-            -d '{
-              "uuid": "smoke-test-001",
-              "billingGroupId": "bg-smoke",
-              "targetDate": "2025-10-31",
-              "usage": [
+            -d "{
+              \"uuid\": \"smoke-test-001\",
+              \"billingGroupId\": \"bg-smoke\",
+              \"targetDate\": \"$CURRENT_DATE\",
+              \"usage\": [
                 {
-                  "counterName": "compute.c2.c8m8",
-                  "counterType": "DELTA",
-                  "counterUnit": "HOURS",
-                  "counterVolume": 100,
-                  "appKey": "app-smoke-001"
+                  \"counterName\": \"compute.c2.c8m8\",
+                  \"counterType\": \"DELTA\",
+                  \"counterUnit\": \"HOURS\",
+                  \"counterVolume\": 100,
+                  \"appKey\": \"app-smoke-001\"
                 }
               ],
-              "credits": [],
-              "adjustments": []
-            }')
+              \"credits\": [],
+              \"adjustments\": []
+            }")
 
           status=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
@@ -77,19 +87,27 @@ jobs:
           if [[ $status -eq 200 ]]; then
             echo "✅ Calculate billing passed"
             echo "$body" | jq '.header, .totalAmount'
+            echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "❌ Calculate billing failed (HTTP $status)"
             echo "$body"
+            echo "result=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: Test Get Statements Endpoint
+        id: get-statements
+        continue-on-error: true
         run: |
           echo "Testing /api/billing/payments/{month}/statements endpoint"
 
+          # Use current month (YYYY-MM format)
+          CURRENT_MONTH=$(date +%Y-%m)
+          echo "Using current month: $CURRENT_MONTH"
+
           response=$(curl -s -w "\n%{http_code}" \
             -H "uuid: smoke-test-001" \
-            https://billing-api.janetheglory.workers.dev/api/billing/payments/2025-10/statements)
+            "https://billing-api.janetheglory.workers.dev/api/billing/payments/${CURRENT_MONTH}/statements")
 
           status=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
@@ -97,18 +115,26 @@ jobs:
           if [[ $status -eq 200 ]]; then
             echo "✅ Get statements passed"
             echo "$body" | jq '.header'
+            echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "❌ Get statements failed (HTTP $status)"
             echo "$body"
+            echo "result=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: Test Payment Processing Endpoint
+        id: payment-processing
+        continue-on-error: true
         run: |
           echo "Testing /api/billing/payments/{month} endpoint"
 
+          # Use current month (YYYY-MM format)
+          CURRENT_MONTH=$(date +%Y-%m)
+          echo "Using current month: $CURRENT_MONTH"
+
           response=$(curl -s -w "\n%{http_code}" \
-            -X POST https://billing-api.janetheglory.workers.dev/api/billing/payments/2025-10 \
+            -X POST "https://billing-api.janetheglory.workers.dev/api/billing/payments/${CURRENT_MONTH}" \
             -H "Content-Type: application/json" \
             -H "uuid: smoke-test-001" \
             -d '{
@@ -122,35 +148,80 @@ jobs:
           if [[ $status -eq 200 ]]; then
             echo "✅ Payment processing passed"
             echo "$body" | jq '.header, .paymentId'
+            echo "result=success" >> $GITHUB_OUTPUT
           else
             echo "❌ Payment processing failed (HTTP $status)"
             echo "$body"
+            echo "result=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
 
       - name: Generate Summary
         if: always()
         run: |
+          CURRENT_MONTH=$(date +%Y-%m)
+
+          # Read step outputs
+          HEALTH_RESULT="${{ steps.health-check.outputs.result }}"
+          CALCULATE_RESULT="${{ steps.calculate-billing.outputs.result }}"
+          STATEMENTS_RESULT="${{ steps.get-statements.outputs.result }}"
+          PAYMENT_RESULT="${{ steps.payment-processing.outputs.result }}"
+
+          # Determine icons based on actual results
+          HEALTH_ICON="❌"; [[ "$HEALTH_RESULT" == "success" ]] && HEALTH_ICON="✅"
+          CALCULATE_ICON="❌"; [[ "$CALCULATE_RESULT" == "success" ]] && CALCULATE_ICON="✅"
+          STATEMENTS_ICON="❌"; [[ "$STATEMENTS_RESULT" == "success" ]] && STATEMENTS_ICON="✅"
+          PAYMENT_ICON="❌"; [[ "$PAYMENT_RESULT" == "success" ]] && PAYMENT_ICON="✅"
+
           echo "# 🌐 Production API Smoke Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**API URL:** https://billing-api.janetheglory.workers.dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Date:** $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Month:** $CURRENT_MONTH" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Endpoints Tested" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Health Check" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Calculate Billing" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Get Statements" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Process Payment" >> $GITHUB_STEP_SUMMARY
+          echo "- $HEALTH_ICON Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "- $CALCULATE_ICON Calculate Billing (targetDate: current)" >> $GITHUB_STEP_SUMMARY
+          echo "- $STATEMENTS_ICON Get Statements (month: $CURRENT_MONTH)" >> $GITHUB_STEP_SUMMARY
+          echo "- $PAYMENT_ICON Process Payment (month: $CURRENT_MONTH)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Platform:** Cloudflare Workers (Serverless)" >> $GITHUB_STEP_SUMMARY
           echo "**Purpose:** Portfolio demonstration + Swagger UI backend" >> $GITHUB_STEP_SUMMARY
 
-      - name: Notify on Failure
-        if: failure()
+      - name: Check Overall Status
+        if: always()
         run: |
-          echo "⚠️ Production API smoke test failed!" >> $GITHUB_STEP_SUMMARY
-          echo "Check logs above for details." >> $GITHUB_STEP_SUMMARY
+          # Determine overall status
+          HEALTH_RESULT="${{ steps.health-check.outputs.result }}"
+          CALCULATE_RESULT="${{ steps.calculate-billing.outputs.result }}"
+          STATEMENTS_RESULT="${{ steps.get-statements.outputs.result }}"
+          PAYMENT_RESULT="${{ steps.payment-processing.outputs.result }}"
+
+          # Count failures
+          FAILURES=0
+          [[ "$HEALTH_RESULT" != "success" ]] && ((FAILURES++))
+          [[ "$CALCULATE_RESULT" != "success" ]] && ((FAILURES++))
+          [[ "$STATEMENTS_RESULT" != "success" ]] && ((FAILURES++))
+          [[ "$PAYMENT_RESULT" != "success" ]] && ((FAILURES++))
+
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** This may indicate:" >> $GITHUB_STEP_SUMMARY
-          echo "- Cloudflare Workers deployment issue" >> $GITHUB_STEP_SUMMARY
-          echo "- API endpoint changes" >> $GITHUB_STEP_SUMMARY
-          echo "- CORS configuration problem" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ $FAILURES -eq 0 ]]; then
+            echo "## ✅ All Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "Production API is healthy and functioning correctly." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ $FAILURES Test(s) Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Possible causes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Cloudflare Workers deployment issue" >> $GITHUB_STEP_SUMMARY
+            echo "- API endpoint changes" >> $GITHUB_STEP_SUMMARY
+            echo "- Network connectivity problem" >> $GITHUB_STEP_SUMMARY
+            echo "- CORS configuration issue" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check individual test logs above for details." >> $GITHUB_STEP_SUMMARY
+
+            # Fail the job if any test failed
+            exit 1
+          fi
