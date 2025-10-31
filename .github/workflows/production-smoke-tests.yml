@@ -1,0 +1,156 @@
+name: Production Smoke Tests
+
+# Purpose: Test deployed Cloudflare Workers API
+# This validates the actual production API shown in portfolio/Swagger
+
+on:
+  schedule:
+    # Weekly on Wednesdays at 3 AM UTC (12 PM KST)
+    - cron: '0 3 * * 3'
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'workers/billing-api/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-test-production:
+    name: Smoke Test - Production API
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test Production API Health
+        run: |
+          echo "Testing production Cloudflare Workers API"
+          echo "URL: https://billing-api.janetheglory.workers.dev"
+
+          # Health check
+          response=$(curl -s -w "\n%{http_code}" https://billing-api.janetheglory.workers.dev/health)
+          status=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          if [[ $status -eq 200 ]]; then
+            echo "✅ Health check passed"
+            echo "$body" | jq '.'
+          else
+            echo "❌ Health check failed (HTTP $status)"
+            echo "$body"
+            exit 1
+          fi
+
+      - name: Test Calculate Billing Endpoint
+        run: |
+          echo "Testing /api/billing/admin/calculate endpoint"
+
+          response=$(curl -s -w "\n%{http_code}" \
+            -X POST https://billing-api.janetheglory.workers.dev/api/billing/admin/calculate \
+            -H "Content-Type: application/json" \
+            -H "uuid: smoke-test-001" \
+            -d '{
+              "uuid": "smoke-test-001",
+              "billingGroupId": "bg-smoke",
+              "targetDate": "2025-10-31",
+              "usage": [
+                {
+                  "counterName": "compute.c2.c8m8",
+                  "counterType": "DELTA",
+                  "counterUnit": "HOURS",
+                  "counterVolume": 100,
+                  "appKey": "app-smoke-001"
+                }
+              ],
+              "credits": [],
+              "adjustments": []
+            }')
+
+          status=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          if [[ $status -eq 200 ]]; then
+            echo "✅ Calculate billing passed"
+            echo "$body" | jq '.header, .totalAmount'
+          else
+            echo "❌ Calculate billing failed (HTTP $status)"
+            echo "$body"
+            exit 1
+          fi
+
+      - name: Test Get Statements Endpoint
+        run: |
+          echo "Testing /api/billing/payments/{month}/statements endpoint"
+
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "uuid: smoke-test-001" \
+            https://billing-api.janetheglory.workers.dev/api/billing/payments/2025-10/statements)
+
+          status=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          if [[ $status -eq 200 ]]; then
+            echo "✅ Get statements passed"
+            echo "$body" | jq '.header'
+          else
+            echo "❌ Get statements failed (HTTP $status)"
+            echo "$body"
+            exit 1
+          fi
+
+      - name: Test Payment Processing Endpoint
+        run: |
+          echo "Testing /api/billing/payments/{month} endpoint"
+
+          response=$(curl -s -w "\n%{http_code}" \
+            -X POST https://billing-api.janetheglory.workers.dev/api/billing/payments/2025-10 \
+            -H "Content-Type: application/json" \
+            -H "uuid: smoke-test-001" \
+            -d '{
+              "amount": 100000,
+              "paymentGroupId": "PG-smoke-test"
+            }')
+
+          status=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          if [[ $status -eq 200 ]]; then
+            echo "✅ Payment processing passed"
+            echo "$body" | jq '.header, .paymentId'
+          else
+            echo "❌ Payment processing failed (HTTP $status)"
+            echo "$body"
+            exit 1
+          fi
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          echo "# 🌐 Production API Smoke Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**API URL:** https://billing-api.janetheglory.workers.dev" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Endpoints Tested" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Calculate Billing" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Get Statements" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Process Payment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** Cloudflare Workers (Serverless)" >> $GITHUB_STEP_SUMMARY
+          echo "**Purpose:** Portfolio demonstration + Swagger UI backend" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "⚠️ Production API smoke test failed!" >> $GITHUB_STEP_SUMMARY
+          echo "Check logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** This may indicate:" >> $GITHUB_STEP_SUMMARY
+          echo "- Cloudflare Workers deployment issue" >> $GITHUB_STEP_SUMMARY
+          echo "- API endpoint changes" >> $GITHUB_STEP_SUMMARY
+          echo "- CORS configuration problem" >> $GITHUB_STEP_SUMMARY
