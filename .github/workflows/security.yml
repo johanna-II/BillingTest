@@ -46,13 +46,15 @@ jobs:
 
       - name: Run Safety scan
         run: |
-          poetry run safety scan --json > safety_report.json || true
-          poetry run safety scan > safety_summary.txt || true
+          # Use continue-on-vulnerable-code to avoid login prompt
+          poetry run safety scan --continue-on-vulnerable-code --json > safety_report.json 2>&1 || true
+          poetry run safety scan --continue-on-vulnerable-code > safety_summary.txt 2>&1 || true
 
       - name: Run pip-audit (modern alternative)
         run: |
-          poetry run pip-audit --format json > pip_audit_report.json || true
-          poetry run pip-audit > pip_audit_summary.txt || true
+          # Skip local/editable packages and scan only dependencies
+          poetry run pip-audit --skip-editable --format json > pip_audit_report.json 2>&1 || true
+          poetry run pip-audit --skip-editable > pip_audit_summary.txt 2>&1 || true
 
       - name: Check for hardcoded secrets
         run: |
