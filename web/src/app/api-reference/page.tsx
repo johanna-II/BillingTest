@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -15,11 +15,7 @@ import 'swagger-ui-react/swagger-ui.css'
 const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false })
 
 export default function APIReferencePage(): JSX.Element {
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    setIsLoaded(true)
-  }, [])
+  const [isLoaded, setIsLoaded] = useState(true)
 
   return (
     <div className="flex flex-col min-h-screen">

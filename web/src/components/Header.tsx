@@ -5,6 +5,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 
 const Header: React.FC = () => {
   return (
@@ -19,24 +20,24 @@ const Header: React.FC = () => {
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <a
+            <Link
               href="/"
               className="text-sm uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
             >
               Calculator
-            </a>
-            <a
+            </Link>
+            <Link
               href="/docs"
               className="text-sm uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
             >
               Documentation
-            </a>
-            <a
+            </Link>
+            <Link
               href="/api-reference"
               className="text-sm uppercase tracking-widest text-kinfolk-gray-600 hover:text-kinfolk-gray-900 transition-colors"
             >
               API Reference
-            </a>
+            </Link>
           </nav>
         </div>
       </div>
