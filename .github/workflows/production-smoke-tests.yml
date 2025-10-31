@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@8c4ab04c7a6be2c5c7c8b6c8e1e1e1e1e1e1e1e1  # v4.1.0
 
       - name: Test Production API Health
         id: health-check
