@@ -59,6 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         test-type: [unit, contracts, comprehensive]
+    # Performance/locust tests run in separate job (incompatible with -n flag)
 
     steps:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
@@ -130,21 +131,25 @@ jobs:
         # 계약 테스트는 순차 실행 + 300초 타임아웃
         # 통합 테스트는 integration-tests-service.yml에서 별도 실행
         if [[ "${{ matrix.test-type }}" = "unit" ]]; then
-          # Unit tests run directly (faster, no mock server needed)
+          # Unit tests run in parallel (auto workers) + 60s timeout
+          # Note: property-based tests (hypothesis) skipped on Python 3.12+
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             -n auto \
             --timeout=60 \
             --cov=libs --cov-report=term-missing \
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
-            --junit-xml=test-results-${{ matrix.test-type }}.xml
+            --junit-xml=test-results-${{ matrix.test-type }}.xml \
+            -m "not performance and not locust"
         elif [[ "${{ matrix.test-type }}" = "contracts" ]]; then
-          # Contracts run with Pact v3 (stable, only version)
+          # Contract tests run sequentially (Pact requirement) + 300s timeout
+          # No -n flag - Pact needs sequential execution
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
             --timeout=300 \
             --cov=libs --cov-report=term-missing \
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
-            --use-mock
+            --use-mock \
+            -m "not performance and not locust"
         elif [[ "${{ matrix.test-type }}" = "comprehensive" ]]; then
           # Build and run Mock Server as separate container
           echo "Building Mock Server Docker image..."
@@ -172,6 +177,8 @@ jobs:
           done
 
           echo "Running Comprehensive Tests..."
+          # Limited parallel (-n 2) for stability + 600s timeout
+          # Performance/locust tests excluded (run in separate job)
           pytest tests/integration/test_all_business_combinations.py \
             tests/integration/test_comprehensive_business_logic.py \
             -v --tb=short \
@@ -184,6 +191,7 @@ jobs:
             --dist=loadfile \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock \
+            -m "not performance and not locust" \
             || { TEST_EXIT_CODE=$?; echo "::warning::Comprehensive tests had failures"; }
 
           echo "Cleanup..."
@@ -250,8 +258,10 @@ jobs:
           htmlcov/
 
   performance:
-    name: Performance Benchmarks
+    name: Performance & Locust Tests (Sequential)
     runs-on: ubuntu-latest
+    # ⚠️ IMPORTANT: These tests MUST run sequentially (no -n flag)
+    # Locust uses gevent which conflicts with pytest-xdist multiprocessing
     steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
@@ -260,35 +270,64 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-perf-${{ hashFiles('requirements.txt', 'requirements-mock.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-perf-
+          ${{ runner.os }}-pip-
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-mock.txt
-        pip install pytest-benchmark
+        pip install pytest-benchmark hypothesis
 
     - name: Start Mock Server
       run: |
         python -m mock_server.run_server &
-        for i in {1..10}; do
-          if curl -s http://localhost:5000/health; then
-            echo "Mock server is ready with rate limit 500 req/sec"
+        MOCK_PID=$!
+        echo "Mock server started with PID: $MOCK_PID"
+
+        # Wait for server to be ready (up to 30 seconds)
+        for i in {1..30}; do
+          if curl -s --max-time 2 http://localhost:5000/health > /dev/null 2>&1; then
+            echo "✓ Mock server is ready with rate limit 500 req/sec"
             break
           fi
-          echo "Waiting for mock server..."
+          if [[ $i -eq 30 ]]; then
+            echo "✗ Mock server failed to start in 30 seconds"
+            exit 1
+          fi
+          echo "Waiting for mock server... ($i/30)"
           sleep 1
         done
       env:
         MOCK_SERVER_RATE_LIMIT: 500
+        FLASK_ENV: production
 
-    - name: Run Performance Tests
+    - name: Run Performance/Locust Tests (Sequential Only)
       run: |
+        echo "⚠️ Running performance tests WITHOUT parallel flag"
+        echo "Locust requires sequential execution due to gevent"
+
+        # Run WITHOUT -n flag (sequential execution required)
         pytest tests/performance/ -v --tb=short \
-          --junit-xml=test-results-performance.xml
+          --timeout=300 \
+          --junit-xml=test-results-performance.xml \
+          --cov=libs \
+          --cov-report=xml:coverage-performance.xml \
+          --cov-report=term-missing
       env:
         CI: true
-        MOCK_SERVER_PORT: 5000
-        MOCK_SERVER_RATE_LIMIT: 500
+        USE_MOCK_SERVER: 'true'
+        MOCK_SERVER_URL: http://localhost:5000
+        MOCK_SERVER_PORT: '5000'
+        MOCK_SERVER_RATE_LIMIT: '500'
+        PYTHONUNBUFFERED: '1'
 
     - name: Upload test results
       if: always()
@@ -297,6 +336,16 @@ jobs:
         name: test-results-performance
         path: |
           test-results-performance.xml
+          coverage-performance.xml
+
+    - name: Upload coverage to Codecov
+      if: always()
+      uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
+      with:
+        files: ./coverage-performance.xml
+        flags: performance,locust
+        name: performance-tests
+        fail_ci_if_error: false
 
   security:
     name: Security Tests

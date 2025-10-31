@@ -213,6 +213,100 @@ def pytest_unconfigure(config: Config) -> None:
     logger.info("Test execution completed, environment cleaned up")
 
 
+def _is_parallel_mode() -> bool:
+    """Check if tests are running in parallel mode.
+
+    Returns:
+        True if running with pytest-xdist parallel execution
+    """
+    return any(arg.startswith("-n") for arg in sys.argv) or "xdist" in sys.modules
+
+
+def _should_skip_locust_test(item: pytest.Item, is_parallel: bool) -> tuple[bool, str]:
+    """Check if a locust/performance test should be skipped.
+
+    Args:
+        item: Test item to check
+        is_parallel: Whether running in parallel mode
+
+    Returns:
+        Tuple of (should_skip, reason)
+    """
+    if not is_parallel:
+        return False, ""
+
+    item_path = str(item.fspath)
+    is_locust_test = (
+        "test_payment_performance.py" in item_path or "locust" in item_path.lower()
+    )
+
+    if is_locust_test:
+        reason = (
+            "Locust/performance tests incompatible with parallel mode (gevent conflict). "
+            "Run with 'pytest tests/performance/' without -n flag."
+        )
+        return True, reason
+
+    return False, ""
+
+
+def _should_skip_hypothesis_test(item: pytest.Item) -> tuple[bool, str]:
+    """Check if a hypothesis test should be skipped on Python 3.12+.
+
+    Args:
+        item: Test item to check
+
+    Returns:
+        Tuple of (should_skip, reason)
+    """
+    if sys.version_info < (3, 12):
+        return False, ""
+
+    if "test_billing_properties.py" in str(item.fspath):
+        reason = (
+            "Hypothesis has known compatibility issues with Python 3.12+ "
+            "(TypeError in path checking). Use Python 3.11 or wait for Hypothesis fix."
+        )
+        return True, reason
+
+    return False, ""
+
+
+def _apply_skip_markers(
+    item: pytest.Item,
+    skip_slow: bool,
+    skip_destructive: bool,
+    skip_mock_required: bool,
+) -> None:
+    """Apply skip markers based on configuration.
+
+    Args:
+        item: Test item to mark
+        skip_slow: Whether to skip slow tests
+        skip_destructive: Whether to skip destructive tests
+        skip_mock_required: Whether to skip tests requiring mock server
+    """
+    # Skip slow tests if requested
+    if skip_slow and "slow" in item.keywords:
+        item.add_marker(pytest.mark.skip(reason="Skipping slow tests"))
+
+    # Skip destructive tests unless explicitly allowed
+    if skip_destructive and "destructive" in item.keywords:
+        item.add_marker(
+            pytest.mark.skip(
+                reason="Skipping destructive tests (use --run-destructive to enable)"
+            )
+        )
+
+    # Skip tests requiring mock when not using mock
+    if skip_mock_required and "mock_required" in item.keywords:
+        item.add_marker(
+            pytest.mark.skip(
+                reason="Test requires mock server (use --use-mock to enable)"
+            )
+        )
+
+
 def pytest_collection_modifyitems(config: Config, items: list[pytest.Item]) -> None:
     """Modify test collection based on configuration.
 
@@ -223,39 +317,25 @@ def pytest_collection_modifyitems(config: Config, items: list[pytest.Item]) -> N
     skip_slow = config.getoption("--skip-slow")
     skip_destructive = not config.getoption("--run-destructive")
     use_mock = config.getoption("--use-mock")
+    skip_mock_required = not use_mock
+
+    is_parallel = _is_parallel_mode()
 
     for item in items:
-        # Skip Hypothesis property-based tests on Python 3.12+ due to compatibility issues
-        # This is a known bug in Hypothesis where path checking fails in Python 3.12+
-        # The tests will work fine on Python 3.11 or when Hypothesis fixes the issue
-        if sys.version_info >= (3, 12) and "test_billing_properties.py" in str(
-            item.fspath
-        ):
-            skip_marker = pytest.mark.skip(
-                reason="Hypothesis has known compatibility issues with Python 3.12+ "
-                "(TypeError in path checking). Use Python 3.11 or wait for Hypothesis fix."
-            )
-            item.add_marker(skip_marker)
+        # Check for locust/performance test skipping in parallel mode
+        should_skip, reason = _should_skip_locust_test(item, is_parallel)
+        if should_skip:
+            item.add_marker(pytest.mark.skip(reason=reason))
             continue
 
-        # Skip slow tests if requested
-        if skip_slow and "slow" in item.keywords:
-            skip_marker = pytest.mark.skip(reason="Skipping slow tests")
-            item.add_marker(skip_marker)
+        # Check for hypothesis test skipping on Python 3.12+
+        should_skip, reason = _should_skip_hypothesis_test(item)
+        if should_skip:
+            item.add_marker(pytest.mark.skip(reason=reason))
+            continue
 
-        # Skip destructive tests unless explicitly allowed
-        if skip_destructive and "destructive" in item.keywords:
-            skip_marker = pytest.mark.skip(
-                reason="Skipping destructive tests (use --run-destructive to enable)"
-            )
-            item.add_marker(skip_marker)
-
-        # Skip tests requiring mock when not using mock
-        if not use_mock and "mock_required" in item.keywords:
-            skip_marker = pytest.mark.skip(
-                reason="Test requires mock server (use --use-mock to enable)"
-            )
-            item.add_marker(skip_marker)
+        # Apply conditional skip markers
+        _apply_skip_markers(item, skip_slow, skip_destructive, skip_mock_required)
 
 
 # Global fixtures

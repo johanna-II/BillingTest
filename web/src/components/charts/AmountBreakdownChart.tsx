@@ -18,6 +18,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  type PieLabelRenderProps,
 } from 'recharts'
 import type { BillingStatement } from '@/types/billing'
 
@@ -71,6 +72,12 @@ const AmountBreakdownChart: React.FC<AmountBreakdownChartProps> = ({
     return `₩${(value / 1000).toFixed(0)}K`
   }
 
+  const formatPieLabel = (entry: PieLabelRenderProps): string => {
+    const name = entry.name as string
+    const amount = entry.value as number
+    return `${name}: ${formatCurrency(amount)}`
+  }
+
   if (type === 'pie') {
     return (
       <div className="w-full h-80">
@@ -83,7 +90,7 @@ const AmountBreakdownChart: React.FC<AmountBreakdownChartProps> = ({
               cx="50%"
               cy="50%"
               outerRadius={100}
-              label={(entry: any) => `${entry.name}: ${formatCurrency(entry.amount)}`}
+              label={formatPieLabel}
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
