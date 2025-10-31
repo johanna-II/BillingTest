@@ -1,15 +1,17 @@
-name: CI/CD Pipeline
+name: PR & Commit CI
+
+# Purpose: Fast feedback on every commit/PR
+# Scope: Unit tests + Integration smoke tests
+# Time: 5-7 minutes
+# Note: Full regression testing runs in scheduled-tests.yml (nightly)
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  schedule:
-    # Run nightly to catch flaky tests
-    - cron: '0 2 * * *'
+  # Note: Nightly tests moved to scheduled-tests.yml to avoid duplication
 
-# Cancel in-progress runs when a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true

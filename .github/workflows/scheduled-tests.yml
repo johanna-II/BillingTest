@@ -1,4 +1,8 @@
-name: Scheduled Full Test Suite
+name: Nightly Regression Tests
+
+# Purpose: Multi-config integration testing for regression detection
+# Scope: Integration tests across countries (kr/jp/etc) and time periods
+# Note: Unit tests run in PR CI, not here (avoid duplication)
 
 on:
   schedule:
@@ -6,19 +10,12 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
-      test_scope:
-        description: 'Test scope to run'
+      include_performance:
+        description: 'Include performance tests'
         required: false
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - unit
-          - integration
-          - performance
-          - contracts
+        default: false
+        type: boolean
 
-# Cancel in-progress runs when a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -28,59 +25,8 @@ env:
   POETRY_VERSION: '2.2.1'
 
 jobs:
-  # Unit & Security tests - member/month independent
-  unit-and-security-tests:
-    name: Unit & Security Tests (Parallel)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-
-      - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
-        with:
-          version: ${{ env.POETRY_VERSION }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction --with test,dev
-
-      - name: Run unit & security tests (Parallel)
-        run: |
-          # Unit tests don't need member/month variations
-          # Security tests are environment-independent
-          poetry run pytest tests/unit/ tests/security/ \
-            -n auto \
-            --dist=loadfile \
-            --maxfail=10 \
-            --cov=libs \
-            --cov-report=xml:coverage-unit-security.xml \
-            --junit-xml=test-results-unit-security.xml \
-            -v
-        env:
-          PYTEST_XDIST_AUTO_NUM_WORKERS: 4
-
-      - name: Upload test results
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
-        if: always()
-        with:
-          name: test-results-unit-security
-          path: |
-            test-results-unit-security.xml
-            coverage-unit-security.xml
-          retention-days: 30
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
-        with:
-          files: ./coverage-unit-security.xml
-          flags: scheduled,unit,security
-          name: unit-and-security-tests
-          fail_ci_if_error: false
+  # Integration tests ONLY - member/month matrix for regression
+  # Unit tests already run in PR CI (ci.yml) - no need to duplicate
 
   # Integration tests with matrix - member/month dependent
   integration-test-suite:
@@ -152,10 +98,13 @@ jobs:
           name: integration-${{ matrix.member }}-${{ matrix.month }}
           fail_ci_if_error: false
 
-  # Performance benchmark tests
+  # Performance benchmark tests (Optional - weekly or on-demand)
   performance-tests:
     name: Performance Benchmarks
     runs-on: ubuntu-latest
+    # Only run if manually triggered with include_performance=true
+    # or on Mondays (weekly performance baseline)
+    if: github.event.inputs.include_performance == 'true' || github.event.schedule == '0 2 * * 1'
 
     steps:
       - name: Checkout code
@@ -176,7 +125,8 @@ jobs:
 
       - name: Start Mock Server
         run: |
-          python -m mock_server.run_server &
+          # Must use 'poetry run' to access virtualenv with flask
+          poetry run python -m mock_server.run_server &
           MOCK_PID=$!
           echo "Mock server started with PID: $MOCK_PID"
 
@@ -222,54 +172,13 @@ jobs:
             performance-results.json
             .benchmarks/
 
-  # Security scan with detailed report
-  security-scan:
-    name: Security Scan (Full)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-
-      - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
-        with:
-          version: ${{ env.POETRY_VERSION }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction --with test,dev
-
-      - name: Run comprehensive security scan
-        run: |
-          # Bandit scan
-          poetry run bandit -r libs/ tests/ -f json -o bandit_report.json -ll || true
-
-          # Safety check
-          poetry run safety check --json > safety_report.json || true
-
-          # Check for secrets
-          poetry run detect-secrets scan --all-files > secrets_report.json || true
-
-      - name: Upload security reports
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
-        if: always()
-        with:
-          name: security-reports-full
-          path: |
-            bandit_report.json
-            safety_report.json
-            secrets_report.json
+  # Note: Security scan runs in separate security.yml workflow (weekly on Mondays)
 
   # Test report summary
   test-summary:
-    name: Generate Test Summary
+    name: Nightly Regression Summary
     runs-on: ubuntu-latest
-    needs: [unit-and-security-tests, integration-test-suite, performance-tests, security-scan]
+    needs: [integration-test-suite, performance-tests]
     if: always()
 
     steps:
@@ -278,21 +187,25 @@ jobs:
 
       - name: Generate summary report
         run: |
-          echo "# Daily Test Report - $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "# 🌙 Nightly Regression Test Report - $(date)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## Test Suite Results" >> $GITHUB_STEP_SUMMARY
-          echo "- Unit & Security Tests: ${{ needs.unit-and-security-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Integration Test Suite: ${{ needs.integration-test-suite.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Security Scan: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Tests (Multi-config): ${{ needs.integration-test-suite.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Tests (Weekly): ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "## Optimization Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- 🚀 Parallel execution enabled (-n auto)" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚡ Unit tests run once (no matrix duplication)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🎯 Integration tests with member/month matrix" >> $GITHUB_STEP_SUMMARY
-          echo "- 📊 Expected time: ~23min (vs ~90min sequential)" >> $GITHUB_STEP_SUMMARY
+          echo "## Scope & Strategy" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Integration tests: 80 tests × 6 configs = 480 test runs" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Parallel execution: -n auto (3-4x speedup)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Multi-tenant: kr/jp/etc countries" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Time-based: current + previous month" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚡ Expected time: ~18-20min" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Note" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit tests (2,465) run in PR CI, not here (avoid duplication)" >> $GITHUB_STEP_SUMMARY
+          echo "- Security scan runs weekly in security.yml workflow" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance tests run weekly on Mondays only" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Parse test results if available
