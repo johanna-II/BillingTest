@@ -1,0 +1,6 @@
+# Cloudflare Pages Configuration
+# This file is optional - Pages auto-detects Next.js from package.json
+
+[build]
+command = "npm run build"
+output_dir = "out"
