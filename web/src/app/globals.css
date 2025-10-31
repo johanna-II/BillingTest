@@ -1,8 +1,37 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* KINFOLK inspired global styles */
+
+@theme {
+  --font-kinfolk: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-kinfolk-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+
+  --color-kinfolk-gray-50: #fafafa;
+  --color-kinfolk-gray-100: #f5f5f5;
+  --color-kinfolk-gray-200: #e5e5e5;
+  --color-kinfolk-gray-300: #d4d4d4;
+  --color-kinfolk-gray-400: #a3a3a3;
+  --color-kinfolk-gray-500: #737373;
+  --color-kinfolk-gray-600: #525252;
+  --color-kinfolk-gray-700: #404040;
+  --color-kinfolk-gray-800: #262626;
+  --color-kinfolk-gray-900: #171717;
+
+  --color-kinfolk-beige-50: #fdfbf7;
+  --color-kinfolk-beige-100: #f7f2ea;
+  --color-kinfolk-beige-200: #ebe2d2;
+  --color-kinfolk-beige-300: #ddd0b9;
+  --color-kinfolk-beige-400: #c9b89a;
+  --color-kinfolk-beige-500: #b5a07b;
+  --color-kinfolk-beige-600: #9a8566;
+  --color-kinfolk-beige-700: #7d6b54;
+  --color-kinfolk-beige-800: #645546;
+  --color-kinfolk-beige-900: #52463b;
+
+  --spacing-18: 4.5rem;
+  --spacing-88: 22rem;
+  --spacing-128: 32rem;
+}
 
 @layer base {
   html {

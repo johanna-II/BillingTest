@@ -5,18 +5,24 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import 'swagger-ui-react/swagger-ui.css'
 
 // Dynamically import SwaggerUI to avoid SSR issues
-const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false })
+const SwaggerUI = dynamic(() => import('swagger-ui-react'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-12 text-center">
+      <div className="spinner mx-auto mb-4" />
+      <p className="text-sm text-kinfolk-gray-600">Loading API Documentation...</p>
+    </div>
+  ),
+})
 
 export default function APIReferencePage(): JSX.Element {
-  const [isLoaded, setIsLoaded] = useState(true)
-
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -122,20 +128,13 @@ export default function APIReferencePage(): JSX.Element {
               <h2 className="kinfolk-subheading mb-0">Interactive API Documentation</h2>
             </div>
             <div className="bg-white">
-              {isLoaded ? (
-                <SwaggerUI
-                  url="/openapi.yaml"
-                  docExpansion="list"
-                  defaultModelsExpandDepth={1}
-                  displayRequestDuration={true}
-                  filter={true}
-                />
-              ) : (
-                <div className="p-12 text-center">
-                  <div className="spinner mx-auto mb-4" />
-                  <p className="text-sm text-kinfolk-gray-600">Loading API Documentation...</p>
-                </div>
-              )}
+              <SwaggerUI
+                url="/openapi.yaml"
+                docExpansion="list"
+                defaultModelsExpandDepth={1}
+                displayRequestDuration={true}
+                filter={true}
+              />
             </div>
           </div>
 

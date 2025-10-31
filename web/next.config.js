@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   output: 'export', // Static site generation for Cloudflare Pages
   trailingSlash: true, // Better compatibility with static hosting
   images: {
