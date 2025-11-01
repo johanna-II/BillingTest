@@ -221,34 +221,6 @@ def _is_parallel_mode() -> bool:
     return any(arg.startswith("-n") for arg in sys.argv) or "xdist" in sys.modules
 
 
-def _should_skip_locust_test(item: pytest.Item, is_parallel: bool) -> tuple[bool, str]:
-    """Check if a locust/performance test should be skipped.
-
-    Args:
-        item: Test item to check
-        is_parallel: Whether running in parallel mode
-
-    Returns:
-        Tuple of (should_skip, reason)
-    """
-    if not is_parallel:
-        return False, ""
-
-    item_path = str(item.fspath)
-    is_locust_test = (
-        "test_payment_performance.py" in item_path or "locust" in item_path.lower()
-    )
-
-    if is_locust_test:
-        reason = (
-            "Locust/performance tests incompatible with parallel mode (gevent conflict). "
-            "Run with 'pytest tests/performance/' without -n flag."
-        )
-        return True, reason
-
-    return False, ""
-
-
 def _should_skip_hypothesis_test(item: pytest.Item) -> tuple[bool, str]:
     """Check if a hypothesis test should be skipped on Python 3.12+.
 
@@ -317,8 +289,6 @@ def pytest_collection_modifyitems(config: Config, items: list[pytest.Item]) -> N
     skip_destructive = not config.getoption("--run-destructive")
     use_mock = config.getoption("--use-mock")
     skip_mock_required = not use_mock
-
-    is_parallel = _is_parallel_mode()
 
     for item in items:
         # Check for hypothesis test skipping on Python 3.12+

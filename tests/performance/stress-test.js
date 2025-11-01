@@ -30,7 +30,7 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 
-export default function () {
+export default function stressTest() {
   const uuid = `STRESS_TEST_${Date.now()}_${__VU}`;
   const headers = {
     'Accept': 'application/json;charset=UTF-8',
@@ -38,13 +38,14 @@ export default function () {
     'uuid': uuid,
   };
 
+  // Note: Math.random() is used for test data generation only, not for security purposes
   const meteringData = {
     meterList: Array.from({ length: 10 }, (_, i) => ({
       counterName: `test.counter.${i}`,
       counterType: 'DELTA',
       counterUnit: 'n',
-      counterVolume: Math.floor(Math.random() * 1000),
-      resourceId: `resource-${Math.random().toString(36).substr(2, 8)}`,
+      counterVolume: Math.floor(Math.random() * 1000), // NOSONAR - test data only
+      resourceId: `resource-${Math.random().toString(36).substr(2, 8)}`, // NOSONAR - test data only
       projectId: 'stress-test',
       serviceName: 'compute',
     })),

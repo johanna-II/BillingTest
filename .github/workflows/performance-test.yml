@@ -12,10 +12,19 @@ on:
           - smoke
           - load
           - stress
-      target_url:
-        description: 'Target URL (default: mock server)'
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'mock'
+        type: choice
+        options:
+          - mock      # Local mock server (CI/CD)
+          - staging   # Staging environment
+          - production # Production (use carefully!)
+      custom_url:
+        description: 'Custom URL (overrides environment)'
         required: false
-        default: 'http://localhost:5000'
+        default: ''
   schedule:
     # Run smoke test weekly on Saturdays at 10 AM UTC
     - cron: '0 10 * * 6'
@@ -27,8 +36,14 @@ concurrency:
 
 jobs:
   performance-test:
-    name: k6 Performance Test
+    name: k6 Performance Test (${{ github.event.inputs.environment || 'mock' }})
     runs-on: ubuntu-latest
+
+    env:
+      # Environment URLs
+      MOCK_URL: 'http://localhost:5000'
+      STAGING_URL: ${{ secrets.STAGING_API_URL || 'https://staging.example.com' }}
+      PRODUCTION_URL: ${{ secrets.PRODUCTION_API_URL || 'https://api.example.com' }}
 
     steps:
       - name: Checkout code
@@ -47,15 +62,45 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --with test
 
+      - name: Determine target URL
+        id: target
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'mock' }}"
+          CUSTOM_URL="${{ github.event.inputs.custom_url }}"
+
+          if [ -n "$CUSTOM_URL" ]; then
+            echo "url=$CUSTOM_URL" >> $GITHUB_OUTPUT
+            echo "Using custom URL: $CUSTOM_URL"
+          elif [ "$ENVIRONMENT" = "mock" ]; then
+            echo "url=${{ env.MOCK_URL }}" >> $GITHUB_OUTPUT
+            echo "Using mock server"
+          elif [ "$ENVIRONMENT" = "staging" ]; then
+            echo "url=${{ env.STAGING_URL }}" >> $GITHUB_OUTPUT
+            echo "Using staging environment"
+          elif [ "$ENVIRONMENT" = "production" ]; then
+            echo "url=${{ env.PRODUCTION_URL }}" >> $GITHUB_OUTPUT
+            echo "⚠️  WARNING: Testing against PRODUCTION"
+          fi
+
       - name: Start mock server
+        if: github.event.inputs.environment == 'mock' || github.event.inputs.environment == '' || github.event_name == 'schedule'
         run: |
           poetry run python start_mock_server_simple.py &
           echo "MOCK_SERVER_PID=$!" >> $GITHUB_ENV
           sleep 5  # Wait for server to start
 
-      - name: Verify mock server is running
+      - name: Verify server is accessible
         run: |
-          curl -f http://localhost:5000 || (echo "Mock server failed to start" && exit 1)
+          TARGET_URL="${{ steps.target.outputs.url }}"
+          echo "Testing connectivity to: $TARGET_URL"
+
+          # Try to connect (allow 404, just need server to respond)
+          if curl -f -s -o /dev/null -w "%{http_code}" "$TARGET_URL" | grep -qE "^[2-5][0-9]{2}$"; then
+            echo "✓ Server is accessible"
+          else
+            echo "✗ Server is not accessible"
+            exit 1
+          fi
 
       - name: Install k6
         run: |
@@ -65,26 +110,44 @@ jobs:
           sudo apt-get update
           sudo apt-get install k6
 
+      - name: Production safety check
+        if: github.event.inputs.environment == 'production'
+        run: |
+          echo "⚠️  PRODUCTION LOAD TEST WARNING ⚠️"
+          echo "You are about to run a load test against PRODUCTION"
+          echo "Test type: ${{ github.event.inputs.test_type }}"
+          echo ""
+          if [ "${{ github.event.inputs.test_type }}" = "stress" ]; then
+            echo "❌ STRESS tests are NOT ALLOWED on production!"
+            exit 1
+          fi
+          if [ "${{ github.event.inputs.test_type }}" = "load" ]; then
+            echo "⚠️  Load tests on production should be run during low-traffic periods"
+            echo "Consider using 'smoke' test instead"
+          fi
+          echo "Proceeding in 5 seconds..."
+          sleep 5
+
       - name: Run k6 smoke test (scheduled or default)
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'smoke')
         run: |
           k6 run --out json=k6-smoke-results.json tests/performance/smoke-test.js
         env:
-          BASE_URL: ${{ github.event.inputs.target_url || 'http://localhost:5000' }}
+          BASE_URL: ${{ steps.target.outputs.url }}
 
       - name: Run k6 load test
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'load'
         run: |
           k6 run --out json=k6-load-results.json tests/performance/load-test.js
         env:
-          BASE_URL: ${{ github.event.inputs.target_url || 'http://localhost:5000' }}
+          BASE_URL: ${{ steps.target.outputs.url }}
 
       - name: Run k6 stress test
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'stress'
         run: |
           k6 run --out json=k6-stress-results.json tests/performance/stress-test.js
         env:
-          BASE_URL: ${{ github.event.inputs.target_url || 'http://localhost:5000' }}
+          BASE_URL: ${{ steps.target.outputs.url }}
 
       - name: Upload k6 results
         if: always()
@@ -100,7 +163,8 @@ jobs:
           echo "# 📊 k6 Performance Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Test Type:** ${{ github.event.inputs.test_type || 'smoke' }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Target URL:** ${{ github.event.inputs.target_url || 'http://localhost:5000' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment || 'mock' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target URL:** ${{ steps.target.outputs.url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Parse and display key metrics from JSON results
@@ -109,8 +173,14 @@ jobs:
             echo "Results available in artifacts" >> $GITHUB_STEP_SUMMARY
           fi
 
+          # Add environment-specific notes
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️  **Production Test:** Please review impact on real users" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Stop mock server
-        if: always()
+        if: always() && (github.event.inputs.environment == 'mock' || github.event.inputs.environment == '' || github.event_name == 'schedule')
         run: |
           if [ ! -z "$MOCK_SERVER_PID" ]; then
             kill $MOCK_SERVER_PID || true

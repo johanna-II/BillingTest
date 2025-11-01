@@ -21,7 +21,7 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 
-export default function () {
+export default function smokeTest() {
   const uuid = `SMOKE_TEST_${Date.now()}`;
   const headers = {
     'Accept': 'application/json;charset=UTF-8',

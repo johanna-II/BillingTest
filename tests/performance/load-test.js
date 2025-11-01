@@ -43,8 +43,9 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 const testRunId = `K6_TEST_${Date.now()}_${__VU}`;
 
 // Test data generators
+// Note: Math.random() is used for test data generation only, not for security purposes
 function generateUUID() {
-  return `TEST_${testRunId}_${Math.random().toString(36).substr(2, 9)}`;
+  return `TEST_${testRunId}_${Math.random().toString(36).substr(2, 9)}`; // NOSONAR
 }
 
 function generateMeteringData(count = 5) {
@@ -54,8 +55,8 @@ function generateMeteringData(count = 5) {
       counterName: `cpu.usage.${i}`,
       counterType: 'DELTA',
       counterUnit: 'n',
-      counterVolume: Math.floor(Math.random() * 1000) + 100,
-      resourceId: `resource-${Math.random().toString(36).substr(2, 8)}`,
+      counterVolume: Math.floor(Math.random() * 1000) + 100, // NOSONAR - test data only
+      resourceId: `resource-${Math.random().toString(36).substr(2, 8)}`, // NOSONAR - test data only
       projectId: 'test-project',
       serviceName: 'compute',
     });
@@ -69,7 +70,7 @@ function getCurrentMonth() {
 }
 
 // Main test scenario
-export default function () {
+export default function loadTest() {
   const uuid = generateUUID();
   const month = getCurrentMonth();
   const headers = {
@@ -181,7 +182,7 @@ export default function () {
     errorRate.add(!batchCheck);
   });
 
-  sleep(Math.random() * 3 + 1); // Random sleep 1-4 seconds
+  sleep(Math.random() * 3 + 1); // Random sleep 1-4 seconds (NOSONAR - test timing)
 }
 
 // Spike test - sudden load
