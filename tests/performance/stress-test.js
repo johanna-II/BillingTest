@@ -30,6 +30,9 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 
+// Counter for generating unique IDs
+let requestCounter = 0;
+
 export default function stressTest() {
   const uuid = `STRESS_TEST_${Date.now()}_${__VU}`;
   const headers = {
@@ -38,17 +41,21 @@ export default function stressTest() {
     'uuid': uuid,
   };
 
-  // Note: Math.random() is used for test data generation only, not for security purposes
+  // Generate test data using predictable values (no random needed for tests)
+  const baseVolume = Date.now() % 1000;
   const meteringData = {
-    meterList: Array.from({ length: 10 }, (_, i) => ({
-      counterName: `test.counter.${i}`,
-      counterType: 'DELTA',
-      counterUnit: 'n',
-      counterVolume: Math.floor(Math.random() * 1000), // NOSONAR - test data only
-      resourceId: `resource-${Math.random().toString(36).substr(2, 8)}`, // NOSONAR - test data only
-      projectId: 'stress-test',
-      serviceName: 'compute',
-    })),
+    meterList: Array.from({ length: 10 }, (_, i) => {
+      requestCounter++;
+      return {
+        counterName: `test.counter.${i}`,
+        counterType: 'DELTA',
+        counterUnit: 'n',
+        counterVolume: baseVolume + i * 100, // Predictable variation
+        resourceId: `resource-${__VU}-${requestCounter}`, // Unique, predictable ID
+        projectId: 'stress-test',
+        serviceName: 'compute',
+      };
+    }),
   };
 
   const res = http.post(

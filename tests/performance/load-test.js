@@ -42,21 +42,27 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 // Generate unique test ID
 const testRunId = `K6_TEST_${Date.now()}_${__VU}`;
 
+// Counter for generating unique IDs (no random needed for tests)
+let requestCounter = 0;
+
 // Test data generators
-// Note: Math.random() is used for test data generation only, not for security purposes
 function generateUUID() {
-  return `TEST_${testRunId}_${Math.random().toString(36).substr(2, 9)}`; // NOSONAR
+  requestCounter++;
+  return `TEST_${testRunId}_${requestCounter}`;
 }
 
 function generateMeteringData(count = 5) {
   const meters = [];
+  const baseVolume = Date.now() % 1000; // Use timestamp for variation
+
   for (let i = 0; i < count; i++) {
+    requestCounter++;
     meters.push({
       counterName: `cpu.usage.${i}`,
       counterType: 'DELTA',
       counterUnit: 'n',
-      counterVolume: Math.floor(Math.random() * 1000) + 100, // NOSONAR - test data only
-      resourceId: `resource-${Math.random().toString(36).substr(2, 8)}`, // NOSONAR - test data only
+      counterVolume: baseVolume + i * 10, // Predictable variation
+      resourceId: `resource-${testRunId}-${requestCounter}`, // Unique, predictable ID
       projectId: 'test-project',
       serviceName: 'compute',
     });
@@ -82,7 +88,7 @@ export default function loadTest() {
   // Test Group 1: Metering Data Submission
   group('Metering Data Submission', function () {
     const meteringData = generateMeteringData(5);
-    const startTime = new Date();
+    const startTime = Date.now();
 
     const meteringRes = http.post(
       `${BASE_URL}/billing/meters`,
@@ -90,7 +96,7 @@ export default function loadTest() {
       { headers }
     );
 
-    const duration = new Date() - startTime;
+    const duration = Date.now() - startTime;
     meteringDuration.add(duration);
 
     const meteringCheck = check(meteringRes, {
@@ -100,7 +106,8 @@ export default function loadTest() {
         try {
           const body = JSON.parse(r.body);
           return body !== null;
-        } catch (e) {
+        } catch (parseError) {
+          console.error(`Failed to parse metering response: ${parseError.message}`);
           return false;
         }
       },
@@ -125,7 +132,8 @@ export default function loadTest() {
         try {
           const body = JSON.parse(r.body);
           return Array.isArray(body.statements);
-        } catch (e) {
+        } catch (parseError) {
+          console.error(`Failed to parse payment status response: ${parseError.message}`);
           return false;
         }
       },
@@ -139,7 +147,7 @@ export default function loadTest() {
   // Test Group 3: Bulk Metering (High Volume)
   group('Bulk Metering Submission', function () {
     const bulkData = generateMeteringData(50); // 50 meters at once
-    const startTime = new Date();
+    const startTime = Date.now();
 
     const bulkRes = http.post(
       `${BASE_URL}/billing/meters`,
@@ -147,7 +155,7 @@ export default function loadTest() {
       { headers }
     );
 
-    const duration = new Date() - startTime;
+    const duration = Date.now() - startTime;
     meteringDuration.add(duration);
 
     const bulkCheck = check(bulkRes, {
@@ -182,7 +190,10 @@ export default function loadTest() {
     errorRate.add(!batchCheck);
   });
 
-  sleep(Math.random() * 3 + 1); // Random sleep 1-4 seconds (NOSONAR - test timing)
+  // Variable sleep to simulate realistic user behavior
+  // Use VU ID for deterministic but varied timing
+  const sleepTime = 1 + (__VU % 3); // Sleep 1-4 seconds based on VU ID
+  sleep(sleepTime);
 }
 
 // Spike test - sudden load
