@@ -9,7 +9,7 @@ packages = [{include = "libs"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-requests = "^2.32.2"
+requests = "^2.32.5"
 python-dateutil = "^2.9.0"
 beautifulsoup4 = "^4.14.2"
 
@@ -37,7 +37,6 @@ hypothesis = "^6.98.0"
 flask = "^3.1.2"
 flask-cors = "^6.0.1"
 flask-caching = "^2.3.1"
-locust = "^2.42.1"
 pact-python = "^3.1.0"
 pytest-timeout = "^2.4.0"
 responses = "^0.25.8"
@@ -301,9 +300,8 @@ markers = [
     "billing: marks tests related to billing operations",
     "adjustment: marks tests related to adjustments",
     "serial: marks tests that must run serially (not in parallel)",
-    "performance: marks performance tests (incompatible with parallel mode)",
-    "locust: marks locust-based load tests (incompatible with parallel mode due to gevent)",
-    "benchmark: marks benchmark tests",
+    "performance: marks performance tests using pytest-benchmark",
+    "benchmark: marks benchmark tests using pytest-benchmark",
     "security: marks security tests",
     "flaky: marks tests known to be flaky and need fixes",
     "critical: marks critical business logic tests",

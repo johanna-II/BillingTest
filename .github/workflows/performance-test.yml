@@ -1,0 +1,144 @@
+name: Performance Testing (k6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+      target_url:
+        description: 'Target URL (default: mock server)'
+        required: false
+        default: 'http://localhost:5000'
+  schedule:
+    # Run smoke test weekly on Saturdays at 10 AM UTC
+    - cron: '0 10 * * 6'
+
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  performance-test:
+    name: k6 Performance Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
+        with:
+          version: '2.2.1'
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --with test
+
+      - name: Start mock server
+        run: |
+          poetry run python start_mock_server_simple.py &
+          echo "MOCK_SERVER_PID=$!" >> $GITHUB_ENV
+          sleep 5  # Wait for server to start
+
+      - name: Verify mock server is running
+        run: |
+          curl -f http://localhost:5000 || (echo "Mock server failed to start" && exit 1)
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run k6 smoke test (scheduled or default)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'smoke')
+        run: |
+          k6 run --out json=k6-smoke-results.json tests/performance/smoke-test.js
+        env:
+          BASE_URL: ${{ github.event.inputs.target_url || 'http://localhost:5000' }}
+
+      - name: Run k6 load test
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'load'
+        run: |
+          k6 run --out json=k6-load-results.json tests/performance/load-test.js
+        env:
+          BASE_URL: ${{ github.event.inputs.target_url || 'http://localhost:5000' }}
+
+      - name: Run k6 stress test
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'stress'
+        run: |
+          k6 run --out json=k6-stress-results.json tests/performance/stress-test.js
+        env:
+          BASE_URL: ${{ github.event.inputs.target_url || 'http://localhost:5000' }}
+
+      - name: Upload k6 results
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        with:
+          name: k6-results-${{ github.event.inputs.test_type || 'smoke' }}
+          path: k6-*.json
+          retention-days: 30
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "# 📊 k6 Performance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Type:** ${{ github.event.inputs.test_type || 'smoke' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target URL:** ${{ github.event.inputs.target_url || 'http://localhost:5000' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Parse and display key metrics from JSON results
+          if [ -f "k6-*.json" ]; then
+            echo "📈 **Key Metrics:**" >> $GITHUB_STEP_SUMMARY
+            echo "Results available in artifacts" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Stop mock server
+        if: always()
+        run: |
+          if [ ! -z "$MOCK_SERVER_PID" ]; then
+            kill $MOCK_SERVER_PID || true
+          fi
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 📊 k6 Performance Test Results\n\n';
+            comment += `**Test Type:** ${{ github.event.inputs.test_type || 'smoke' }}\n\n`;
+            comment += '### Summary\n';
+            comment += 'Detailed results are available in the workflow artifacts.\n\n';
+            comment += '### How to view results locally\n';
+            comment += '```bash\n';
+            comment += '# Install k6\n';
+            comment += 'brew install k6  # macOS\n';
+            comment += '# or\n';
+            comment += 'choco install k6  # Windows\n\n';
+            comment += '# Run tests\n';
+            comment += 'k6 run tests/performance/smoke-test.js\n';
+            comment += '```\n';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

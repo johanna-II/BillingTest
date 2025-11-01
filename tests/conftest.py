@@ -20,7 +20,6 @@ def _disable_gevent_in_parallel_mode() -> None:
     # Check if pytest-xdist is being used
     if any(arg.startswith("-n") for arg in sys.argv) or "xdist" in sys.modules:
         os.environ["GEVENT_SUPPORT"] = "false"
-        os.environ["LOCUST_HEADLESS"] = "true"
 
         # Mock gevent modules to prevent import
         class MockGevent:
@@ -322,12 +321,6 @@ def pytest_collection_modifyitems(config: Config, items: list[pytest.Item]) -> N
     is_parallel = _is_parallel_mode()
 
     for item in items:
-        # Check for locust/performance test skipping in parallel mode
-        should_skip, reason = _should_skip_locust_test(item, is_parallel)
-        if should_skip:
-            item.add_marker(pytest.mark.skip(reason=reason))
-            continue
-
         # Check for hypothesis test skipping on Python 3.12+
         should_skip, reason = _should_skip_hypothesis_test(item)
         if should_skip:
