@@ -150,7 +150,7 @@ class TestBillingAPIClientUnit:
     # Request method tests
     @patch("libs.http_client.TelemetryManager")
     def test_request_success(
-        self, mock_telemetry_cls, api_client, mock_session
+        self, _mock_telemetry_cls, api_client, mock_session
     ) -> None:
         """Test successful request."""
         # Setup mocks

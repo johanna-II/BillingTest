@@ -1,6 +1,59 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
+// ============================================================================
+// Type Definitions - 타입 안전성 향상
+// ============================================================================
+
+interface UsageItem {
+  counterVolume: number
+  counterName: string
+  counterUnit: string
+  counterType?: string
+  resourceId?: string
+  resourceName?: string
+  projectId?: string
+  appKey?: string
+}
+
+interface CreditItem {
+  amount: number
+  type: string
+  campaignId?: string
+  name?: string
+}
+
+interface AdjustmentItem {
+  type: 'DISCOUNT' | 'SURCHARGE'
+  method: 'FIXED' | 'RATE'
+  value: number
+  description?: string
+  level?: string
+  targetProjectId?: string
+}
+
+interface BillingRequest {
+  uuid?: string
+  billingGroupId?: string
+  targetDate?: string
+  unpaidAmount?: number
+  isOverdue?: boolean
+  usage?: UsageItem[]
+  credits?: CreditItem[]
+  adjustments?: AdjustmentItem[]
+}
+
+interface PaymentRequest {
+  paymentGroupId?: string
+  amount?: number
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const VAT_RATE = 0.1
+
 const app = new Hono()
 
 // CORS 설정 - 모든 도메인 허용 또는 특정 도메인만
@@ -45,35 +98,27 @@ app.get('/health', (c) => {
 app.post('/api/billing/admin/calculate', async (c) => {
   try {
     const uuid = c.req.header('uuid')
-    const body = await c.req.json().catch(() => ({}))
+    const body = await c.req.json<BillingRequest>().catch(() => ({}))
 
-    // 간단한 빌링 계산 로직
     const { usage = [], credits = [], adjustments = [] } = body
 
-  // 사용량 계산
-  const subtotal = usage.reduce((sum: number, item: any) => {
-    const quantity = item.counterVolume || 0
-    const unitPrice = getUnitPrice(item.counterName)
-    return sum + (quantity * unitPrice)
-  }, 0)
+    // 사용량 계산 - 타입 안전성 향상
+    const subtotal = usage.reduce((sum: number, item: UsageItem) => {
+      const amount = calculateAmount(item.counterName, item.counterVolume, item.counterUnit)
+      return sum + amount
+    }, 0)
 
-  // 크레딧 적용
-  const totalCredits = credits.reduce((sum: number, c: any) => sum + (c.amount || 0), 0)
-  const creditApplied = Math.min(totalCredits, subtotal)
+    // 크레딧 적용
+    const totalCredits = credits.reduce((sum: number, credit: CreditItem) =>
+      sum + credit.amount, 0)
+    const creditApplied = Math.min(totalCredits, subtotal)
 
-  // 조정 적용
-  let adjustmentTotal = 0
-  adjustments.forEach((adj: any) => {
-    if (adj.type === 'DISCOUNT') {
-      adjustmentTotal -= adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100)
-    } else {
-      adjustmentTotal += adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100)
-    }
-  })
+    // 조정 적용
+    const adjustmentTotal = calculateAdjustmentTotal(adjustments, subtotal)
 
-  const charge = Math.max(0, subtotal + adjustmentTotal - creditApplied)
-  const vat = Math.floor(charge * 0.1)
-  const totalAmount = charge + vat
+    const charge = Math.max(0, subtotal + adjustmentTotal - creditApplied)
+    const vat = Math.floor(charge * VAT_RATE)
+    const totalAmount = charge + vat
 
   return c.json({
     header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
@@ -93,32 +138,32 @@ app.post('/api/billing/admin/calculate', async (c) => {
     amount: totalAmount,
     totalAmount,
     status: 'PENDING',
-    lineItems: usage.map((item: any, idx: number) => ({
+    lineItems: usage.map((item: UsageItem, idx: number) => ({
       id: `line-${idx}`,
       counterName: item.counterName,
       counterType: item.counterType || 'DELTA',
-      unit: item.counterUnit || 'HOURS',
+      unit: item.counterUnit,
       quantity: item.counterVolume,
       unitPrice: getUnitPrice(item.counterName),
-      amount: item.counterVolume * getUnitPrice(item.counterName),
+      amount: calculateAmount(item.counterName, item.counterVolume, item.counterUnit),
       resourceId: item.resourceId,
       resourceName: item.resourceName,
       projectId: item.projectId,
       appKey: item.appKey
     })),
-    appliedCredits: credits.map((c: any, idx: number) => ({
+    appliedCredits: credits.map((credit: CreditItem, idx: number) => ({
       creditId: `credit-${idx}`,
-      type: c.type,
-      amountApplied: Math.min(c.amount, charge),
-      remainingBalance: Math.max(0, c.amount - charge),
-      campaignId: c.campaignId,
-      campaignName: c.name
+      type: credit.type,
+      amountApplied: Math.min(credit.amount, charge),
+      remainingBalance: Math.max(0, credit.amount - charge),
+      campaignId: credit.campaignId,
+      campaignName: credit.name
     })),
-    appliedAdjustments: adjustments.map((adj: any, idx: number) => ({
+    appliedAdjustments: adjustments.map((adj: AdjustmentItem, idx: number) => ({
       adjustmentId: `adj-${idx}`,
       type: adj.type,
       description: adj.description,
-      amount: adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100),
+      amount: calculateAdjustmentAmount(adj, subtotal),
       level: adj.level,
       targetId: adj.targetProjectId
     }))
@@ -183,7 +228,7 @@ app.post('/api/billing/payments/:month', async (c) => {
   try {
     const uuid = c.req.header('uuid')
     const month = c.req.param('month')
-    const body = await c.req.json().catch(() => ({}))
+    const body = await c.req.json<PaymentRequest>().catch(() => ({}))
 
     return c.json({
       header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
@@ -216,6 +261,41 @@ function getUnitPrice(counterName: string): number {
     'network.floating_ip': 25
   }
   return prices[counterName] || 100
+}
+
+// Helper: 조정 금액 계산
+function calculateAdjustmentAmount(adj: AdjustmentItem, subtotal: number): number {
+  if (adj.method === 'FIXED') {
+    return adj.value
+  }
+  // RATE
+  return Math.floor(subtotal * (adj.value / 100))
+}
+
+// Helper: 조정 합계 계산
+function calculateAdjustmentTotal(adjustments: AdjustmentItem[], subtotal: number): number {
+  let total = 0
+
+  for (const adj of adjustments) {
+    const amount = calculateAdjustmentAmount(adj, subtotal)
+
+    if (adj.type === 'DISCOUNT') {
+      total -= amount
+    } else {
+      total += amount
+    }
+  }
+
+  return total
+}
+
+// Helper: 실제 금액 계산 (단위 변환 포함)
+function calculateAmount(counterName: string, volume: number, unit: string): number {
+  const unitPrice = getUnitPrice(counterName)
+
+  // Storage는 counterVolume이 이미 GB 단위로 제공됨
+  // 다른 counter들은 해당 단위(HOURS 등) 그대로 사용
+  return Math.floor(volume * unitPrice)
 }
 
 export default app

@@ -182,7 +182,7 @@ class BillingCalculationService:
     ) -> UnpaidAmount | None:
         """Get unpaid amounts from previous periods."""
         unpaid_payments = self.payment_repo.find_unpaid_by_user(
-            user_id, before_date=current_period.start_date
+            user_id, _before_date=current_period.start_date
         )
 
         if not unpaid_payments:

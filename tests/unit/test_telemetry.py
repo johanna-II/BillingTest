@@ -176,7 +176,7 @@ class TestTelemetryUnit:
     @patch("libs.observability.telemetry.TracerProvider")
     @patch("libs.observability.telemetry.MeterProvider")
     def test_configure_telemetry_with_jaeger(
-        self, mock_meter_provider, mock_tracer_provider, mock_resource
+        self, mock_meter_provider, mock_tracer_provider, _mock_resource
     ) -> None:
         """Test telemetry configuration with Jaeger enabled."""
         os.environ["OTLP_ENABLED"] = "true"

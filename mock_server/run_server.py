@@ -14,7 +14,7 @@ from mock_server.app import app
 shutdown_requested = False
 
 
-def signal_handler(signum, frame):
+def signal_handler(signum, _frame):
     """Handle shutdown signals gracefully."""
     global shutdown_requested
     shutdown_requested = True

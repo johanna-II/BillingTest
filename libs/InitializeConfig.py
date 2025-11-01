@@ -577,7 +577,7 @@ class InitializeConfig:
         return statements, total_payments
 
     def verify_assert(
-        self, statements: float, payments: float, expected_result: float
+        self, statements: float, _payments: float, expected_result: float
     ) -> None:
         """Verify assertion for test results.
 

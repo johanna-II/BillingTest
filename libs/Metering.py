@@ -154,9 +154,9 @@ class MeteringManager:
         counter_volume: float | str,
         counter_type: CounterType | str | None = None,
         app_key: str | None = None,
-        target_time: str | None = None,
+        _target_time: str | None = None,
         uuid: str | None = None,
-        app_id: str | None = None,
+        _app_id: str | None = None,
         project_id: str | None = None,
     ) -> dict[str, Any]:
         """Send IaaS metering data (legacy compatibility method).
