@@ -56,13 +56,13 @@ class AdjustmentRepository(ABC):
 
     @abstractmethod
     def find_by_billing_group(
-        self, billing_group_id: str, effective_date: datetime
+        self, billing_group_id: str, _effective_date: datetime
     ) -> list[Adjustment]:
         """Find adjustments for a billing group."""
 
     @abstractmethod
     def find_by_project(
-        self, project_id: str, effective_date: datetime
+        self, project_id: str, _effective_date: datetime
     ) -> list[Adjustment]:
         """Find adjustments for a project."""
 
@@ -100,7 +100,7 @@ class ContractRepository(ABC):
 
     @abstractmethod
     def find_active_contract(
-        self, billing_group_id: str, as_of_date: datetime
+        self, billing_group_id: str, _as_of_date: datetime
     ) -> Contract | None:
         """Find active contract for a billing group."""
 
@@ -117,7 +117,9 @@ class PaymentRepository(ABC):
     """Repository interface for payments."""
 
     @abstractmethod
-    def find_unpaid_by_user(self, user_id: str, before_date: datetime) -> list[Payment]:
+    def find_unpaid_by_user(
+        self, user_id: str, _before_date: datetime
+    ) -> list[Payment]:
         """Find unpaid payments before a certain date."""
 
     @abstractmethod

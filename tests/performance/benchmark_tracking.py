@@ -186,7 +186,7 @@ class BenchmarkTracker:
             return "No benchmark history found."
 
         # Group by benchmark name
-        benchmarks = {}
+        benchmarks: dict[str, list[dict[str, Any]]] = {}
         for result in history:
             name = result["name"]
             if name not in benchmarks:

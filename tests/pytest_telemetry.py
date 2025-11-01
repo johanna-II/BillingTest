@@ -56,7 +56,7 @@ class TelemetryPlugin:
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
-        self, item: Item, call: CallInfo
+        self, item: Item, _call: CallInfo
     ) -> Generator[None, None, None]:
         """Called after test execution."""
         outcome = yield
