@@ -251,13 +251,13 @@ app.post('/api/billing/payments/:month', async (c) => {
   }
 })
 
-// Helper: 단가 계산
+// Helper: 단가 계산 (단위당 가격)
 function getUnitPrice(counterName: string): number {
   const prices: Record<string, number> = {
-    'compute.c2.c8m8': 397,
-    'compute.g2.t4.c8m64': 166.67,
-    'storage.volume.ssd': 100,
-    'network.floating_ip': 25
+    'compute.c2.c8m8': 397,          // 397원/시간
+    'compute.g2.t4.c8m64': 166.67,   // 166.67원/시간
+    'storage.volume.ssd': 100,        // 100원/GB/월
+    'network.floating_ip': 25         // 25원/시간
   }
   return prices[counterName] || 100
 }
