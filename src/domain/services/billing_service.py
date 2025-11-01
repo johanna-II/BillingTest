@@ -87,7 +87,7 @@ class BillingCalculationService:
         adjustments = self._get_adjustments(billing_group_id, usage, period)
 
         # 5. Get available credits
-        available_credits = self._get_available_credits(user_id, period)
+        available_credits = self._get_available_credits(user_id)
 
         # 6. Create and calculate billing statement
         return BillingStatement(
@@ -141,9 +141,7 @@ class BillingCalculationService:
                 total += cost
             except ValueError:
                 # Counter not in contract, use default pricing
-                default_cost = self._calculate_default_counter_cost(
-                    counter_name, volume
-                )
+                default_cost = self._calculate_default_counter_cost(volume)
                 total += default_cost
 
         return total
@@ -170,9 +168,7 @@ class BillingCalculationService:
 
         return total
 
-    def _calculate_default_counter_cost(
-        self, counter_name: str, volume: Decimal
-    ) -> Decimal:
+    def _calculate_default_counter_cost(self, volume: Decimal) -> Decimal:
         """Calculate cost for a single counter using default pricing."""
         # Simplified - in reality would have more complex logic
         return volume * Decimal("1.0")
@@ -182,7 +178,7 @@ class BillingCalculationService:
     ) -> UnpaidAmount | None:
         """Get unpaid amounts from previous periods."""
         unpaid_payments = self.payment_repo.find_unpaid_by_user(
-            user_id, _before_date=current_period.start_date
+            user_id, current_period.start_date
         )
 
         if not unpaid_payments:
@@ -228,9 +224,7 @@ class BillingCalculationService:
 
         return adjustments
 
-    def _get_available_credits(
-        self, user_id: str, period: BillingPeriod
-    ) -> list[Credit]:
+    def _get_available_credits(self, user_id: str) -> list[Credit]:
         """Get all available credits for the user."""
         all_credits = self.credit_repo.find_by_user(user_id)
 
