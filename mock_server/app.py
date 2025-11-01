@@ -1572,7 +1572,9 @@ def _calculate_line_item_price(counter_name, volume):
         amount = int(volume * 397)
     elif counter_name == STORAGE_SSD_COUNTER:
         unit_price = 100.0
-        amount = int(volume * 100)
+        # Convert KB to GB (1 GB = 1024 * 1024 KB)
+        gb_volume = volume / 1048576
+        amount = int(gb_volume * unit_price)
     elif counter_name == NETWORK_FLOATING_IP_COUNTER:
         unit_price = 25.0
         amount = int(volume * 25)

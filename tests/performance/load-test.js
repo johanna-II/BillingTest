@@ -18,7 +18,6 @@ import { Rate, Trend } from 'k6/metrics';
 // Custom metrics
 const errorRate = new Rate('errors');
 const meteringDuration = new Trend('metering_duration');
-const paymentDuration = new Trend('payment_duration');
 
 // Test configuration
 export const options = {
@@ -160,8 +159,7 @@ export default function loadTest() {
 
     const bulkCheck = check(bulkRes, {
       'bulk metering: status is 200': (r) => r.status === 200,
-      'bulk metering: response time < 2s': (r) => r.timings.duration < 2000,
-      'bulk metering: SLA met': (r) => r.timings.duration < 2000,
+      'bulk metering: SLA met (< 2s)': (r) => r.timings.duration < 2000,
     });
 
     errorRate.add(!bulkCheck);
@@ -192,7 +190,7 @@ export default function loadTest() {
 
   // Variable sleep to simulate realistic user behavior
   // Use VU ID for deterministic but varied timing
-  const sleepTime = 1 + (__VU % 3); // Sleep 1-4 seconds based on VU ID
+  const sleepTime = 1 + (__VU % 3); // Sleep 1-3 seconds based on VU ID
   sleep(sleepTime);
 }
 

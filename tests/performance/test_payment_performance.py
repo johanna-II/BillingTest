@@ -142,11 +142,20 @@ def test_batch_job_performance(benchmark, test_session):
 
 
 @pytest.mark.performance
-def test_concurrent_requests(test_session):
-    """Simple concurrent request test (not a benchmark)."""
+def test_concurrent_requests():
+    """Simple concurrent request test (not a benchmark).
+
+    Note: Each thread creates its own session to ensure thread-safety.
+    requests.Session is not guaranteed to be thread-safe.
+    """
     import concurrent.futures
 
     def make_request():
+        """Make a single request with its own session for thread-safety."""
+        # Each thread creates its own session
+        session = requests.Session()
+        session.headers.update(HEADERS)
+
         metering_data = {
             "meterList": [
                 {
@@ -160,7 +169,12 @@ def test_concurrent_requests(test_session):
                 }
             ]
         }
-        return test_session.post(f"{BASE_URL}/billing/meters", json=metering_data)
+
+        try:
+            response = session.post(f"{BASE_URL}/billing/meters", json=metering_data)
+            return response
+        finally:
+            session.close()
 
     # Test with 10 concurrent requests
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:

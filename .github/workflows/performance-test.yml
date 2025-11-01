@@ -168,10 +168,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Parse and display key metrics from JSON results
-          if [ -f "k6-*.json" ]; then
+          # Enable nullglob to handle glob patterns properly
+          shopt -s nullglob
+          result_files=(k6-*.json)
+          if [ ${#result_files[@]} -gt 0 ]; then
             echo "📈 **Key Metrics:**" >> $GITHUB_STEP_SUMMARY
-            echo "Results available in artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "Results available in artifacts (${#result_files[@]} file(s))" >> $GITHUB_STEP_SUMMARY
           fi
+          shopt -u nullglob
 
           # Add environment-specific notes
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
@@ -185,30 +189,3 @@ jobs:
           if [ ! -z "$MOCK_SERVER_PID" ]; then
             kill $MOCK_SERVER_PID || true
           fi
-
-      - name: Comment PR with results
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
-        with:
-          script: |
-            const fs = require('fs');
-            let comment = '## 📊 k6 Performance Test Results\n\n';
-            comment += `**Test Type:** ${{ github.event.inputs.test_type || 'smoke' }}\n\n`;
-            comment += '### Summary\n';
-            comment += 'Detailed results are available in the workflow artifacts.\n\n';
-            comment += '### How to view results locally\n';
-            comment += '```bash\n';
-            comment += '# Install k6\n';
-            comment += 'brew install k6  # macOS\n';
-            comment += '# or\n';
-            comment += 'choco install k6  # Windows\n\n';
-            comment += '# Run tests\n';
-            comment += 'k6 run tests/performance/smoke-test.js\n';
-            comment += '```\n';
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
