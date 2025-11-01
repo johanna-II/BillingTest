@@ -1,63 +1,59 @@
-"""Performance tests for payment processing using locust."""
+"""Performance tests for payment processing using pytest-benchmark.
 
-import sys
+For comprehensive load testing, consider using external tools:
+- k6 (https://k6.io/) - Modern, JavaScript-based load testing
+- Apache JMeter - Enterprise-grade, GUI-based
+- wrk - Simple, fast HTTP benchmarking tool
 
-import pytest
-
-# Skip locust tests in parallel mode to avoid gevent conflicts
-PARALLEL_MODE = any(arg.startswith("-n") for arg in sys.argv) or "xdist" in sys.modules
-if PARALLEL_MODE:
-    pytest.skip(
-        "Skipping locust tests in parallel mode due to gevent conflict",
-        allow_module_level=True,
-    )
+These tests measure single-request performance. For concurrent load testing,
+use the tools mentioned above.
+"""
 
 import time
-
-try:
-    from locust import HttpUser, between, task
-except ImportError:
-    # Mock locust for parallel test mode
-    class HttpUser:  # type: ignore[no-redef]
-        pass
-
-    def task(f):  # type: ignore[no-redef]
-        return f
-
-    def between(a, b):
-        return lambda: a
-
-
 import uuid as uuid_module
 from datetime import datetime
 
+import pytest
+import requests
 
-class BillingAPIUser(HttpUser):
-    """Simulates a billing API user for load testing."""
+# Test configuration
+BASE_URL = "http://localhost:5000"  # Update with your test server URL
+TEST_UUID = f"PERF_TEST_{uuid_module.uuid4().hex[:8]}"
+HEADERS = {
+    "Accept": "application/json;charset=UTF-8",
+    "Content-Type": "application/json",
+    "uuid": TEST_UUID,
+}
+MONTH = datetime.now().strftime("%Y-%m")
 
-    wait_time = between(1, 3)  # Wait 1-3 seconds between tasks
+# Benchmark configuration to avoid rate limiting (HTTP 429)
+BENCHMARK_CONFIG = {
+    "min_rounds": 3,  # Reduced from default to avoid rate limiting
+    "max_time": 0.5,  # Maximum time in seconds
+    "warmup": False,  # Skip warmup to reduce total requests
+}
 
-    def on_start(self) -> None:
-        """Initialize user session."""
-        self.test_uuid = f"PERF_TEST_{uuid_module.uuid4().hex[:8]}"
-        self.headers = {
-            "Accept": "application/json;charset=UTF-8",
-            "Content-Type": "application/json",
-            "uuid": self.test_uuid,
-        }
-        self.month = datetime.now().strftime("%Y-%m")
-        self.payment_group_id: str | None = None
 
-    def on_stop(self) -> None:
-        """Clean up user session."""
-        # Reset test data
-        self.client.post(
-            "/test/reset", json={"uuid": self.test_uuid}, headers=self.headers
-        )
+@pytest.fixture(scope="module")
+def test_session():
+    """Create a requests session for performance tests."""
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    yield session
+    # Cleanup
+    try:
+        session.post(f"{BASE_URL}/test/reset", json={"uuid": TEST_UUID})
+    except Exception:
+        pass  # Cleanup failures are non-critical
+    session.close()
 
-    @task(3)
-    def send_metering_data(self) -> None:
-        """Send metering data - most frequent operation."""
+
+@pytest.mark.performance
+@pytest.mark.benchmark(group="metering", **BENCHMARK_CONFIG)
+def test_send_metering_data_performance(benchmark, test_session):
+    """Benchmark metering data submission."""
+
+    def send_metering():
         metering_data = {
             "meterList": [
                 {
@@ -72,89 +68,34 @@ class BillingAPIUser(HttpUser):
                 for i in range(5)  # Send 5 meters at once
             ]
         }
+        response = test_session.post(f"{BASE_URL}/billing/meters", json=metering_data)
+        assert response.status_code == 200
+        time.sleep(0.1)  # Small delay to avoid rate limiting
+        return response
 
-        with self.client.post(
-            "/billing/meters",
-            json=metering_data,
-            headers=self.headers,
-            catch_response=True,
-        ) as response:
-            if response.status_code != 200:
-                response.failure(f"Got status code {response.status_code}")
-            else:
-                response.success()
-
-    @task(2)
-    def get_payment_status(self) -> None:
-        """Check payment status."""
-        with self.client.get(
-            f"/billing/payments/{self.month}/statements",
-            headers=self.headers,
-            catch_response=True,
-        ) as response:
-            if response.status_code == 200:
-                data = response.json()
-                statements = data.get("statements", [])
-                if statements:
-                    self.payment_group_id = statements[0].get("paymentGroupId")
-                response.success()
-            else:
-                response.failure(f"Got status code {response.status_code}")
-
-    @task(1)
-    def make_payment(self) -> None:
-        """Make a payment if payment group exists."""
-        if not self.payment_group_id:
-            return
-
-        payment_data = {"paymentGroupId": self.payment_group_id}
-
-        with self.client.post(
-            f"/billing/payments/{self.month}",
-            json=payment_data,
-            headers=self.headers,
-            catch_response=True,
-        ) as response:
-            if response.status_code in [200, 201]:
-                response.success()
-            else:
-                response.failure(f"Got status code {response.status_code}")
-
-    @task(1)
-    def run_batch_job(self) -> None:
-        """Request a batch job."""
-        batch_data = {"month": self.month, "jobCode": "API_CALCULATE_USAGE_AND_PRICE"}
-
-        with self.client.post(
-            "/batch/jobs",
-            json=batch_data,
-            headers={"Content-Type": "application/json"},
-            catch_response=True,
-        ) as response:
-            if response.status_code in [200, 201, 202]:
-                response.success()
-            else:
-                response.failure(f"Got status code {response.status_code}")
+    benchmark(send_metering)
 
 
-class HighVolumeUser(HttpUser):
-    """Simulates high-volume metering data submission."""
+@pytest.mark.performance
+@pytest.mark.benchmark(group="payments", **BENCHMARK_CONFIG)
+def test_get_payment_status_performance(benchmark, test_session):
+    """Benchmark payment status retrieval."""
 
-    wait_time = between(0.5, 1)  # More aggressive timing
+    def get_status():
+        response = test_session.get(f"{BASE_URL}/billing/payments/{MONTH}/statements")
+        assert response.status_code == 200
+        time.sleep(0.1)  # Small delay to avoid rate limiting
+        return response
 
-    def on_start(self) -> None:
-        """Initialize user session."""
-        self.test_uuid = f"VOLUME_TEST_{uuid_module.uuid4().hex[:8]}"
-        self.headers = {
-            "Accept": "application/json;charset=UTF-8",
-            "Content-Type": "application/json",
-            "uuid": self.test_uuid,
-        }
+    benchmark(get_status)
 
-    @task
-    def bulk_metering_submission(self) -> None:
-        """Submit large batches of metering data."""
-        # Create 50 meters in one request
+
+@pytest.mark.performance
+@pytest.mark.benchmark(group="bulk", **BENCHMARK_CONFIG)
+def test_bulk_metering_performance(benchmark, test_session):
+    """Benchmark bulk metering data submission (50 meters)."""
+
+    def bulk_send():
         metering_data = {
             "meterList": [
                 {
@@ -169,26 +110,94 @@ class HighVolumeUser(HttpUser):
                 for i in range(50)
             ]
         }
+        response = test_session.post(f"{BASE_URL}/billing/meters", json=metering_data)
+        assert response.status_code == 200
+        time.sleep(0.2)  # Larger delay for bulk operations
+        return response
 
-        start_time = time.time()
-
-        with self.client.post(
-            "/billing/meters",
-            json=metering_data,
-            headers=self.headers,
-            catch_response=True,
-        ) as response:
-            response_time = time.time() - start_time
-
-            if response.status_code != 200:
-                response.failure(f"Got status code {response.status_code}")
-            elif response_time > 2.0:  # Fail if takes more than 2 seconds
-                response.failure(f"Response took {response_time:.2f}s (> 2s SLA)")
-            else:
-                response.success()
+    benchmark(bulk_send)
+    # Assert SLA: should complete within 2 seconds
+    assert (
+        benchmark.stats["mean"] < 2.0
+    ), f"Mean response time {benchmark.stats['mean']:.2f}s exceeds 2s SLA"
 
 
-if __name__ == "__main__":
-    # Example command to run:
-    # locust -f test_payment_performance.py --host=http://localhost:5000 --users=100 --spawn-rate=10
-    pass
+@pytest.mark.performance
+@pytest.mark.benchmark(group="batch", **BENCHMARK_CONFIG)
+def test_batch_job_performance(benchmark, test_session):
+    """Benchmark batch job submission."""
+
+    def run_batch():
+        batch_data = {"month": MONTH, "jobCode": "API_CALCULATE_USAGE_AND_PRICE"}
+        response = test_session.post(
+            f"{BASE_URL}/batch/jobs",
+            json=batch_data,
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status_code in [200, 201, 202]
+        time.sleep(0.1)  # Small delay to avoid rate limiting
+        return response
+
+    benchmark(run_batch)
+
+
+@pytest.mark.performance
+def test_concurrent_requests():
+    """Simple concurrent request test (not a benchmark).
+
+    Note: Each thread creates its own session to ensure thread-safety.
+    requests.Session is not guaranteed to be thread-safe.
+    """
+    import concurrent.futures
+
+    def make_request():
+        """Make a single request with its own session for thread-safety."""
+        # Each thread creates its own session
+        session = requests.Session()
+        session.headers.update(HEADERS)
+
+        metering_data = {
+            "meterList": [
+                {
+                    "counterName": "test.counter",
+                    "counterType": "DELTA",
+                    "counterUnit": "n",
+                    "counterVolume": 1,
+                    "resourceId": f"resource-{uuid_module.uuid4().hex[:8]}",
+                    "projectId": "test-project",
+                    "serviceName": "test",
+                }
+            ]
+        }
+
+        try:
+            response = session.post(f"{BASE_URL}/billing/meters", json=metering_data)
+            return response
+        finally:
+            session.close()
+
+    # Test with 10 concurrent requests
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(make_request) for _ in range(10)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    assert all(r.status_code == 200 for r in results), "Some requests failed"
+    print("✓ Successfully handled 10 concurrent requests")
+
+
+# Instructions for running these tests:
+#
+# Run all performance tests:
+#   pytest tests/performance/test_payment_performance.py -v
+#
+# Run with benchmark output:
+#   pytest tests/performance/test_payment_performance.py -v --benchmark-only
+#
+# Save benchmark results:
+#   pytest tests/performance/test_payment_performance.py --benchmark-save=baseline
+#
+# Compare with baseline:
+#   pytest tests/performance/test_payment_performance.py --benchmark-compare=baseline
+#
+# For comprehensive load testing, use k6:
+#   k6 run --vus 100 --duration 30s load_test.js

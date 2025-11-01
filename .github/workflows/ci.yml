@@ -61,7 +61,7 @@ jobs:
       fail-fast: false
       matrix:
         test-type: [unit, contracts, comprehensive]
-    # Performance/locust tests run in separate job (incompatible with -n flag)
+    # Performance tests with pytest-benchmark (k6 tests run separately)
 
     steps:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
@@ -141,7 +141,7 @@ jobs:
             --cov=libs --cov-report=term-missing \
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
-            -m "not performance and not locust"
+            -m "not performance"
         elif [[ "${{ matrix.test-type }}" = "contracts" ]]; then
           # Contract tests run sequentially (Pact requirement) + 300s timeout
           # No -n flag - Pact needs sequential execution
@@ -151,7 +151,7 @@ jobs:
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock \
-            -m "not performance and not locust"
+            -m "not performance"
         elif [[ "${{ matrix.test-type }}" = "comprehensive" ]]; then
           # Build and run Mock Server as separate container
           echo "Building Mock Server Docker image..."
@@ -180,7 +180,7 @@ jobs:
 
           echo "Running Comprehensive Tests..."
           # Limited parallel (-n 2) for stability + 600s timeout
-          # Performance/locust tests excluded (run in separate job)
+          # Performance tests excluded (run in separate job)
           pytest tests/integration/test_all_business_combinations.py \
             tests/integration/test_comprehensive_business_logic.py \
             -v --tb=short \
@@ -193,7 +193,7 @@ jobs:
             --dist=loadfile \
             --junit-xml=test-results-${{ matrix.test-type }}.xml \
             --use-mock \
-            -m "not performance and not locust" \
+            -m "not performance" \
             || { TEST_EXIT_CODE=$?; echo "::warning::Comprehensive tests had failures"; }
 
           echo "Cleanup..."
@@ -260,10 +260,10 @@ jobs:
           htmlcov/
 
   performance:
-    name: Performance & Locust Tests (Sequential)
+    name: Performance Tests (pytest-benchmark)
     runs-on: ubuntu-latest
     # ⚠️ IMPORTANT: These tests MUST run sequentially (no -n flag)
-    # Locust uses gevent which conflicts with pytest-xdist multiprocessing
+    # Sequential execution ensures accurate performance measurements
     steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
@@ -311,10 +311,10 @@ jobs:
         MOCK_SERVER_RATE_LIMIT: 500
         FLASK_ENV: production
 
-    - name: Run Performance/Locust Tests (Sequential Only)
+    - name: Run Performance Tests (Sequential Only)
       run: |
         echo "⚠️ Running performance tests WITHOUT parallel flag"
-        echo "Locust requires sequential execution due to gevent"
+        echo "Sequential execution ensures accurate performance measurements"
 
         # Run WITHOUT -n flag (sequential execution required)
         pytest tests/performance/ -v --tb=short \
@@ -345,7 +345,7 @@ jobs:
       uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
       with:
         files: ./coverage-performance.xml
-        flags: performance,locust
+        flags: performance
         name: performance-tests
         fail_ci_if_error: false
 

@@ -26,6 +26,40 @@ OPENAPI_NOT_AVAILABLE_ERROR = "OpenAPI not available"
 
 # Counter names
 COMPUTE_C2_C8M8_COUNTER = "compute.c2.c8m8"
+COMPUTE_GPU_COUNTER = "compute.g2.t4.c8m64"
+STORAGE_SSD_COUNTER = "storage.volume.ssd"
+NETWORK_FLOATING_IP_COUNTER = "network.floating_ip"
+
+# Default constants
+DEFAULT_UUID = "default"
+CONTRACT_DEFAULT_DISCOUNT_RATE = 0.3
+VAT_RATE = 0.1
+
+# Status constants
+STATUS_COMPLETED = "COMPLETED"
+STATUS_CREATED = "CREATED"
+STATUS_RUNNING = "RUNNING"
+STATUS_READY = "READY"
+STATUS_ACTIVE = "ACTIVE"
+STATUS_PENDING = "PENDING"
+STATUS_SUCCESS = "SUCCESS"
+
+
+# Helper functions for common operations
+def generate_uuid():
+    """Generate a unique UUID string."""
+    return str(uuid.uuid4())
+
+
+def current_timestamp():
+    """Get current timestamp in ISO format."""
+    return datetime.now().isoformat()
+
+
+def current_timestamp_utc():
+    """Get current UTC timestamp in ISO format."""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
 
 try:
     from .openapi_handler import OpenAPIHandler, setup_openapi_handler
@@ -46,11 +80,11 @@ except ImportError:
 # CSRF protection is not enabled as this server is not intended for production use.
 app = Flask(__name__)
 
-# NOSONAR: python:S5122 - Permissive CORS is acceptable for test mock server
+# Permissive CORS is acceptable for test mock server
 # This mock server is designed for local development and CI testing only
 # In production, use a properly configured API gateway with restricted CORS
 # Allow localhost for development and Vercel domains for production
-CORS(
+CORS(  # NOSONAR python:S5122
     app,
     origins=[
         "http://localhost:3000",
@@ -274,7 +308,7 @@ def welcome() -> str:
 def health():
     """Health check endpoint."""
     return create_success_response(
-        {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+        {"status": "healthy", "timestamp": current_timestamp_utc()}
     )
 
 
@@ -393,10 +427,10 @@ def create_metering():
     if "meterList" in data:
         meter_ids = []
         for meter in data["meterList"]:
-            meter_id = str(uuid.uuid4())
+            meter_id = generate_uuid()
             metering_store[meter_id] = {
                 "id": meter_id,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": current_timestamp(),
                 "uuid": test_uuid,
                 **meter,
             }
@@ -412,10 +446,10 @@ def create_metering():
         )
     else:
         # Handle single meter format
-        meter_id = str(uuid.uuid4())
+        meter_id = generate_uuid()
         metering_store[meter_id] = {
             "id": meter_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": current_timestamp(),
             "uuid": test_uuid,
             **data,
         }
@@ -425,7 +459,7 @@ def create_metering():
 @app.route("/billing/meters/<meter_id>", methods=["GET"])
 def get_metering(meter_id):
     """Get metering data."""
-    test_uuid = request.headers.get("uuid", "default")
+    test_uuid = request.headers.get("uuid", DEFAULT_UUID)
     metering_store = data_manager.get_metering_data(test_uuid)
 
     if meter_id not in metering_store:
@@ -438,14 +472,14 @@ def get_metering(meter_id):
 @app.route("/billing/admin/batch", methods=["POST"])
 def create_batch_job():
     """Create batch job."""
-    job_id = str(uuid.uuid4())
+    job_id = generate_uuid()
 
     batch_jobs[job_id] = {
         "batchJobCode": job_id,
-        "status": "RUNNING",
+        "status": STATUS_RUNNING,
         "completedCount": 0,
         "totalCount": 100,
-        "createdAt": datetime.now().isoformat(),
+        "createdAt": current_timestamp(),
     }
 
     return jsonify(create_success_response({"batchJobCode": job_id}))
@@ -566,7 +600,7 @@ def _convert_type_totals_to_balances(type_totals):
 @app.route("/billing/credits/balance", methods=["GET"])
 def get_credit_balance():
     """Get credit balance."""
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
 
     # Get actual credit data
     if uuid_param not in credit_data:
@@ -597,7 +631,7 @@ def get_credit_balance():
 @app.route("/billing/credits/history", methods=["GET"])
 def get_credit_history():
     """Get credit history."""
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
     balance_type = request.args.get("balancePriceTypeCode", "FREE")
 
     # Get user's credit data
@@ -625,7 +659,7 @@ def get_credit_history():
 def grant_campaign_credit_old1(campaign_id):
     """Grant credit through campaign."""
     data = request.json or {}
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
 
     # Store credit data
     credit_amount = data.get("creditList", [{}])[0].get("creditAmt", 0)
@@ -658,7 +692,7 @@ def grant_campaign_credit_old1(campaign_id):
 @app.route("/billing/coupons/<coupon_code>", methods=["POST"])
 def apply_coupon_credit(coupon_code):
     """Apply coupon credit to user."""
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
 
     # Default coupon amounts based on code pattern
     coupon_amounts = {
@@ -683,7 +717,7 @@ def apply_coupon_credit(coupon_code):
 
     return jsonify(
         create_success_response(
-            {"creditId": str(uuid.uuid4()), "couponCode": coupon_code, "amount": amount}
+            {"creditId": generate_uuid(), "couponCode": coupon_code, "amount": amount}
         )
     )
 
@@ -693,7 +727,7 @@ def apply_coupon_credit(coupon_code):
 def grant_paid_credit_old2(campaign_id):
     """Grant paid credit to user."""
     data = request.json or {}
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
 
     # Extract credit info from request
     credit_info = {
@@ -723,7 +757,7 @@ def grant_paid_credit_old2(campaign_id):
 
     return jsonify(
         create_success_response(
-            {"creditId": str(uuid.uuid4()), "campaignId": campaign_id, "amount": amount}
+            {"creditId": generate_uuid(), "campaignId": campaign_id, "amount": amount}
         )
     )
 
@@ -744,7 +778,7 @@ def cancel_campaign_credit_old3(campaign_id):
 def give_credit(campaign_id):
     """Give credit to user (legacy endpoint)."""
     data = request.json or {}
-    uuid_param = data.get("uuid", "default")
+    uuid_param = data.get("uuid", DEFAULT_UUID)
     amount = data.get("amount", 0)
 
     # Initialize credit data if not exists
@@ -766,10 +800,10 @@ def give_credit(campaign_id):
 def cancel_credit():
     """Cancel credit."""
     if request.method == "DELETE":
-        uuid_param = request.args.get("uuid", "default")
+        uuid_param = request.args.get("uuid", DEFAULT_UUID)
     else:
         data = request.json or {}
-        uuid_param = data.get("uuid", "default")
+        uuid_param = data.get("uuid", DEFAULT_UUID)
 
     with data_lock:
         if uuid_param in credit_data:
@@ -786,7 +820,7 @@ def cancel_credit():
 @app.route("/billing/credits/remaining", methods=["GET"])
 def get_remaining_credits():
     """Get remaining credits."""
-    uuid_param = request.args.get("uuid", "default")
+    uuid_param = request.args.get("uuid", DEFAULT_UUID)
 
     # Return mock remaining credits based on uuid
     if uuid_param in credit_data:
@@ -822,16 +856,16 @@ def _calculate_billing_amounts_from_metering(metering_store):
         volume = float(meter_data.get("counterVolume", 0))
 
         # Calculate based on counter type
-        if counter_name == "compute.g2.t4.c8m64":
+        if counter_name == COMPUTE_GPU_COUNTER:
             # GPU instance: 166.67 per hour
             compute_amount += int(volume * 166.67)
         elif counter_name == COMPUTE_C2_C8M8_COUNTER:
             # Regular compute: 397 per hour
             compute_amount += int(volume * 397)
-        elif counter_name == "storage.volume.ssd":
+        elif counter_name == STORAGE_SSD_COUNTER:
             # Storage: 100 per GB (monthly)
             storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
-        elif counter_name == "network.floating_ip":
+        elif counter_name == NETWORK_FLOATING_IP_COUNTER:
             # Floating IP: 25 per hour
             network_amount += int(volume * 25)
         elif counter_name.startswith("test."):
@@ -849,7 +883,7 @@ def _generate_billing_from_metering(
     discount = int(subtotal * contract_discount_rate) if has_contract else 0
 
     charge = subtotal - discount
-    vat = int(charge * 0.1)
+    vat = int(charge * VAT_RATE)
     total = charge + vat
 
     return {
@@ -891,12 +925,11 @@ def _apply_credits_to_billing(billing_detail, uuid_param):
 
     # Recalculate VAT after credit application
     new_charge = charge - credit_to_use
-    new_vat = int(new_charge * 0.1)
-    new_total = new_charge + new_vat
+    new_vat = int(new_charge * VAT_RATE)
 
     # Update billing detail with recalculated values
     billing_detail["vat"] = new_vat
-    billing_detail["totalAmount"] = new_total
+    billing_detail["totalAmount"] = new_charge + new_vat
     billing_detail["totalCredit"] = credit_to_use
 
     return billing_detail, credit_to_use
@@ -906,12 +939,11 @@ def _apply_credits_to_billing(billing_detail, uuid_param):
 @app.route("/billing/v5.0/bills/detail", methods=["GET"])
 def get_billing_detail():
     """Get billing details."""
-    uuid_param = request.args.get("uuid", "default")
+    uuid_param = request.args.get("uuid", DEFAULT_UUID)
     month = request.args.get("month", "")
 
     # Find applicable contract
     has_contract, contract_discount_rate = _find_applicable_contract(uuid_param)
-    has_discount = has_contract  # For backward compatibility
 
     # Get UUID-specific metering data
     metering_store = data_manager.get_metering_data(uuid_param)
@@ -926,7 +958,7 @@ def get_billing_detail():
 
     # Generate billing detail
     if compute_amount == 0 and storage_amount == 0 and network_amount == 0:
-        billing_detail = generate_billing_detail(uuid_param, month, has_discount)
+        billing_detail = generate_billing_detail(uuid_param, month, has_contract)
     else:
         # Generate billing based on actual metering
         subtotal = compute_amount + storage_amount + network_amount
@@ -962,7 +994,9 @@ def _find_applicable_contract(uuid_param):
     """Find applicable contract for given UUID."""
     for contract_data in contracts.values():
         if contract_data.get("uuid") == uuid_param:
-            discount_rate = contract_data.get("discountRate", 0.3)
+            discount_rate = contract_data.get(
+                "discountRate", CONTRACT_DEFAULT_DISCOUNT_RATE
+            )
             return True, discount_rate
     return False, 0.0
 
@@ -1015,7 +1049,7 @@ def _calculate_metering_amounts(metering_store, has_contract, contract_discount_
         counter_name = meter_data.get("counterName", "")
         volume = float(meter_data.get("counterVolume", 0))
 
-        if counter_name == "compute.g2.t4.c8m64":
+        if counter_name == COMPUTE_GPU_COUNTER:
             # GPU instance: 166.67 per hour
             compute_amount += int(volume * 166.67)
         elif counter_name == COMPUTE_C2_C8M8_COUNTER:
@@ -1026,10 +1060,10 @@ def _calculate_metering_amounts(metering_store, has_contract, contract_discount_
             else:
                 # Regular compute: 397 per hour
                 compute_amount += int(volume * 397)
-        elif counter_name == "storage.volume.ssd":
+        elif counter_name == STORAGE_SSD_COUNTER:
             # Storage: 100 per GB (monthly)
             storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
-        elif counter_name == "network.floating_ip":
+        elif counter_name == NETWORK_FLOATING_IP_COUNTER:
             # Floating IP: 25 per hour
             network_amount += int(volume * 25)
 
@@ -1128,7 +1162,7 @@ def _write_debug_log(
 @app.route("/billing/console/statements", methods=["GET"])
 def get_statements():
     """Get billing statements."""
-    uuid_param = request.args.get("uuid", "default")
+    uuid_param = request.args.get("uuid", DEFAULT_UUID)
     month = request.args.get("month", "")
 
     # Find applicable contract
@@ -1157,7 +1191,7 @@ def get_statements():
         # Use default billing
         detail = generate_billing_detail(uuid_param, month, has_contract)
         final_charge = detail.get("charge", 155000)
-        final_vat = detail.get("vat", int(final_charge * 0.1))
+        final_vat = detail.get("vat", int(final_charge * VAT_RATE))
         final_total = detail.get("totalAmount", final_charge + final_vat)
         final_discount = detail.get("discount", 0)
     else:
@@ -1165,7 +1199,7 @@ def get_statements():
         subtotal = compute_amount + storage_amount + network_amount
         discount = int(subtotal * contract_discount_rate) if has_contract else 0
         charge = subtotal - discount
-        vat = int(charge * 0.1)
+        vat = int(charge * VAT_RATE)
         total = charge + vat
 
         detail = {
@@ -1194,7 +1228,7 @@ def get_statements():
 
     # Recalculate VAT if needed
     if adjusted_charge != final_charge:
-        final_vat = int(adjusted_charge * 0.1)
+        final_vat = int(adjusted_charge * VAT_RATE)
         final_total = adjusted_charge + final_vat
 
     # Apply credits
@@ -1202,7 +1236,7 @@ def get_statements():
 
     # Final recalculation after credits
     if credit_to_use > 0:
-        final_vat = int(adjusted_charge * 0.1)
+        final_vat = int(adjusted_charge * VAT_RATE)
         final_total = adjusted_charge + final_vat
 
     statement_data = {
@@ -1242,7 +1276,7 @@ def create_contract():
     """Create a new contract."""
     # Create contract
     data = request.json or {}
-    contract_id = str(uuid.uuid4())
+    contract_id = generate_uuid()
 
     contracts[contract_id] = {"contractId": contract_id, "status": "ACTIVE", **data}
 
@@ -1305,7 +1339,7 @@ def get_payment_status(payment_id):
     """Get payment status."""
     mock_payment = {
         "paymentGroupId": payment_id,
-        "status": "READY",
+        "status": STATUS_READY,
         "amount": 150000,
         "dueDate": (datetime.now() + timedelta(days=30)).isoformat(),
     }
@@ -1315,14 +1349,14 @@ def get_payment_status(payment_id):
 @app.route("/billing/console/payments", methods=["GET"])
 def get_payments():
     """Get payments list."""
-    uuid_param = request.args.get("uuid", "default")
+    uuid_param = request.args.get("uuid", DEFAULT_UUID)
     month = request.args.get("month", "")
 
     # Return mock payment data
     mock_payments = [
         {
             "paymentGroupId": f"PG-{uuid_param[:8] if uuid_param else 'DEFAULT'}",
-            "status": "READY",
+            "status": STATUS_READY,
             "amount": 150000,
             "month": month,
             "dueDate": (datetime.now() + timedelta(days=30)).isoformat(),
@@ -1368,8 +1402,8 @@ def update_payment(payment_id):
 def create_calculation():
     """Create calculation job and store adjustments and credits."""
     data = request.json or {}
-    uuid_param = data.get("uuid") or request.headers.get("uuid", "default")
-    job_id = str(uuid.uuid4())
+    uuid_param = data.get("uuid") or request.headers.get("uuid", DEFAULT_UUID)
+    job_id = generate_uuid()
 
     # Clear previous calculation data for this UUID (fresh calculation)
     # Clear adjustments
@@ -1403,12 +1437,12 @@ def create_calculation():
     # Store the calculation job
     batch_jobs[job_id] = {
         "batchJobCode": "API_CALCULATE_USAGE_AND_PRICE",
-        "status": "COMPLETED",  # Set to completed immediately for mock
+        "status": STATUS_COMPLETED,  # Set to completed immediately for mock
         "completedCount": 100,
         "totalCount": 100,
         "progress": 100,
         "maxProgress": 100,
-        "createdAt": datetime.now().isoformat(),
+        "createdAt": current_timestamp(),
     }
 
     return jsonify(create_success_response({"batchJobCode": job_id}))
@@ -1423,7 +1457,7 @@ def cancel_credit_admin(campaign_id):
     # Create mock response
     cancel_response = {
         "campaignId": campaign_id,
-        "cancelledAt": datetime.now().isoformat(),
+        "cancelledAt": current_timestamp(),
         "reason": reason,
         "status": "CANCELLED",
     }
@@ -1435,7 +1469,7 @@ def cancel_credit_admin(campaign_id):
 @app.route("/billing/payments/<month>", methods=["POST"])
 def make_payment_console(month):
     """Make a payment for console API."""
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
     data = request.json or {}
     payment_group_id = data.get("paymentGroupId", f"PG-{uuid_param[:8]}")
 
@@ -1454,30 +1488,26 @@ def make_payment_console(month):
         "paymentGroupId": payment_group_id,
         "status": "COMPLETED",
         "amount": amount,
-        "paymentDate": datetime.now().isoformat(),
+        "paymentDate": current_timestamp(),
         "month": month,
     }
 
     return jsonify(create_success_response(payment_response))
 
 
-@app.route("/billing/payments/<month>/statements", methods=["GET"])
-def get_payment_statements_console(month):
-    """Get payment statements for console API."""
-    uuid_param = request.headers.get("uuid", "")
+def _validate_uuid_security(uuid_param):
+    """Validate UUID for security issues.
 
+    Returns:
+        Error response tuple if invalid, None if valid
+    """
     # Strict authentication check - UUID is required
     if not uuid_param or uuid_param in ["", "None", "null"]:
         return create_error_response("Authentication required: UUID is missing", 401)
 
     # Basic security check for malicious UUIDs
-    if (
-        any(
-            char in uuid_param
-            for char in ["'", '"', ";", "--", "/*", "*/", "<", ">", ".."]
-        )
-        or len(uuid_param) > 100
-    ):
+    malicious_chars = ["'", '"', ";", "--", "/*", "*/", "<", ">", ".."]
+    if any(char in uuid_param for char in malicious_chars) or len(uuid_param) > 100:
         return create_error_response("Invalid UUID format", 400)
 
     # Path traversal check
@@ -1489,43 +1519,31 @@ def get_payment_statements_console(month):
     if any(pattern.lower() in uuid_param.lower() for pattern in sql_patterns):
         return create_error_response("Invalid UUID: suspicious pattern detected", 400)
 
-    # Find applicable contract
-    has_contract, contract_discount_rate = _find_applicable_contract(uuid_param)
+    return None
 
-    # Get UUID-specific metering data
-    metering_store = data_manager.get_metering_data(uuid_param)
 
-    # Build line items from metering data (without discount - show original prices)
+def _build_line_items_from_metering(metering_store):
+    """Build line items from metering data.
+
+    Returns:
+        Tuple of (line_items, subtotal)
+    """
     line_items = []
-    subtotal_from_items = 0
+    subtotal = 0
+
     for meter_id, meter_data in metering_store.items():
         counter_name = meter_data.get("counterName", "")
-        counter_type = meter_data.get("counterType", "DELTA")
-        counter_unit = meter_data.get("counterUnit", "HOURS")
         volume = float(meter_data.get("counterVolume", 0))
 
-        # Determine unit price based on counter type (original prices without discount)
-        unit_price: float = 0.0
-        amount = 0
-        if counter_name == "compute.g2.t4.c8m64":
-            unit_price = 166.67
-            amount = int(volume * 166.67)
-        elif counter_name == COMPUTE_C2_C8M8_COUNTER:
-            unit_price = 397.0
-            amount = int(volume * 397)
-        elif counter_name == "storage.volume.ssd":
-            unit_price = 100.0  # 100 per GB per month
-            amount = int(volume * 100)  # volume is already in GB
-        elif counter_name == "network.floating_ip":
-            unit_price = 25.0
-            amount = int(volume * 25)
+        # Determine unit price and amount
+        unit_price, amount = _calculate_line_item_price(counter_name, volume)
 
         line_items.append(
             {
                 "id": f"line-{meter_id}",
                 "counterName": counter_name,
-                "counterType": counter_type,
-                "unit": counter_unit,
+                "counterType": meter_data.get("counterType", "DELTA"),
+                "unit": meter_data.get("counterUnit", "HOURS"),
                 "quantity": volume,
                 "unitPrice": int(unit_price),
                 "amount": amount,
@@ -1535,10 +1553,123 @@ def get_payment_statements_console(month):
                 "appKey": meter_data.get("appKey", ""),
             }
         )
-        subtotal_from_items += amount
+        subtotal += amount
 
-    # Use subtotal from line items (before any discounts)
-    subtotal = subtotal_from_items
+    return line_items, subtotal
+
+
+def _calculate_line_item_price(counter_name, volume):
+    """Calculate unit price and amount for a counter.
+
+    Returns:
+        Tuple of (unit_price, amount)
+    """
+    if counter_name == COMPUTE_GPU_COUNTER:
+        unit_price = 166.67
+        amount = int(volume * 166.67)
+    elif counter_name == COMPUTE_C2_C8M8_COUNTER:
+        unit_price = 397.0
+        amount = int(volume * 397)
+    elif counter_name == STORAGE_SSD_COUNTER:
+        unit_price = 100.0
+        # Convert KB to GB (1 GB = 1024 * 1024 KB)
+        gb_volume = volume / 1048576
+        amount = int(gb_volume * unit_price)
+    elif counter_name == NETWORK_FLOATING_IP_COUNTER:
+        unit_price = 25.0
+        amount = int(volume * 25)
+    else:
+        unit_price = 0.0
+        amount = 0
+
+    return unit_price, amount
+
+
+def _calculate_adjustment_amount(adj, subtotal, line_items):
+    """Calculate adjustment amount based on level and method.
+
+    Returns:
+        Adjustment amount
+    """
+    adj_level = adj.get("level", "BILLING_GROUP")
+    adj_method = adj.get("method", "RATE")
+    adj_value = adj.get("value", 0)
+    target_project_id = adj.get("targetProjectId")
+
+    if adj_level == "PROJECT" and target_project_id:
+        # Calculate for specific project only
+        project_subtotal = sum(
+            item["amount"]
+            for item in line_items
+            if item.get("projectId") == target_project_id
+        )
+        base_amount = project_subtotal
+    else:
+        # BILLING_GROUP level
+        base_amount = subtotal
+
+    # Apply method
+    if adj_method == "RATE":
+        return int(base_amount * (adj_value / 100))
+    # FIXED
+    return int(adj_value)
+
+
+def _build_user_adjustments(uuid_param, subtotal, line_items):
+    """Build user-defined adjustments.
+
+    Returns:
+        Tuple of (total_adjustment, applied_adjustments_list)
+    """
+    if uuid_param not in adjustments_data:
+        return 0, []
+
+    user_adjustments = adjustments_data[uuid_param]
+    total_adjustment = 0
+    applied_list = []
+
+    for idx, adj in enumerate(user_adjustments):
+        adj_type = adj.get("type", "DISCOUNT")
+        adjustment_amount = _calculate_adjustment_amount(adj, subtotal, line_items)
+
+        # Track total (negative for discount, positive for surcharge)
+        if adj_type == "DISCOUNT":
+            total_adjustment -= adjustment_amount
+        else:  # SURCHARGE
+            total_adjustment += adjustment_amount
+
+        applied_list.append(
+            {
+                "adjustmentId": f"adj-user-{idx}",
+                "type": adj_type,
+                "description": adj.get("description", "Adjustment"),
+                "amount": adjustment_amount,
+                "level": adj.get("level", "BILLING_GROUP"),
+                "targetId": adj.get("targetProjectId"),
+            }
+        )
+
+    return total_adjustment, applied_list
+
+
+@app.route("/billing/payments/<month>/statements", methods=["GET"])
+def get_payment_statements_console(month):
+    """Get payment statements for console API."""
+    uuid_param = request.headers.get("uuid", "")
+
+    # Validate UUID security
+    validation_error = _validate_uuid_security(uuid_param)
+    if validation_error:
+        return validation_error
+
+    # Find applicable contract
+    has_contract, contract_discount_rate = _find_applicable_contract(uuid_param)
+
+    # Get UUID-specific metering data
+    metering_store = data_manager.get_metering_data(uuid_param)
+
+    # Build line items from metering data
+    line_items, subtotal = _build_line_items_from_metering(metering_store)
 
     # Build applied adjustments list
     applied_adjustments = []
@@ -1560,52 +1691,10 @@ def get_payment_statements_console(month):
         )
 
     # 2. User-defined adjustments (project or billing group level)
-    user_adjustment_total = 0
-    if uuid_param in adjustments_data:
-        user_adjustments = adjustments_data[uuid_param]
-
-        for idx, adj in enumerate(user_adjustments):
-            adj_level = adj.get("level", "BILLING_GROUP")
-            adj_type = adj.get("type", "DISCOUNT")
-            adj_method = adj.get("method", "RATE")
-            adj_value = adj.get("value", 0)
-            adj_description = adj.get("description", "Adjustment")
-            target_project_id = adj.get("targetProjectId")
-
-            # Calculate adjustment amount
-            if adj_level == "PROJECT" and target_project_id:
-                # Calculate adjustment for specific project only
-                project_subtotal = sum(
-                    item["amount"]
-                    for item in line_items
-                    if item.get("projectId") == target_project_id
-                )
-                if adj_method == "RATE":
-                    adjustment_amount = int(project_subtotal * (adj_value / 100))
-                else:  # FIXED
-                    adjustment_amount = int(adj_value)
-            else:  # BILLING_GROUP level
-                if adj_method == "RATE":
-                    adjustment_amount = int(subtotal * (adj_value / 100))
-                else:  # FIXED
-                    adjustment_amount = int(adj_value)
-
-            # Track total adjustment (negative for discount, positive for surcharge)
-            if adj_type == "DISCOUNT":
-                user_adjustment_total -= adjustment_amount
-            else:  # SURCHARGE
-                user_adjustment_total += adjustment_amount
-
-            applied_adjustments.append(
-                {
-                    "adjustmentId": f"adj-user-{idx}",
-                    "type": adj_type,
-                    "description": adj_description,
-                    "amount": adjustment_amount,
-                    "level": adj_level,
-                    "targetId": target_project_id,
-                }
-            )
+    user_adjustment_total, user_adjustments_list = _build_user_adjustments(
+        uuid_param, subtotal, line_items
+    )
+    applied_adjustments.extend(user_adjustments_list)
 
     # Calculate charge after all adjustments
     # Note: billing_group_discount is positive, user_adjustment_total can be negative or positive
@@ -1638,7 +1727,7 @@ def get_payment_statements_console(month):
         )
 
     # Calculate VAT (10%) on final charge after credits
-    vat = int(charge_after_credit * 0.1)
+    vat = int(charge_after_credit * VAT_RATE)
 
     # Total amount including VAT
     total_amount = charge_after_credit + vat
@@ -1672,7 +1761,7 @@ def get_payment_statements_console(month):
                         "creditApplied": credit_used,
                         "vat": vat,
                         "month": month,
-                        "status": "READY",
+                        "status": STATUS_READY,
                         "lineItems": line_items,
                         "appliedAdjustments": applied_adjustments,
                         "appliedCredits": applied_credits,
@@ -1722,7 +1811,7 @@ def update_billing_group(billing_group_id):
             "contractId": contract_id,
             "billingGroupId": billing_group_id,
             "uuid": request.headers.get("uuid", "<kr_UUID>"),  # Get UUID from header
-            "discountRate": 0.3,  # 30% discount
+            "discountRate": CONTRACT_DEFAULT_DISCOUNT_RATE,  # 30% discount
             "monthFrom": data.get("monthFrom", "2021-05"),
             **data,
         }
@@ -1743,7 +1832,7 @@ def update_billing_group(billing_group_id):
                 "uuid": request.headers.get(
                     "uuid", "<kr_UUID>"
                 ),  # Get UUID from header
-                "discountRate": 0.3,  # 30% discount
+                "discountRate": CONTRACT_DEFAULT_DISCOUNT_RATE,  # 30% discount
                 **contract_data,
             }
 
@@ -1786,7 +1875,7 @@ def get_contract_prices(contract_id):
 @app.route("/billing/v5.0/credits", methods=["GET"])
 def get_credits_v5():
     """Get credits (v5.0 API)."""
-    uuid_param = request.headers.get("uuid", "default")
+    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
 
     if uuid_param in credit_data:
         data = credit_data[uuid_param]
@@ -1825,26 +1914,25 @@ def manage_campaign_credits(campaign_id):
     """Manage campaign credits."""
     if request.method == "DELETE":
         # Delete credits
-        uuid_param = request.args.get("uuid") or request.headers.get("uuid", "default")
+        uuid_param = request.args.get("uuid") or request.headers.get(
+            "uuid", DEFAULT_UUID
+        )
         with data_lock:
             if uuid_param in credit_data:
                 credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
         return jsonify(create_success_response())
     # Grant credits
     data = request.json or {}
-    # Handle different data structures
-    uuid_param = ""
-    amount = 0
-    credit_type = "FREE"  # Default to FREE
 
-    # Check for direct structure (from actual API)
+    # Parse request data structure
     if data.get("uuidList"):
+        # Direct structure (from actual API)
         uuid_param = data["uuidList"][0]
         amount = data.get("credit", 0)
         credit_type = data.get("creditType", "FREE")
-    # Check for simplified structure
     else:
-        uuid_param = data.get("uuid", "default")
+        # Simplified structure
+        uuid_param = data.get("uuid", DEFAULT_UUID)
         amount = data.get("amount", 0)
         credit_type = data.get("creditType", "FREE")
 
@@ -1868,15 +1956,15 @@ def manage_campaign_credits(campaign_id):
 @app.route("/billing/admin/calculations", methods=["POST"])
 def create_calculations():
     """Create calculation job."""
-    job_id = str(uuid.uuid4())
+    job_id = generate_uuid()
 
     # Store the calculation job
     batch_jobs[job_id] = {
         "batchJobCode": job_id,
-        "status": "COMPLETED",  # Set to completed for mock
+        "status": STATUS_COMPLETED,  # Set to completed for mock
         "completedCount": 100,
         "totalCount": 100,
-        "createdAt": datetime.now().isoformat(),
+        "createdAt": current_timestamp(),
     }
 
     return jsonify(create_success_response({"batchJobCode": job_id}))
@@ -1905,7 +1993,7 @@ def create_project_adjustment():
     """Create project adjustment."""
     # Create adjustment
     data = request.json or {}
-    adj_id = str(uuid.uuid4())
+    adj_id = generate_uuid()
 
     # Store adjustment
     descriptions = data.get("descriptions", [])
@@ -1921,7 +2009,7 @@ def create_project_adjustment():
         "adjustmentType": data.get("adjustmentTypeCode", data.get("adjustmentType")),
         "adjustmentValue": data.get("adjustment", data.get("adjustmentValue")),
         "description": description,
-        "createdAt": datetime.now().isoformat(),
+        "createdAt": current_timestamp(),
     }
 
     return jsonify(create_success_response({"adjustmentId": adj_id}))
@@ -1951,7 +2039,7 @@ def create_billing_group_adjustment():
     """Create billing group adjustment."""
     # Create adjustment
     data = request.json or {}
-    adj_id = str(uuid.uuid4())
+    adj_id = generate_uuid()
 
     # Store adjustment
     descriptions = data.get("descriptions", [])
@@ -1967,7 +2055,7 @@ def create_billing_group_adjustment():
         "adjustmentType": data.get("adjustmentTypeCode", data.get("adjustmentType")),
         "adjustmentValue": data.get("adjustment", data.get("adjustmentValue")),
         "description": description,
-        "createdAt": datetime.now().isoformat(),
+        "createdAt": current_timestamp(),
     }
 
     return jsonify(create_success_response({"adjustmentId": adj_id}))
@@ -2001,12 +2089,12 @@ def delete_billing_group_adjustments():
 def create_batch():
     """Create batch job."""
     data = request.json or {}
-    batch_id = str(uuid.uuid4())
+    batch_id = generate_uuid()
 
     batch_jobs[batch_id] = {
         "batchId": batch_id,
         "status": "STARTED",
-        "createdAt": datetime.now().isoformat(),
+        "createdAt": current_timestamp(),
         **data,
     }
 
@@ -2018,7 +2106,7 @@ def create_batch():
 @cache.cached(timeout=300)  # Cache for 5 minutes
 def health_check():
     """Health check endpoint."""
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+    return jsonify({"status": "healthy", "timestamp": current_timestamp()})
 
 
 # Reset endpoint for testing
@@ -2026,7 +2114,7 @@ def health_check():
 def reset_all_test_data():
     """Reset all test data for a specific UUID."""
     data = request.json or {}
-    uuid_param = data.get("uuid") or request.headers.get("uuid", "default")
+    uuid_param = data.get("uuid") or request.headers.get("uuid", DEFAULT_UUID)
 
     if uuid_param:
         # Use data manager to clear UUID-specific data
@@ -2054,83 +2142,102 @@ def reset_all_test_data():
     return jsonify(create_success_response({"message": "All test data reset"}))
 
 
-# Contract Testing Support
+# Contract Testing Support - State handlers
+def _setup_contract_exists_state():
+    """Setup state: A contract exists."""
+    contracts["12345"] = {
+        "id": "12345",
+        "status": STATUS_ACTIVE,
+        "customer": {
+            "id": "CUST001",
+            "name": "Test Customer",
+            "email": "test@example.com",
+        },
+        "items": [
+            {
+                "id": "ITEM001",
+                "description": "Compute Instance",
+                "quantity": 1,
+                "unit_price": 100.0,
+                "total": 100.0,
+            }
+        ],
+        "total_amount": 500.0,
+        "currency": "USD",
+        "created_at": current_timestamp_utc(),
+        "updated_at": current_timestamp_utc(),
+    }
+
+
+def _setup_metering_exists_state():
+    """Setup state: Metering data exists for project."""
+    project_id = "PROJ001"
+    metering_data[project_id] = {
+        "project_id": project_id,
+        "period": {"start": "2025-01-01T00:00:00", "end": "2025-01-31T23:59:59"},
+        "usage": [
+            {
+                "resource_type": "compute",
+                "resource_id": "vm-001",
+                "quantity": 744.0,
+                "unit": "hours",
+                "cost": 74.40,
+            }
+        ],
+        "total_cost": 74.40,
+    }
+
+
+def _setup_payment_exists_state():
+    """Setup state: Payment exists."""
+    billing_data["PAY001"] = {
+        "payment_id": "PAY001",
+        "status": STATUS_PENDING,
+        "amount": 1000.0,
+        "currency": "USD",
+    }
+
+
+def _setup_invoice_exists_state():
+    """Setup state: Invoice exists."""
+    billing_data["INV001"] = {
+        "invoice_id": "INV001",
+        "status": STATUS_PENDING,
+        "amount": 1500.0,
+        "currency": "USD",
+        "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
+    }
+
+
+def _setup_contract_not_exists_state():
+    """Setup state: Contract does not exist."""
+    contracts.pop("99999", None)
+
+
+# State handler mapping for reduced complexity
+PACT_STATE_HANDLERS = {
+    "A contract exists": _setup_contract_exists_state,
+    "Customer exists": lambda: None,  # No action needed
+    "Metering data exists for project": _setup_metering_exists_state,
+    "Payment exists": _setup_payment_exists_state,
+    "Contract does not exist": _setup_contract_not_exists_state,
+    "Invoice exists": _setup_invoice_exists_state,
+    "Resource exists": lambda: None,  # Resources created on-the-fly
+}
+
+
 @app.route("/pact-states", methods=["POST"])
 def provider_states():
     """Handle provider state setup for Pact verification."""
     data = request.json or {}
     state = data.get("state")
 
-    # Handle different states
-    if state == "A contract exists":
-        # Ensure contract 12345 exists in Pact-compatible format
-        contracts["12345"] = {
-            "id": "12345",
-            "status": "ACTIVE",
-            "customer": {
-                "id": "CUST001",
-                "name": "Test Customer",
-                "email": "test@example.com",
-            },
-            "items": [
-                {
-                    "id": "ITEM001",
-                    "description": "Compute Instance",
-                    "quantity": 1,
-                    "unit_price": 100.0,
-                    "total": 100.0,
-                }
-            ],
-            "total_amount": 500.0,
-            "currency": "USD",
-            "created_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-            "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        }
-    elif state == "Customer exists":
-        # Customer data is already available
-        pass
-    elif state == "Metering data exists for project":
-        # Ensure metering data exists
-        project_id = "PROJ001"
-        metering_data[project_id] = {
-            "project_id": project_id,
-            "period": {"start": "2025-01-01T00:00:00", "end": "2025-01-31T23:59:59"},
-            "usage": [
-                {
-                    "resource_type": "compute",
-                    "resource_id": "vm-001",
-                    "quantity": 744.0,
-                    "unit": "hours",
-                    "cost": 74.40,
-                }
-            ],
-            "total_cost": 74.40,
-        }
-    elif state == "Payment exists":
-        # Ensure payment PAY001 exists
-        billing_data["PAY001"] = {
-            "payment_id": "PAY001",
-            "status": "PENDING",
-            "amount": 1000.0,
-            "currency": "USD",
-        }
-    elif state == "Contract does not exist":
-        # Remove contract 99999 if it exists
-        contracts.pop("99999", None)
-    elif state == "Invoice exists":
-        # Ensure invoice data exists for adjustments
-        billing_data["INV001"] = {
-            "invoice_id": "INV001",
-            "status": "PENDING",
-            "amount": 1500.0,
-            "currency": "USD",
-            "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
-        }
-    elif state == "Resource exists":
-        # Ensure resource RES001 exists for metering
-        pass  # Resources are created on-the-fly in metering endpoints
+    # Use handler mapping to reduce complexity
+    handler = PACT_STATE_HANDLERS.get(state)
+    if handler:
+        handler()
 
-    return jsonify({"result": "success"}), 200
+    return jsonify({"result": STATUS_SUCCESS.lower()}), 200
 
 
 # Additional Contract-compliant endpoints
@@ -2173,7 +2280,7 @@ def get_contract_v1(contract_id):
         "created_at": contract.get(
             "startDate", datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         ),
-        "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "updated_at": current_timestamp_utc(),
     }
     return jsonify(pact_contract), 200
 
@@ -2201,7 +2308,6 @@ def create_credit_v1():
     credit_id = f"CREDIT_{uuid.uuid4().hex[:8].upper()}"
 
     # Create response that matches Pact contract expectations
-    now = datetime.now(timezone.utc)
     credit = {
         "id": credit_id,
         "creditId": credit_id,  # For backward compatibility
@@ -2211,9 +2317,11 @@ def create_credit_v1():
         "description": data.get("description", ""),
         "reason": data.get("reason", data.get("description", "")),  # Pact uses "reason"
         "type": data.get("type", "ADJUSTMENT"),
-        "status": "ACTIVE",  # Contract expects ACTIVE, PENDING, or APPLIED
-        "created_at": now.replace(microsecond=0).isoformat(),
-        "expires_at": (now + timedelta(days=365)).replace(microsecond=0).isoformat(),
+        "status": STATUS_ACTIVE,  # Contract expects ACTIVE, PENDING, or APPLIED
+        "created_at": current_timestamp_utc(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=365))
+        .replace(microsecond=0)
+        .isoformat(),
     }
 
     credit_data[credit_id] = credit
@@ -2268,10 +2376,10 @@ def create_metering_v1():
         )
 
     # Store metering data
-    meter_id = str(uuid.uuid4())
+    meter_id = generate_uuid()
     metering_data[meter_id] = {
         "id": meter_id,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": current_timestamp(),
         "resource_id": data.get("resource_id"),
         "usage": data.get("usage"),
         "project_id": data.get("project_id", "default"),
@@ -2377,11 +2485,11 @@ def validate_openapi_request():
 
 
 # This route intentionally handles multiple HTTP methods for test purposes
-# NOSONAR: python:S5122 - This is a mock server for testing, not production code
+# This is a mock server for testing, not production code
 # All methods (GET, POST, PUT, PATCH, DELETE) are safe in this test environment
 @app.route(
     "/openapi/generate/<path:api_path>",
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # noqa: S104
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # NOSONAR python:S5122
 )
 def generate_openapi_response(api_path):
     """Generate response based on OpenAPI spec.
@@ -2427,12 +2535,9 @@ def generate_openapi_response(api_path):
                 400,
             )
 
-    # Determine status code
-    status_code = 200
-    if request.method == "POST":
-        status_code = 201
-    elif request.method == "DELETE":
-        status_code = 204
+    # Determine status code based on method
+    status_codes = {"POST": 201, "DELETE": 204}
+    status_code = status_codes.get(request.method, 200)
 
     # Generate response
     response_data = handler.generate_response(operation, status_code)
@@ -2445,11 +2550,12 @@ def generate_openapi_response(api_path):
 
 
 # Catch-all route for undefined API endpoints
-# NOSONAR: python:S5122 - This is a mock server for testing, not production code
+# This is a mock server for testing, not production code
 # All methods (GET, POST, PUT, PATCH, DELETE) are safe in this test environment
 @app.route(
-    "/api/v1/<path:path>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"]
-)  # noqa: S104
+    "/api/v1/<path:path>",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],  # NOSONAR python:S5122
+)
 def handle_undefined_api(path):
     """Handle undefined API endpoints using OpenAPI if available.
 
@@ -2491,7 +2597,7 @@ def submit_meter_contract():
         "id": meter_id,
         "status": "ACCEPTED",
         "resource_id": data.get("resource_id"),
-        "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "timestamp": current_timestamp_utc(),
     }
 
     return jsonify(response), 201
@@ -2541,6 +2647,34 @@ def get_payment_statements_v1():
     return jsonify(statement), 200
 
 
+# Batch jobs endpoint (for performance tests)
+@app.route("/batch/jobs", methods=["POST"])
+def create_batch_job_perf():
+    """Create a batch job for performance testing."""
+    data = request.get_json() or {}
+
+    job_id = generate_uuid()
+    month = data.get("month", datetime.now().strftime("%Y-%m"))
+    job_code = data.get("jobCode", "API_CALCULATE_USAGE_AND_PRICE")
+
+    # Create batch job with immediate completion for mock
+    batch_job = {
+        "batchJobId": job_id,
+        "jobCode": job_code,
+        "month": month,
+        "status": STATUS_COMPLETED,
+        "progress": 100,
+        "maxProgress": 100,
+        "createdAt": current_timestamp(),
+        "completedAt": current_timestamp(),
+    }
+
+    # Store the job
+    batch_jobs[job_id] = batch_job
+
+    return jsonify(create_success_response(batch_job)), 201
+
+
 # Batch jobs endpoint
 @app.route("/api/v1/batch/jobs", methods=["GET"])
 def list_batch_jobs_v1():
@@ -2560,12 +2694,12 @@ def create_batch_job_v1():
     # Create a new batch job
     data = request.get_json() or {}
 
-    job_id = str(uuid.uuid4())
+    job_id = generate_uuid()
     batch_job = {
         "id": job_id,
         "type": data.get("type", "BILLING_CALCULATION"),
-        "status": "CREATED",
-        "created_at": datetime.now().isoformat(),
+        "status": STATUS_CREATED,
+        "created_at": current_timestamp(),
         "parameters": data.get("parameters", {}),
         "result": None,
     }
@@ -2594,7 +2728,7 @@ def create_adjustment():
         "status": "APPLIED",
         "original_amount": original_amount,
         "adjusted_amount": original_amount - amount,
-        "applied_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "applied_at": current_timestamp_utc(),
     }
 
     return jsonify(response), 201
@@ -2602,4 +2736,7 @@ def create_adjustment():
 
 if __name__ == "__main__":
     port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    # Note: This is a test mock server, binding to all interfaces and debug mode are acceptable
+    app.run(
+        host="0.0.0.0", port=port, debug=True
+    )  # noqa: S104, S201 # NOSONAR python:S104,python:S201
