@@ -314,6 +314,8 @@ filterwarnings = [
     "ignore::DeprecationWarning:google.*",
     "ignore::UserWarning:google.rpc",
     "ignore::DeprecationWarning:importlib._bootstrap",
+    "ignore:pkg_resources is deprecated:UserWarning",
+    "ignore:Deprecated call to:DeprecationWarning",
 ]
 
 [tool.coverage.run]
