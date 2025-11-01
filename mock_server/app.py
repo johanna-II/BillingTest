@@ -863,8 +863,8 @@ def _calculate_billing_amounts_from_metering(metering_store):
             # Regular compute: 397 per hour
             compute_amount += int(volume * 397)
         elif counter_name == STORAGE_SSD_COUNTER:
-            # Storage: 100 per GB (monthly)
-            storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
+            # Storage: 100 per GB (monthly) - volume is already in GB
+            storage_amount += int(volume * 100)
         elif counter_name == NETWORK_FLOATING_IP_COUNTER:
             # Floating IP: 25 per hour
             network_amount += int(volume * 25)
@@ -1061,8 +1061,8 @@ def _calculate_metering_amounts(metering_store, has_contract, contract_discount_
                 # Regular compute: 397 per hour
                 compute_amount += int(volume * 397)
         elif counter_name == STORAGE_SSD_COUNTER:
-            # Storage: 100 per GB (monthly)
-            storage_amount += int(volume / 1024 / 1024 * 100)  # Convert KB to GB
+            # Storage: 100 per GB (monthly) - volume is already in GB
+            storage_amount += int(volume * 100)
         elif counter_name == NETWORK_FLOATING_IP_COUNTER:
             # Floating IP: 25 per hour
             network_amount += int(volume * 25)
@@ -1572,9 +1572,8 @@ def _calculate_line_item_price(counter_name, volume):
         amount = int(volume * 397)
     elif counter_name == STORAGE_SSD_COUNTER:
         unit_price = 100.0
-        # Convert KB to GB (1 GB = 1024 * 1024 KB)
-        gb_volume = volume / 1048576
-        amount = int(gb_volume * unit_price)
+        # Storage volume is already in GB units
+        amount = int(volume * unit_price)
     elif counter_name == NETWORK_FLOATING_IP_COUNTER:
         unit_price = 25.0
         amount = int(volume * 25)

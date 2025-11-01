@@ -53,8 +53,10 @@ app.post('/api/billing/admin/calculate', async (c) => {
   // 사용량 계산
   const subtotal = usage.reduce((sum: number, item: any) => {
     const quantity = item.counterVolume || 0
-    const unitPrice = getUnitPrice(item.counterName)
-    return sum + (quantity * unitPrice)
+    const counterName = item.counterName || ''
+    const counterUnit = item.counterUnit || 'HOURS'
+    const amount = calculateAmount(counterName, quantity, counterUnit)
+    return sum + amount
   }, 0)
 
   // 크레딧 적용
@@ -63,16 +65,17 @@ app.post('/api/billing/admin/calculate', async (c) => {
 
   // 조정 적용
   let adjustmentTotal = 0
-  adjustments.forEach((adj: any) => {
+  for (const adj of adjustments) {
     if (adj.type === 'DISCOUNT') {
       adjustmentTotal -= adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100)
     } else {
       adjustmentTotal += adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100)
     }
-  })
+  }
 
   const charge = Math.max(0, subtotal + adjustmentTotal - creditApplied)
-  const vat = Math.floor(charge * 0.1)
+  const VAT_RATE = 0.1
+  const vat = Math.floor(charge * VAT_RATE)
   const totalAmount = charge + vat
 
   return c.json({
@@ -93,19 +96,27 @@ app.post('/api/billing/admin/calculate', async (c) => {
     amount: totalAmount,
     totalAmount,
     status: 'PENDING',
-    lineItems: usage.map((item: any, idx: number) => ({
-      id: `line-${idx}`,
-      counterName: item.counterName,
-      counterType: item.counterType || 'DELTA',
-      unit: item.counterUnit || 'HOURS',
-      quantity: item.counterVolume,
-      unitPrice: getUnitPrice(item.counterName),
-      amount: item.counterVolume * getUnitPrice(item.counterName),
-      resourceId: item.resourceId,
-      resourceName: item.resourceName,
-      projectId: item.projectId,
-      appKey: item.appKey
-    })),
+    lineItems: usage.map((item: any, idx: number) => {
+      const counterName = item.counterName || ''
+      const quantity = item.counterVolume || 0
+      const counterUnit = item.counterUnit || 'HOURS'
+      const unitPrice = getUnitPrice(counterName)
+      const amount = calculateAmount(counterName, quantity, counterUnit)
+
+      return {
+        id: `line-${idx}`,
+        counterName,
+        counterType: item.counterType || 'DELTA',
+        unit: counterUnit,
+        quantity,
+        unitPrice,
+        amount,
+        resourceId: item.resourceId,
+        resourceName: item.resourceName,
+        projectId: item.projectId,
+        appKey: item.appKey
+      }
+    }),
     appliedCredits: credits.map((c: any, idx: number) => ({
       creditId: `credit-${idx}`,
       type: c.type,
@@ -182,7 +193,6 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
 app.post('/api/billing/payments/:month', async (c) => {
   try {
     const uuid = c.req.header('uuid')
-    const month = c.req.param('month')
     const body = await c.req.json().catch(() => ({}))
 
     return c.json({
@@ -207,15 +217,24 @@ app.post('/api/billing/payments/:month', async (c) => {
   }
 })
 
-// Helper: 단가 계산
+// Helper: 단가 계산 (단위당 가격)
 function getUnitPrice(counterName: string): number {
   const prices: Record<string, number> = {
-    'compute.c2.c8m8': 397,
-    'compute.g2.t4.c8m64': 166.67,
-    'storage.volume.ssd': 100,
-    'network.floating_ip': 25
+    'compute.c2.c8m8': 397,          // 397원/시간
+    'compute.g2.t4.c8m64': 166.67,   // 166.67원/시간
+    'storage.volume.ssd': 100,        // 100원/GB/월
+    'network.floating_ip': 25         // 25원/시간
   }
   return prices[counterName] || 100
+}
+
+// Helper: 실제 금액 계산 (단위 변환 포함)
+function calculateAmount(counterName: string, volume: number, unit: string = 'HOURS'): number {
+  const unitPrice = getUnitPrice(counterName)
+
+  // Storage는 counterVolume이 이미 GB 단위로 제공됨
+  // 다른 counter들은 해당 단위(HOURS 등) 그대로 사용
+  return Math.floor(volume * unitPrice)
 }
 
 export default app
