@@ -72,13 +72,13 @@ class Credit:
         return not self.is_expired and self.balance > 0
 
     @property
-    def days_until_expiry(self) -> int:
+    def days_until_expiry(self) -> int | float:
         """Calculate days until expiration.
 
-        Returns a large value (999999) if credit never expires.
+        Returns float('inf') if credit never expires.
         """
         if self.expires_at is None:
-            return 999999  # Never expires - use large value for sorting
+            return float("inf")  # Never expires
         if self.is_expired:
             return 0
         delta = self.expires_at - datetime.now()

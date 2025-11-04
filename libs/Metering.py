@@ -2,6 +2,7 @@
 
 import calendar
 import logging
+import warnings
 from datetime import datetime
 from typing import Any
 
@@ -154,10 +155,13 @@ class MeteringManager:
         counter_volume: float | str,
         counter_type: CounterType | str | None = None,
         app_key: str | None = None,
-        target_time: str | None = None,  # Deprecated but kept for compatibility
-        uuid: str | None = None,  # Deprecated but kept for compatibility
-        app_id: str | None = None,  # Deprecated but kept for compatibility
-        project_id: str | None = None,  # Deprecated but kept for compatibility
+        target_time: str | None = None,
+        uuid: str | None = None,
+        app_id: str | None = None,
+        project_id: str | None = None,
+        # Legacy parameters with underscore prefix (deprecated)
+        _target_time: str | None = None,
+        _app_id: str | None = None,
     ) -> dict[str, Any]:
         """Send IaaS metering data (legacy compatibility method).
 
@@ -167,14 +171,37 @@ class MeteringManager:
             counter_volume: Counter volume
             counter_type: Counter type
             app_key: App key
-            target_time: (Deprecated) Not used - kept for backward compatibility
-            uuid: (Deprecated) Not used - kept for backward compatibility
-            app_id: (Deprecated) Not used - kept for backward compatibility
-            project_id: (Deprecated) Not used - kept for backward compatibility
+            target_time: Not used - kept for backward compatibility
+            uuid: Not used - kept for backward compatibility
+            app_id: Not used - kept for backward compatibility
+            project_id: Not used - kept for backward compatibility
+            _target_time: (Deprecated, use target_time) Not used
+            _app_id: (Deprecated, use app_id) Not used
 
         Returns:
             Metering response
+
+        Raises:
+            ValueError: If app_key is not provided
         """
+        # Handle deprecated underscore-prefixed parameters
+        if _target_time is not None:
+            warnings.warn(
+                "_target_time is deprecated, use target_time instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if _app_id is not None:
+            warnings.warn(
+                "_app_id is deprecated, use app_id instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        # Silence unused parameter warnings - these are kept for backward compatibility
+        _ = (target_time, uuid, app_id, project_id)
+
         # Use instance appkey if app_key not provided (legacy pattern)
         if app_key is None:
             app_key = getattr(self, "appkey", None)

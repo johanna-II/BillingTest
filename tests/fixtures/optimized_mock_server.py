@@ -2,6 +2,7 @@
 
 import logging
 import os
+import select
 import socket
 import subprocess
 import sys
@@ -139,17 +140,37 @@ class OptimizedMockServerManager:
         Returns:
             Available bytes from the stream, or empty bytes if none available
         """
+        result = b""
+        fd = None
+
         try:
-            # Try to peek at the buffer - this doesn't block
-            if hasattr(stream, "peek"):
-                peeked = stream.peek()
-                if peeked:
-                    # Data is available, read it
-                    return stream.read(len(peeked))
-            return b""
-        except (OSError, ValueError):
+            # Get file descriptor and set to non-blocking mode
+            fd = stream.fileno()
+
+            # Check if data is ready using select (optional pre-check)
+            ready, _, _ = select.select([fd], [], [], 0)
+            if ready:
+                # Set non-blocking mode
+                os.set_blocking(fd, False)
+
+                try:
+                    # Try to read available data
+                    data = stream.read()
+                    if data:
+                        result = data
+                except BlockingIOError:
+                    # No data immediately available
+                    pass
+                finally:
+                    # Restore blocking mode
+                    if fd is not None:
+                        os.set_blocking(fd, True)
+
+        except (OSError, ValueError) as e:
             # Stream might be closed or unavailable
-            return b""
+            logger.debug(f"Error reading from stream: {e}")
+
+        return result
 
     def _wait_for_server(self) -> None:
         """Wait for server to become ready with optimized polling."""
@@ -184,8 +205,8 @@ class OptimizedMockServerManager:
         stdout, stderr = self._get_process_output()
         error_msg = (
             f"Mock server crashed during startup (attempt {attempt}):\n"
-            f"STDOUT: {stdout.decode()}\n"
-            f"STDERR: {stderr.decode()}"
+            f"STDOUT: {stdout.decode('utf-8', errors='replace')}\n"
+            f"STDERR: {stderr.decode('utf-8', errors='replace')}"
         )
         raise RuntimeError(error_msg)
 
@@ -230,8 +251,8 @@ class OptimizedMockServerManager:
                 f"Mock server failed to start on port {self.port} after {elapsed:.2f}s "
                 f"({attempt} attempts).\n"
                 f"Process status: {process_status}\n"
-                f"STDOUT: {stdout.decode()}\n"
-                f"STDERR: {stderr.decode()}"
+                f"STDOUT: {stdout.decode('utf-8', errors='replace')}\n"
+                f"STDERR: {stderr.decode('utf-8', errors='replace')}"
             )
         else:
             error_msg = (

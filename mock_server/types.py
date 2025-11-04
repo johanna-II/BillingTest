@@ -6,7 +6,7 @@ and better IDE support.
 
 from __future__ import annotations
 
-from typing import Literal, NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict, Union, cast
 
 
 class UsageItem(TypedDict):
@@ -48,8 +48,9 @@ class CreditItem(TypedDict):
 
 
 class AdjustmentItem(TypedDict):
-    """Adjustment item structure.
+    """Modern adjustment item structure.
 
+    Uses 'type' and 'value' fields with strict typing.
     Matches TypeScript AdjustmentItem interface.
     """
 
@@ -64,11 +65,28 @@ class AdjustmentItem(TypedDict):
     targetProjectId: NotRequired[str]
     month: NotRequired[str]
 
-    # Legacy/alternate field names - these duplicate the required fields above.
-    # Use adjustmentType instead of type and adjustmentValue instead of value
-    # when interfacing with systems that expect these alternative field names.
-    adjustmentType: NotRequired[str]
-    adjustmentValue: NotRequired[float]
+
+class LegacyAdjustmentItem(TypedDict):
+    """Legacy adjustment item structure.
+
+    Uses 'adjustmentType' and 'adjustmentValue' fields for backward compatibility
+    with older systems that expect these field names.
+    """
+
+    # Required fields
+    adjustmentType: str  # Should be "DISCOUNT" or "SURCHARGE"
+    method: Literal["FIXED", "RATE"]
+    adjustmentValue: float
+
+    # Optional fields
+    description: NotRequired[str]
+    level: NotRequired[str]  # PROJECT, BILLING_GROUP
+    targetProjectId: NotRequired[str]
+    month: NotRequired[str]
+
+
+# Union type to accept either modern or legacy format
+AdjustmentItemInput = Union[AdjustmentItem, LegacyAdjustmentItem]
 
 
 class BillingRequest(TypedDict, total=False):
@@ -109,3 +127,66 @@ class LineItem(TypedDict):
     resourceName: NotRequired[str]
     projectId: NotRequired[str]
     appKey: NotRequired[str]
+
+
+# Conversion helper functions
+
+
+def normalize_adjustment_item(item: AdjustmentItemInput) -> AdjustmentItem:
+    """Convert any adjustment item format to the modern format.
+
+    Args:
+        item: Either modern or legacy adjustment item
+
+    Returns:
+        Modern AdjustmentItem with 'type' and 'value' fields
+
+    Examples:
+        >>> legacy = {"adjustmentType": "DISCOUNT", "method": "FIXED", "adjustmentValue": 10.0}
+        >>> modern = normalize_adjustment_item(legacy)
+        >>> modern["type"]
+        'DISCOUNT'
+    """
+    # Check if this is a legacy format (has adjustmentType)
+    if "adjustmentType" in item:
+        legacy = cast(LegacyAdjustmentItem, item)
+        normalized: AdjustmentItem = {
+            "type": cast(Literal["DISCOUNT", "SURCHARGE"], legacy["adjustmentType"]),
+            "method": legacy["method"],
+            "value": legacy["adjustmentValue"],
+        }
+        # Copy optional fields
+        for key in ("description", "level", "targetProjectId", "month"):
+            if key in legacy:
+                normalized[key] = legacy[key]
+        return normalized
+
+    # Already modern format
+    return item
+
+
+def to_legacy_adjustment_item(item: AdjustmentItem) -> LegacyAdjustmentItem:
+    """Convert modern adjustment item to legacy format.
+
+    Args:
+        item: Modern adjustment item
+
+    Returns:
+        Legacy AdjustmentItem with 'adjustmentType' and 'adjustmentValue' fields
+
+    Examples:
+        >>> modern = {"type": "DISCOUNT", "method": "FIXED", "value": 10.0}
+        >>> legacy = to_legacy_adjustment_item(modern)
+        >>> legacy["adjustmentType"]
+        'DISCOUNT'
+    """
+    legacy: LegacyAdjustmentItem = {
+        "adjustmentType": item["type"],
+        "method": item["method"],
+        "adjustmentValue": item["value"],
+    }
+    # Copy optional fields
+    for key in ("description", "level", "targetProjectId", "month"):
+        if key in item:
+            legacy[key] = item[key]
+    return legacy
