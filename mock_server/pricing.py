@@ -27,13 +27,6 @@ VAT_RATE = 0.1
 CONTRACT_DEFAULT_DISCOUNT_RATE = 0.3
 CONTRACT_HIGHER_DISCOUNT_RATE = 0.4
 
-# Special test case rates (TC4, TC6)
-TC_360_HOURS_AMOUNT = 142857  # Results in 110,000 after discount+VAT
-TC_420_HOURS_AMOUNT = 166588  # Results in 128,273
-TC_500_HOURS_STANDARD = 166588  # TC4: 30% discount
-TC_500_HOURS_HIGHER = 173520  # TC6: 40% discount
-
-
 # ============================================================================
 # Pricing Functions
 # ============================================================================
@@ -116,33 +109,20 @@ def calculate_contract_discount(
 
 
 def calculate_compute_amount_with_contract(
-    volume: float, contract_discount_rate: float
+    volume: float, _contract_discount_rate: float
 ) -> int:
-    """Calculate compute amount with contract-specific pricing.
+    """Calculate compute amount using standard pricing formula.
 
-    Special handling for test cases with specific hour amounts.
+    NOTE: This is a mock server function. Contract discounts are applied
+    at the billing calculation level, not at the counter level.
 
     Args:
         volume: Usage volume in hours
-        contract_discount_rate: Contract discount rate
+        _contract_discount_rate: Unused in mock (discount applied elsewhere)
 
     Returns:
-        Calculated compute amount
+        Calculated compute amount using standard pricing
     """
-    # Special test case amounts
-    if volume == 360:
-        # TC1, TC3, TC5: 360 hours → 110,000 total
-        return TC_360_HOURS_AMOUNT
-    if volume == 420:
-        # TC2: 420 hours → 128,273 total
-        return TC_420_HOURS_AMOUNT
-    if volume == 500:
-        # TC4 and TC6 have different expected values
-        if contract_discount_rate > CONTRACT_DEFAULT_DISCOUNT_RATE:
-            # TC6: Higher discount rate (40%)
-            return TC_500_HOURS_HIGHER
-        # TC4: Standard discount rate (30%)
-        return TC_500_HOURS_STANDARD
-
-    # Regular compute pricing
+    # Standard compute pricing formula
+    # Contract discounts are applied later in the billing calculation
     return int(volume * UNIT_PRICES["compute.c2.c8m8"])

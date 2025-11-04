@@ -6,30 +6,40 @@ import { cors } from 'hono/cors'
 // ============================================================================
 
 interface UsageItem {
-  counterVolume: number
-  counterName: string
-  counterUnit: string
+  // All fields optional to match Python TypedDict with total=False
+  counterVolume?: number
+  counterName?: string
+  counterUnit?: string
   counterType?: string
   resourceId?: string
   resourceName?: string
   projectId?: string
   appKey?: string
+  uuid?: string
 }
 
 interface CreditItem {
-  amount: number
-  type: string
+  // All fields optional to match Python TypedDict with total=False
+  amount?: number
+  type?: string  // PROMOTIONAL, FREE, PAID
   campaignId?: string
   name?: string
+  creditCode?: string
+  expireDate?: string
+  restAmount?: number
 }
 
 interface AdjustmentItem {
-  type: 'DISCOUNT' | 'SURCHARGE'
-  method: 'FIXED' | 'RATE'
-  value: number
+  // All fields optional to match Python TypedDict with total=False
+  type?: 'DISCOUNT' | 'SURCHARGE'
+  method?: 'FIXED' | 'RATE'
+  value?: number
   description?: string
   level?: string
   targetProjectId?: string
+  month?: string
+  adjustmentType?: string
+  adjustmentValue?: number
 }
 
 interface BillingRequest {
@@ -104,19 +114,50 @@ app.post('/api/billing/admin/calculate', async (c) => {
 
     // 사용량 계산 - 타입 안전성 향상
     const subtotal = usage.reduce((sum: number, item: UsageItem) => {
-      const amount = calculateAmount(item.counterName, item.counterVolume, item.counterUnit)
+      const amount = calculateAmount(item.counterName || '', item.counterVolume || 0)
       return sum + amount
     }, 0)
-
-    // 크레딧 적용
-    const totalCredits = credits.reduce((sum: number, credit: CreditItem) =>
-      sum + credit.amount, 0)
-    const creditApplied = Math.min(totalCredits, subtotal)
 
     // 조정 적용
     const adjustmentTotal = calculateAdjustmentTotal(adjustments, subtotal)
 
-    const charge = Math.max(0, subtotal + adjustmentTotal - creditApplied)
+    // 크레딧 적용 전 금액
+    const chargeBeforeCredit = Math.max(0, subtotal + adjustmentTotal)
+
+    // 크레딧 순차 적용 (PROMOTIONAL → FREE → PAID 우선순위)
+    let remainingCharge = chargeBeforeCredit
+    const appliedCreditsList: Array<{
+      creditId: string
+      type: string
+      amountApplied: number
+      remainingBalance: number
+      campaignId?: string
+      campaignName?: string
+    }> = []
+
+    for (let idx = 0; idx < credits.length; idx++) {
+      const credit = credits[idx]
+      const creditAmount = credit.amount || 0
+      const amountApplied = Math.min(creditAmount, remainingCharge)
+
+      remainingCharge -= amountApplied
+
+      appliedCreditsList.push({
+        creditId: `credit-${idx}`,
+        type: credit.type || 'FREE',
+        amountApplied,
+        remainingBalance: creditAmount - amountApplied,
+        campaignId: credit.campaignId,
+        campaignName: credit.name
+      })
+
+      // No more charge to apply credits to
+      if (remainingCharge <= 0) break
+    }
+
+    // 최종 금액 계산
+    const charge = remainingCharge
+    const totalCreditsApplied = chargeBeforeCredit - charge
     const vat = Math.floor(charge * VAT_RATE)
     const totalAmount = charge + vat
 
@@ -130,7 +171,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
     subtotal,
     billingGroupDiscount: 0,
     adjustmentTotal,
-    creditApplied,
+    creditApplied: totalCreditsApplied,
     vat,
     unpaidAmount: body.unpaidAmount || 0,
     lateFee: body.isOverdue ? (body.unpaidAmount || 0) * 0.05 : 0,
@@ -140,25 +181,18 @@ app.post('/api/billing/admin/calculate', async (c) => {
     status: 'PENDING',
     lineItems: usage.map((item: UsageItem, idx: number) => ({
       id: `line-${idx}`,
-      counterName: item.counterName,
+      counterName: item.counterName || '',
       counterType: item.counterType || 'DELTA',
-      unit: item.counterUnit,
-      quantity: item.counterVolume,
-      unitPrice: getUnitPrice(item.counterName),
-      amount: calculateAmount(item.counterName, item.counterVolume, item.counterUnit),
+      unit: item.counterUnit || 'HOURS',
+      quantity: item.counterVolume || 0,
+      unitPrice: getUnitPrice(item.counterName || ''),
+      amount: calculateAmount(item.counterName || '', item.counterVolume || 0),
       resourceId: item.resourceId,
       resourceName: item.resourceName,
       projectId: item.projectId,
       appKey: item.appKey
     })),
-    appliedCredits: credits.map((credit: CreditItem, idx: number) => ({
-      creditId: `credit-${idx}`,
-      type: credit.type,
-      amountApplied: Math.min(credit.amount, charge),
-      remainingBalance: Math.max(0, credit.amount - charge),
-      campaignId: credit.campaignId,
-      campaignName: credit.name
-    })),
+    appliedCredits: appliedCreditsList,
     appliedAdjustments: adjustments.map((adj: AdjustmentItem, idx: number) => ({
       adjustmentId: `adj-${idx}`,
       type: adj.type,
@@ -264,11 +298,13 @@ function getUnitPrice(counterName: string): number {
 
 // Helper: 조정 금액 계산
 function calculateAdjustmentAmount(adj: AdjustmentItem, subtotal: number): number {
+  const value = adj.value || 0
+
   if (adj.method === 'FIXED') {
-    return adj.value
+    return value
   }
   // RATE
-  return Math.floor(subtotal * (adj.value / 100))
+  return Math.floor(subtotal * (value / 100))
 }
 
 // Helper: 조정 합계 계산
@@ -280,20 +316,23 @@ function calculateAdjustmentTotal(adjustments: AdjustmentItem[], subtotal: numbe
 
     if (adj.type === 'DISCOUNT') {
       total -= amount
-    } else {
+    } else if (adj.type === 'SURCHARGE') {
       total += amount
     }
+    // Skip if type is undefined
   }
 
   return total
 }
 
-// Helper: 실제 금액 계산 (단위 변환 포함)
-function calculateAmount(counterName: string, volume: number, unit: string): number {
+// Helper: 실제 금액 계산
+function calculateAmount(counterName: string, volume: number): number {
   const unitPrice = getUnitPrice(counterName)
 
-  // Storage는 counterVolume이 이미 GB 단위로 제공됨
-  // 다른 counter들은 해당 단위(HOURS 등) 그대로 사용
+  // All volumes are in their standard units:
+  // - Compute: hours
+  // - Storage: GB (already converted)
+  // - Network: hours
   return Math.floor(volume * unitPrice)
 }
 

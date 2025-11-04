@@ -6,51 +6,73 @@ and better IDE support.
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
-class UsageItem(TypedDict, total=False):
-    """Usage/metering item structure."""
+class UsageItem(TypedDict):
+    """Usage/metering item structure.
 
+    Matches TypeScript UsageItem interface with required/optional fields.
+    """
+
+    # Required fields
     counterVolume: float
     counterName: str
     counterUnit: str
-    counterType: str
-    resourceId: str
-    resourceName: str
-    projectId: str
-    appKey: str
-    uuid: str
+
+    # Optional fields
+    counterType: NotRequired[str]
+    resourceId: NotRequired[str]
+    resourceName: NotRequired[str]
+    projectId: NotRequired[str]
+    appKey: NotRequired[str]
+    uuid: NotRequired[str]
 
 
-class CreditItem(TypedDict, total=False):
-    """Credit item structure."""
+class CreditItem(TypedDict):
+    """Credit item structure.
 
+    Matches TypeScript CreditItem interface.
+    """
+
+    # Required fields
     amount: int
     type: str  # PROMOTIONAL, FREE, PAID
-    campaignId: str
-    name: str
-    creditCode: str
-    expireDate: str
-    restAmount: int
+
+    # Optional fields
+    campaignId: NotRequired[str]
+    name: NotRequired[str]
+    creditCode: NotRequired[str]
+    expireDate: NotRequired[str]
+    restAmount: NotRequired[int]
 
 
-class AdjustmentItem(TypedDict, total=False):
-    """Adjustment item structure."""
+class AdjustmentItem(TypedDict):
+    """Adjustment item structure.
 
+    Matches TypeScript AdjustmentItem interface.
+    """
+
+    # Required fields
     type: str  # DISCOUNT, SURCHARGE
     method: str  # FIXED, RATE
     value: float
-    description: str
-    level: str  # PROJECT, BILLING_GROUP
-    targetProjectId: str
-    month: str
-    adjustmentType: str
-    adjustmentValue: float
+
+    # Optional fields
+    description: NotRequired[str]
+    level: NotRequired[str]  # PROJECT, BILLING_GROUP
+    targetProjectId: NotRequired[str]
+    month: NotRequired[str]
+    adjustmentType: NotRequired[str]
+    adjustmentValue: NotRequired[float]
 
 
 class BillingRequest(TypedDict, total=False):
-    """Billing calculation request structure."""
+    """Billing calculation request structure.
+
+    All fields are optional as this is a request body.
+    Matches TypeScript BillingRequest interface.
+    """
 
     uuid: str
     billingGroupId: str
@@ -64,8 +86,12 @@ class BillingRequest(TypedDict, total=False):
 
 
 class LineItem(TypedDict):
-    """Line item in billing statement."""
+    """Line item in billing statement.
 
+    Matches TypeScript LineItem structure with required/optional fields.
+    """
+
+    # Required fields
     id: str
     counterName: str
     counterType: str
@@ -73,7 +99,9 @@ class LineItem(TypedDict):
     quantity: float
     unitPrice: int
     amount: int
-    resourceId: str
-    resourceName: str
-    projectId: str
-    appKey: str
+
+    # Optional fields (matching TypeScript UsageItem)
+    resourceId: NotRequired[str]
+    resourceName: NotRequired[str]
+    projectId: NotRequired[str]
+    appKey: NotRequired[str]
