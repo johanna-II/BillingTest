@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from contextlib import closing, contextmanager
+from typing import IO
 
 import requests
 
@@ -95,7 +96,7 @@ class OptimizedMockServerManager:
             return False
 
     def _get_process_output(self) -> tuple[bytes, bytes]:
-        """Safely read stdout and stderr from the process.
+        """Safely read stdout and stderr from the process without blocking.
 
         Returns:
             Tuple of (stdout_bytes, stderr_bytes). Returns empty bytes if process
@@ -104,9 +105,51 @@ class OptimizedMockServerManager:
         if not self.process:
             return b"", b""
 
-        stdout = self.process.stdout.read() if self.process.stdout else b""
-        stderr = self.process.stderr.read() if self.process.stderr else b""
+        # Check if process has exited
+        process_exited = self.process.poll() is not None
+
+        # Read stdout
+        stdout = b""
+        if self.process.stdout:
+            if process_exited:
+                # Process has exited - drain all remaining data
+                stdout = self.process.stdout.read()
+            else:
+                # Process still running - use non-blocking read
+                stdout = self._read_available(self.process.stdout)
+
+        # Read stderr
+        stderr = b""
+        if self.process.stderr:
+            if process_exited:
+                # Process has exited - drain all remaining data
+                stderr = self.process.stderr.read()
+            else:
+                # Process still running - use non-blocking read
+                stderr = self._read_available(self.process.stderr)
+
         return stdout, stderr
+
+    def _read_available(self, stream: IO[bytes]) -> bytes:
+        """Read available data from stream without blocking.
+
+        Args:
+            stream: The stream to read from (stdout or stderr from subprocess)
+
+        Returns:
+            Available bytes from the stream, or empty bytes if none available
+        """
+        try:
+            # Try to peek at the buffer - this doesn't block
+            if hasattr(stream, "peek"):
+                peeked = stream.peek()
+                if peeked:
+                    # Data is available, read it
+                    return stream.read(len(peeked))
+            return b""
+        except (OSError, ValueError):
+            # Stream might be closed or unavailable
+            return b""
 
     def _wait_for_server(self) -> None:
         """Wait for server to become ready with optimized polling."""

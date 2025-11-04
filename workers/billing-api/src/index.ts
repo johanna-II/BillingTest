@@ -129,11 +129,12 @@ app.post('/api/billing/admin/calculate', async (c) => {
     try {
       body = await c.req.json<BillingRequest>()
     } catch (err) {
+      console.error('Failed to parse billing request JSON:', err)
       return c.json({
         header: {
           isSuccessful: false,
           resultCode: -1,
-          resultMessage: 'Invalid JSON request body'
+          resultMessage: `Invalid JSON request body: ${err instanceof Error ? err.message : 'Unknown error'}`
         }
       }, 400)
     }
@@ -294,11 +295,12 @@ app.post('/api/billing/payments/:month', async (c) => {
     try {
       body = await c.req.json<PaymentRequest>()
     } catch (err) {
+      console.error('Failed to parse payment request JSON:', err)
       return c.json({
         header: {
           isSuccessful: false,
           resultCode: -1,
-          resultMessage: 'Invalid JSON request body'
+          resultMessage: `Invalid JSON request body: ${err instanceof Error ? err.message : 'Unknown error'}`
         }
       }, 400)
     }

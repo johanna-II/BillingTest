@@ -36,6 +36,13 @@ class BillingCalculationService:
     including the order of operations and business rules.
     """
 
+    # Default pricing rates by counter prefix (single source of truth)
+    DEFAULT_RATES = {
+        "compute": Decimal("1.0"),
+        "storage": Decimal("0.1"),
+        "network": Decimal("0.01"),
+    }
+
     def __init__(
         self,
         metering_repo: "MeteringRepository",
@@ -87,7 +94,7 @@ class BillingCalculationService:
         adjustments = self._get_adjustments(billing_group_id, usage, period)
 
         # 5. Get available credits
-        available_credits = self._get_available_credits(user_id)
+        available_credits = self._get_available_credits(user_id, period)
 
         # 6. Create and calculate billing statement
         return BillingStatement(
@@ -149,24 +156,15 @@ class BillingCalculationService:
         return total
 
     def _calculate_default_pricing(self, usage: UsageAggregation) -> Decimal:
-        """Calculate using default pricing rules."""
-        # This would contain default pricing logic
-        # For now, simplified example
-        default_rates = {
-            "compute": Decimal("1.0"),
-            "storage": Decimal("0.1"),
-            "network": Decimal("0.01"),
-        }
+        """Calculate using default pricing rules.
 
+        Delegates to _calculate_default_counter_cost for each counter
+        to ensure consistent pricing logic.
+        """
         total = Decimal(0)
         for counter_name in usage.unique_counters:
             volume = usage.get_usage_by_counter(counter_name)
-
-            # Find matching rate by prefix
-            for prefix, rate in default_rates.items():
-                if counter_name.startswith(prefix):
-                    total += volume * rate
-                    break
+            total += self._calculate_default_counter_cost(counter_name, volume)
 
         return total
 
@@ -182,15 +180,8 @@ class BillingCalculationService:
         Returns:
             Calculated cost based on counter-specific default rates
         """
-        # Counter-specific default rates
-        default_rates = {
-            "compute": Decimal("1.0"),
-            "storage": Decimal("0.1"),
-            "network": Decimal("0.01"),
-        }
-
         # Find matching rate by prefix
-        for prefix, rate in default_rates.items():
+        for prefix, rate in self.DEFAULT_RATES.items():
             if counter_name.startswith(prefix):
                 return volume * rate
 
@@ -248,12 +239,40 @@ class BillingCalculationService:
 
         return adjustments
 
-    def _get_available_credits(self, user_id: str) -> list[Credit]:
-        """Get all available credits for the user."""
+    def _get_available_credits(
+        self, user_id: str, period: BillingPeriod
+    ) -> list[Credit]:
+        """Get all available credits for the user relative to the billing period.
+
+        Credits are considered available if:
+        1. They have a positive balance
+        2. They were created before or during the billing period
+        3. Their expiration date is after the billing period start (valid during period)
+        4. They pass the current is_available check (for additional validation)
+
+        This ensures credits are evaluated against the historical billing period,
+        not just the current date, enabling correct billing for past periods.
+
+        Args:
+            user_id: User ID
+            period: Billing period to evaluate credits against
+
+        Returns:
+            List of available credits sorted by priority
+        """
         all_credits = self.credit_repo.find_by_user(user_id)
 
-        # Filter to only available credits
-        available = [c for c in all_credits if c.is_available and c.balance > 0]
+        # Filter to credits available during the billing period
+        available = [
+            c
+            for c in all_credits
+            if (
+                c.balance > 0
+                and c.created_at <= period.end_date
+                and c.expires_at >= period.start_date  # Credit valid during period
+                and c.is_available  # Additional current validation
+            )
+        ]
 
         # Sort by priority (expiring soon first)
         available.sort(key=lambda c: (c.priority.value, c.id))
