@@ -247,7 +247,8 @@ class BillingCalculationService:
         Credits are considered available if:
         1. They have a positive balance
         2. They were created before or during the billing period
-        3. Their expiration date is after the billing period start (valid during period)
+        3. They never expire (expires_at is None) OR their expiration date is
+           after the billing period start (valid during period)
 
         This ensures credits are evaluated against the historical billing period,
         not the current date, enabling correct billing for past periods.
@@ -268,7 +269,10 @@ class BillingCalculationService:
             if (
                 c.balance > 0
                 and c.created_at <= period.end_date
-                and c.expires_at >= period.start_date  # Credit valid during period
+                and (
+                    c.expires_at is None  # Never expires
+                    or c.expires_at >= period.start_date  # Valid during period
+                )
             )
         ]
 
