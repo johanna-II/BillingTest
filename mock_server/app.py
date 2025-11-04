@@ -18,6 +18,7 @@ from .mock_data import (
     generate_billing_detail,
     generate_credit_data,
 )
+from .pricing import VAT_RATE
 from .security import setup_security
 from .test_data_manager import get_data_manager
 
@@ -33,7 +34,7 @@ NETWORK_FLOATING_IP_COUNTER = "network.floating_ip"
 # Default constants
 DEFAULT_UUID = "default"
 CONTRACT_DEFAULT_DISCOUNT_RATE = 0.3
-VAT_RATE = 0.1
+# VAT_RATE imported from pricing module
 
 # Status constants
 STATUS_COMPLETED = "COMPLETED"
@@ -654,41 +655,6 @@ def get_credit_history():
     )
 
 
-# DUPLICATE - Commented out to avoid conflicts
-# @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
-def grant_campaign_credit_old1(campaign_id):
-    """Grant credit through campaign."""
-    data = request.json or {}
-    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
-
-    # Store credit data
-    credit_amount = data.get("creditList", [{}])[0].get("creditAmt", 0)
-    credit_name = data.get("creditList", [{}])[0].get("creditName", "Campaign Credit")
-
-    if uuid_param not in credit_data:
-        credit_data[uuid_param] = {
-            "grantAmount": 0,
-            "useAmount": 0,
-            "refundAmount": 0,
-            "restAmount": 0,
-        }
-
-    # Add to granted amount and rest amount
-    credit_data[uuid_param]["grantAmount"] += credit_amount
-    credit_data[uuid_param]["restAmount"] += credit_amount
-
-    return jsonify(
-        create_success_response(
-            {
-                "campaignId": campaign_id,
-                "creditAmount": credit_amount,
-                "creditName": credit_name,
-                "status": "SUCCESS",
-            }
-        )
-    )
-
-
 @app.route("/billing/coupons/<coupon_code>", methods=["POST"])
 def apply_coupon_credit(coupon_code):
     """Apply coupon credit to user."""
@@ -719,58 +685,6 @@ def apply_coupon_credit(coupon_code):
         create_success_response(
             {"creditId": generate_uuid(), "couponCode": coupon_code, "amount": amount}
         )
-    )
-
-
-# DUPLICATE - Commented out to avoid conflicts
-# @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["POST"])
-def grant_paid_credit_old2(campaign_id):
-    """Grant paid credit to user."""
-    data = request.json or {}
-    uuid_param = request.headers.get("uuid", DEFAULT_UUID)
-
-    # Extract credit info from request
-    credit_info = {
-        "creditName": data.get("creditName", "test"),
-        "credit": data.get("credit", 0),
-        "uuidList": data.get("uuidList", []),
-        "creditType": data.get("creditType", "FREE"),
-    }
-
-    # Use first UUID from list if header UUID not provided
-    if not uuid_param and credit_info["uuidList"]:
-        uuid_param = credit_info["uuidList"][0]
-
-    amount = credit_info["credit"]
-
-    # Initialize credit data if not exists
-    with data_lock:
-        if uuid_param not in credit_data:
-            credit_data[uuid_param] = generate_credit_data(uuid_param, 0)
-
-        # Update credit amounts
-        current_total = credit_data[uuid_param]["totalAmount"]
-        new_total = current_total + amount
-
-        # Regenerate credit data with new amount
-        credit_data[uuid_param] = generate_credit_data(uuid_param, new_total)
-
-    return jsonify(
-        create_success_response(
-            {"creditId": generate_uuid(), "campaignId": campaign_id, "amount": amount}
-        )
-    )
-
-
-# DUPLICATE - Commented out as DELETE is handled in manage_campaign_credits
-# @app.route("/billing/admin/campaign/<campaign_id>/credits", methods=["DELETE"])
-def cancel_campaign_credit_old3(campaign_id):
-    """Cancel credit for a specific campaign."""
-    reason = request.args.get("reason", "test")
-
-    # For mock purposes, just return success
-    return jsonify(
-        create_success_response({"campaignId": campaign_id, "reason": reason})
     )
 
 
@@ -2231,9 +2145,8 @@ def provider_states():
     data = request.json or {}
     state = data.get("state")
 
-    # Use handler mapping to reduce complexity
-    handler = PACT_STATE_HANDLERS.get(state)
-    if handler:
+    # Use handler mapping to reduce complexity (walrus operator for conciseness)
+    if state and (handler := PACT_STATE_HANDLERS.get(state)):
         handler()
 
     return jsonify({"result": STATUS_SUCCESS.lower()}), 200

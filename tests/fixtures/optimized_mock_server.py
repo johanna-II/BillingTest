@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from contextlib import closing, contextmanager
+from typing import IO
 
 import requests
 
@@ -94,11 +95,65 @@ class OptimizedMockServerManager:
         except (requests.RequestException, ConnectionError):
             return False
 
+    def _get_process_output(self) -> tuple[bytes, bytes]:
+        """Safely read stdout and stderr from the process without blocking.
+
+        Returns:
+            Tuple of (stdout_bytes, stderr_bytes). Returns empty bytes if process
+            is None or pipes are not available.
+        """
+        if not self.process:
+            return b"", b""
+
+        # Check if process has exited
+        process_exited = self.process.poll() is not None
+
+        # Read stdout
+        stdout = b""
+        if self.process.stdout:
+            if process_exited:
+                # Process has exited - drain all remaining data
+                stdout = self.process.stdout.read()
+            else:
+                # Process still running - use non-blocking read
+                stdout = self._read_available(self.process.stdout)
+
+        # Read stderr
+        stderr = b""
+        if self.process.stderr:
+            if process_exited:
+                # Process has exited - drain all remaining data
+                stderr = self.process.stderr.read()
+            else:
+                # Process still running - use non-blocking read
+                stderr = self._read_available(self.process.stderr)
+
+        return stdout, stderr
+
+    def _read_available(self, stream: IO[bytes]) -> bytes:
+        """Read available data from stream without blocking.
+
+        Args:
+            stream: The stream to read from (stdout or stderr from subprocess)
+
+        Returns:
+            Available bytes from the stream, or empty bytes if none available
+        """
+        try:
+            # Try to peek at the buffer - this doesn't block
+            if hasattr(stream, "peek"):
+                peeked = stream.peek()
+                if peeked:
+                    # Data is available, read it
+                    return stream.read(len(peeked))
+            return b""
+        except (OSError, ValueError):
+            # Stream might be closed or unavailable
+            return b""
+
     def _wait_for_server(self) -> None:
         """Wait for server to become ready with optimized polling."""
         start_time = time.time()
-
-        # Use exponential backoff for health checks
         check_interval = 0.05
         max_interval = 0.5
         attempt = 0
@@ -106,58 +161,71 @@ class OptimizedMockServerManager:
         while time.time() - start_time < self._startup_timeout:
             attempt += 1
 
-            # Check if process crashed early
-            if self.process and self.process.poll() is not None:
-                stderr = self.process.stderr.read() if self.process.stderr else b""
-                stdout = self.process.stdout.read() if self.process.stdout else b""
-                error_msg = (
-                    f"Mock server crashed during startup (attempt {attempt}):\n"
-                    f"STDOUT: {stdout.decode()}\n"
-                    f"STDERR: {stderr.decode()}"
-                )
-                raise RuntimeError(error_msg)
+            # Check for process crash
+            self._check_process_crashed(attempt)
 
-            try:
-                response = requests.get(
-                    f"{self.url}/health",
-                    timeout=2,  # Increased timeout for individual requests
-                    allow_redirects=False,
-                )
-                if response.status_code == 200:
-                    logger.info(
-                        f"Mock server health check passed on attempt {attempt} "
-                        f"after {time.time() - start_time:.2f}s"
-                    )
-                    return
-                else:
-                    logger.debug(
-                        f"Health check returned status {response.status_code} "
-                        f"(attempt {attempt})"
-                    )
-            except requests.exceptions.ConnectionError as e:
-                logger.debug(
-                    f"Connection failed on attempt {attempt}: {e}. "
-                    f"Server may still be starting..."
-                )
-            except requests.exceptions.Timeout:
-                logger.debug(f"Health check timeout on attempt {attempt}")
-            except requests.exceptions.RequestException as e:
-                logger.debug(f"Health check error on attempt {attempt}: {e}")
+            # Try health check
+            if self._try_health_check(attempt, start_time):
+                return  # Success
 
+            # Wait before next attempt
             time.sleep(check_interval)
             check_interval = min(check_interval * 1.5, max_interval)
 
-        # Timeout reached - provide detailed error
-        elapsed = time.time() - start_time
+        # Timeout reached
+        self._raise_timeout_error(time.time() - start_time, attempt)
 
+    def _check_process_crashed(self, attempt: int) -> None:
+        """Check if server process crashed. Raises RuntimeError if crashed."""
+        if not self.process or self.process.poll() is None:
+            return
+
+        # Process crashed - raise error
+        stdout, stderr = self._get_process_output()
+        error_msg = (
+            f"Mock server crashed during startup (attempt {attempt}):\n"
+            f"STDOUT: {stdout.decode()}\n"
+            f"STDERR: {stderr.decode()}"
+        )
+        raise RuntimeError(error_msg)
+
+    def _try_health_check(self, attempt: int, start_time: float) -> bool:
+        """Try health check. Returns True if successful."""
+        try:
+            response = requests.get(
+                f"{self.url}/health",
+                timeout=2,
+                allow_redirects=False,
+            )
+            if response.status_code == 200:
+                logger.info(
+                    f"Mock server health check passed on attempt {attempt} "
+                    f"after {time.time() - start_time:.2f}s"
+                )
+                return True
+
+            logger.debug(f"Health check returned status {response.status_code}")
+            return False
+
+        except requests.exceptions.ConnectionError as e:
+            logger.debug(f"Connection failed on attempt {attempt}: {e}")
+            return False
+        except requests.exceptions.Timeout:
+            logger.debug(f"Health check timeout on attempt {attempt}")
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Health check error on attempt {attempt}: {e}")
+            return False
+
+    def _raise_timeout_error(self, elapsed: float, attempt: int) -> None:
+        """Raise detailed timeout error."""
         if self.process:
             process_status = (
                 "running"
                 if self.process.poll() is None
                 else f"exited with code {self.process.returncode}"
             )
-            stderr = self.process.stderr.read() if self.process.stderr else b""
-            stdout = self.process.stdout.read() if self.process.stdout else b""
+            stdout, stderr = self._get_process_output()
             error_msg = (
                 f"Mock server failed to start on port {self.port} after {elapsed:.2f}s "
                 f"({attempt} attempts).\n"
@@ -198,7 +266,7 @@ class OptimizedMockServerManager:
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Context manager exit."""
         self.stop()
 

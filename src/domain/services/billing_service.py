@@ -36,6 +36,13 @@ class BillingCalculationService:
     including the order of operations and business rules.
     """
 
+    # Default pricing rates by counter prefix (single source of truth)
+    DEFAULT_RATES = {
+        "compute": Decimal("1.0"),
+        "storage": Decimal("0.1"),
+        "network": Decimal("0.01"),
+    }
+
     def __init__(
         self,
         metering_repo: "MeteringRepository",
@@ -149,32 +156,36 @@ class BillingCalculationService:
         return total
 
     def _calculate_default_pricing(self, usage: UsageAggregation) -> Decimal:
-        """Calculate using default pricing rules."""
-        # This would contain default pricing logic
-        # For now, simplified example
-        default_rates = {
-            "compute": Decimal("1.0"),
-            "storage": Decimal("0.1"),
-            "network": Decimal("0.01"),
-        }
+        """Calculate using default pricing rules.
 
+        Delegates to _calculate_default_counter_cost for each counter
+        to ensure consistent pricing logic.
+        """
         total = Decimal(0)
         for counter_name in usage.unique_counters:
             volume = usage.get_usage_by_counter(counter_name)
-
-            # Find matching rate by prefix
-            for prefix, rate in default_rates.items():
-                if counter_name.startswith(prefix):
-                    total += volume * rate
-                    break
+            total += self._calculate_default_counter_cost(counter_name, volume)
 
         return total
 
     def _calculate_default_counter_cost(
         self, counter_name: str, volume: Decimal
     ) -> Decimal:
-        """Calculate cost for a single counter using default pricing."""
-        # Simplified - in reality would have more complex logic
+        """Calculate cost for a single counter using default pricing.
+
+        Args:
+            counter_name: Name of the counter
+            volume: Usage volume
+
+        Returns:
+            Calculated cost based on counter-specific default rates
+        """
+        # Find matching rate by prefix
+        for prefix, rate in self.DEFAULT_RATES.items():
+            if counter_name.startswith(prefix):
+                return volume * rate
+
+        # Fallback to generic default if counter_name is unknown
         return volume * Decimal("1.0")
 
     def _get_unpaid_amounts(
@@ -182,7 +193,7 @@ class BillingCalculationService:
     ) -> UnpaidAmount | None:
         """Get unpaid amounts from previous periods."""
         unpaid_payments = self.payment_repo.find_unpaid_by_user(
-            user_id, before_date=current_period.start_date
+            user_id, current_period.start_date
         )
 
         if not unpaid_payments:
@@ -231,11 +242,39 @@ class BillingCalculationService:
     def _get_available_credits(
         self, user_id: str, period: BillingPeriod
     ) -> list[Credit]:
-        """Get all available credits for the user."""
+        """Get all available credits for the user relative to the billing period.
+
+        Credits are considered available if:
+        1. They have a positive balance
+        2. They were created before or during the billing period
+        3. They never expire (expires_at is None) OR their expiration date is
+           after the billing period start (valid during period)
+
+        This ensures credits are evaluated against the historical billing period,
+        not the current date, enabling correct billing for past periods.
+
+        Args:
+            user_id: User ID
+            period: Billing period to evaluate credits against
+
+        Returns:
+            List of available credits sorted by priority
+        """
         all_credits = self.credit_repo.find_by_user(user_id)
 
-        # Filter to only available credits
-        available = [c for c in all_credits if c.is_available and c.balance > 0]
+        # Filter to credits available during the billing period
+        available = [
+            c
+            for c in all_credits
+            if (
+                c.balance > 0
+                and c.created_at <= period.end_date
+                and (
+                    c.expires_at is None  # Never expires
+                    or c.expires_at >= period.start_date  # Valid during period
+                )
+            )
+        ]
 
         # Sort by priority (expiring soon first)
         available.sort(key=lambda c: (c.priority.value, c.id))

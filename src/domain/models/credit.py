@@ -36,7 +36,7 @@ class Credit:
     type: CreditType
     amount: Decimal
     balance: Decimal
-    expires_at: datetime
+    expires_at: datetime | None  # None means credit never expires
     created_at: datetime
     campaign_id: str | None = None
     description: str = ""
@@ -52,13 +52,18 @@ class Credit:
         if self.balance > self.amount:
             msg = "Credit balance cannot exceed original amount"
             raise ValueError(msg)
-        if self.expires_at <= self.created_at:
+        if self.expires_at is not None and self.expires_at <= self.created_at:
             msg = "Expiration date must be after creation date"
             raise ValueError(msg)
 
     @property
     def is_expired(self) -> bool:
-        """Check if credit has expired."""
+        """Check if credit has expired.
+
+        Returns False if credit never expires (expires_at is None).
+        """
+        if self.expires_at is None:
+            return False  # Never expires
         return datetime.now() > self.expires_at
 
     @property
@@ -68,7 +73,12 @@ class Credit:
 
     @property
     def days_until_expiry(self) -> int:
-        """Calculate days until expiration."""
+        """Calculate days until expiration.
+
+        Returns a large value (999999) if credit never expires.
+        """
+        if self.expires_at is None:
+            return 999999  # Never expires - use large value for sorting
         if self.is_expired:
             return 0
         delta = self.expires_at - datetime.now()

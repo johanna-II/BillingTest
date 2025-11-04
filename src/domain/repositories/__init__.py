@@ -56,7 +56,7 @@ class AdjustmentRepository(ABC):
 
     @abstractmethod
     def find_by_billing_group(
-        self, billing_group_id: str, effective_date: datetime
+        self, billing_group_id: str, _effective_date: datetime
     ) -> list[Adjustment]:
         """Find adjustments for a billing group."""
 

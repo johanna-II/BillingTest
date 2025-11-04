@@ -480,7 +480,7 @@ def calculate_billing(user_id, period):
 - **pytest-xdist**: parallel execution, worker isolation
 - **pytest-benchmark**: performance testing
 - **Pact**: contract testing
-- **Locust**: load testing
+- **k6**: modern load testing, performance validation
 - **Docker**: containerized test environments
 
 ### Backend Development

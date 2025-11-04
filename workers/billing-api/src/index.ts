@@ -1,7 +1,82 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
-const app = new Hono()
+// ============================================================================
+// Type Definitions - 타입 안전성 향상
+// ============================================================================
+
+interface UsageItem {
+  // Required fields for type safety
+  counterVolume: number
+  counterName: string
+  counterUnit: string
+  // Optional fields
+  counterType?: string
+  resourceId?: string
+  resourceName?: string
+  projectId?: string
+  appKey?: string
+  uuid?: string
+}
+
+interface CreditItem {
+  // Required fields for type safety
+  amount: number
+  type: string  // PROMOTIONAL, FREE, PAID
+  // Optional fields
+  campaignId?: string
+  name?: string
+  creditCode?: string
+  uuid?: string
+  expireDate?: string
+  restAmount?: number
+}
+
+interface AdjustmentItem {
+  // Required fields for type safety
+  type: 'DISCOUNT' | 'SURCHARGE'
+  method: 'FIXED' | 'RATE'
+  value: number
+  // Optional fields
+  description?: string
+  level?: string
+  targetProjectId?: string
+  month?: string
+  adjustmentType?: string
+  adjustmentValue?: number
+}
+
+interface BillingRequest {
+  uuid?: string
+  billingGroupId?: string
+  targetDate?: string
+  unpaidAmount?: number
+  isOverdue?: boolean
+  usage?: UsageItem[]
+  credits?: CreditItem[]
+  adjustments?: AdjustmentItem[]
+}
+
+interface PaymentRequest {
+  paymentGroupId?: string
+  amount?: number
+}
+
+// ============================================================================
+// Environment bindings
+// ============================================================================
+
+interface Env {
+  VAT_RATE?: string  // Configurable VAT rate (default: 0.1 for 10%)
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const DEFAULT_VAT_RATE = 0.1
+
+const app = new Hono<{ Bindings: Env }>()
 
 // CORS 설정 - 모든 도메인 허용 또는 특정 도메인만
 app.use('/*', cors({
@@ -45,38 +120,74 @@ app.get('/health', (c) => {
 app.post('/api/billing/admin/calculate', async (c) => {
   try {
     const uuid = c.req.header('uuid')
-    const body = await c.req.json().catch(() => ({}))
 
-    // 간단한 빌링 계산 로직
+    // Get configurable VAT rate from environment or use default
+    const vatRate = c.env.VAT_RATE ? Number.parseFloat(c.env.VAT_RATE) : DEFAULT_VAT_RATE
+
+    // Parse request body - don't hide JSON errors
+    let body: BillingRequest
+    try {
+      body = await c.req.json<BillingRequest>()
+    } catch (err) {
+      console.error('Failed to parse billing request JSON:', err)
+      return c.json({
+        header: {
+          isSuccessful: false,
+          resultCode: -1,
+          resultMessage: `Invalid JSON request body: ${err instanceof Error ? err.message : 'Unknown error'}`
+        }
+      }, 400)
+    }
+
     const { usage = [], credits = [], adjustments = [] } = body
 
-  // 사용량 계산
-  const subtotal = usage.reduce((sum: number, item: any) => {
-    const quantity = item.counterVolume || 0
-    const counterName = item.counterName || ''
-    const counterUnit = item.counterUnit || 'HOURS'
-    const amount = calculateAmount(counterName, quantity, counterUnit)
-    return sum + amount
-  }, 0)
+    // 사용량 계산
+    const subtotal = usage.reduce((sum: number, item: UsageItem) => {
+      const amount = calculateAmount(item.counterName, item.counterVolume)
+      return sum + amount
+    }, 0)
 
-  // 크레딧 적용
-  const totalCredits = credits.reduce((sum: number, c: any) => sum + (c.amount || 0), 0)
-  const creditApplied = Math.min(totalCredits, subtotal)
+    // 조정 적용
+    const adjustmentTotal = calculateAdjustmentTotal(adjustments, subtotal)
 
-  // 조정 적용
-  let adjustmentTotal = 0
-  for (const adj of adjustments) {
-    if (adj.type === 'DISCOUNT') {
-      adjustmentTotal -= adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100)
-    } else {
-      adjustmentTotal += adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100)
+    // 크레딧 적용 전 금액
+    const chargeBeforeCredit = Math.max(0, subtotal + adjustmentTotal)
+
+    // 크레딧 순차 적용 (PROMOTIONAL → FREE → PAID 우선순위)
+    let remainingCharge = chargeBeforeCredit
+    const appliedCreditsList: Array<{
+      creditId: string
+      type: string
+      amountApplied: number
+      remainingBalance: number
+      campaignId?: string
+      campaignName?: string
+    }> = []
+
+    for (let idx = 0; idx < credits.length; idx++) {
+      const credit = credits[idx]
+      const amountApplied = Math.min(credit.amount, remainingCharge)
+
+      remainingCharge -= amountApplied
+
+      appliedCreditsList.push({
+        creditId: credit.creditCode || credit.uuid || `credit-${idx}`,
+        type: credit.type,
+        amountApplied,
+        remainingBalance: credit.amount - amountApplied,
+        campaignId: credit.campaignId,
+        campaignName: credit.name
+      })
+
+      // No more charge to apply credits to
+      if (remainingCharge <= 0) break
     }
-  }
 
-  const charge = Math.max(0, subtotal + adjustmentTotal - creditApplied)
-  const VAT_RATE = 0.1
-  const vat = Math.floor(charge * VAT_RATE)
-  const totalAmount = charge + vat
+    // 최종 금액 계산
+    const charge = remainingCharge
+    const totalCreditsApplied = chargeBeforeCredit - charge
+    const vat = Math.floor(charge * vatRate)
+    const totalAmount = charge + vat
 
   return c.json({
     header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
@@ -88,7 +199,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
     subtotal,
     billingGroupDiscount: 0,
     adjustmentTotal,
-    creditApplied,
+    creditApplied: totalCreditsApplied,
     vat,
     unpaidAmount: body.unpaidAmount || 0,
     lateFee: body.isOverdue ? (body.unpaidAmount || 0) * 0.05 : 0,
@@ -96,40 +207,25 @@ app.post('/api/billing/admin/calculate', async (c) => {
     amount: totalAmount,
     totalAmount,
     status: 'PENDING',
-    lineItems: usage.map((item: any, idx: number) => {
-      const counterName = item.counterName || ''
-      const quantity = item.counterVolume || 0
-      const counterUnit = item.counterUnit || 'HOURS'
-      const unitPrice = getUnitPrice(counterName)
-      const amount = calculateAmount(counterName, quantity, counterUnit)
-
-      return {
+    lineItems: usage.map((item: UsageItem, idx: number) => ({
         id: `line-${idx}`,
-        counterName,
+        counterName: item.counterName,
         counterType: item.counterType || 'DELTA',
-        unit: counterUnit,
-        quantity,
-        unitPrice,
-        amount,
+        unit: item.counterUnit,
+        quantity: item.counterVolume,
+        unitPrice: getUnitPrice(item.counterName),
+        amount: calculateAmount(item.counterName, item.counterVolume),
         resourceId: item.resourceId,
         resourceName: item.resourceName,
         projectId: item.projectId,
         appKey: item.appKey
-      }
-    }),
-    appliedCredits: credits.map((c: any, idx: number) => ({
-      creditId: `credit-${idx}`,
-      type: c.type,
-      amountApplied: Math.min(c.amount, charge),
-      remainingBalance: Math.max(0, c.amount - charge),
-      campaignId: c.campaignId,
-      campaignName: c.name
-    })),
-    appliedAdjustments: adjustments.map((adj: any, idx: number) => ({
+      })),
+    appliedCredits: appliedCreditsList,
+    appliedAdjustments: adjustments.map((adj: AdjustmentItem, idx: number) => ({
       adjustmentId: `adj-${idx}`,
       type: adj.type,
       description: adj.description,
-      amount: adj.method === 'FIXED' ? adj.value : subtotal * (adj.value / 100),
+      amount: calculateAdjustmentAmount(adj, subtotal),
       level: adj.level,
       targetId: adj.targetProjectId
     }))
@@ -193,7 +289,21 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
 app.post('/api/billing/payments/:month', async (c) => {
   try {
     const uuid = c.req.header('uuid')
-    const body = await c.req.json().catch(() => ({}))
+
+    // Parse request body - don't hide JSON errors
+    let body: PaymentRequest
+    try {
+      body = await c.req.json<PaymentRequest>()
+    } catch (err) {
+      console.error('Failed to parse payment request JSON:', err)
+      return c.json({
+        header: {
+          isSuccessful: false,
+          resultCode: -1,
+          resultMessage: `Invalid JSON request body: ${err instanceof Error ? err.message : 'Unknown error'}`
+        }
+      }, 400)
+    }
 
     return c.json({
       header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
@@ -228,12 +338,40 @@ function getUnitPrice(counterName: string): number {
   return prices[counterName] || 100
 }
 
-// Helper: 실제 금액 계산 (단위 변환 포함)
-function calculateAmount(counterName: string, volume: number, unit: string = 'HOURS'): number {
+// Helper: 조정 금액 계산
+function calculateAdjustmentAmount(adj: AdjustmentItem, subtotal: number): number {
+  if (adj.method === 'FIXED') {
+    return adj.value
+  }
+  // RATE
+  return Math.floor(subtotal * (adj.value / 100))
+}
+
+// Helper: 조정 합계 계산
+function calculateAdjustmentTotal(adjustments: AdjustmentItem[], subtotal: number): number {
+  let total = 0
+
+  for (const adj of adjustments) {
+    const amount = calculateAdjustmentAmount(adj, subtotal)
+
+    if (adj.type === 'DISCOUNT') {
+      total -= amount
+    } else {  // SURCHARGE
+      total += amount
+    }
+  }
+
+  return total
+}
+
+// Helper: 실제 금액 계산
+function calculateAmount(counterName: string, volume: number): number {
   const unitPrice = getUnitPrice(counterName)
 
-  // Storage는 counterVolume이 이미 GB 단위로 제공됨
-  // 다른 counter들은 해당 단위(HOURS 등) 그대로 사용
+  // All volumes are in their standard units:
+  // - Compute: hours
+  // - Storage: GB (already converted)
+  // - Network: hours
   return Math.floor(volume * unitPrice)
 }
 
