@@ -141,7 +141,9 @@ class BillingCalculationService:
                 total += cost
             except ValueError:
                 # Counter not in contract, use default pricing
-                default_cost = self._calculate_default_counter_cost(volume)
+                default_cost = self._calculate_default_counter_cost(
+                    counter_name, volume
+                )
                 total += default_cost
 
         return total
@@ -168,9 +170,31 @@ class BillingCalculationService:
 
         return total
 
-    def _calculate_default_counter_cost(self, volume: Decimal) -> Decimal:
-        """Calculate cost for a single counter using default pricing."""
-        # Simplified - in reality would have more complex logic
+    def _calculate_default_counter_cost(
+        self, counter_name: str, volume: Decimal
+    ) -> Decimal:
+        """Calculate cost for a single counter using default pricing.
+
+        Args:
+            counter_name: Name of the counter
+            volume: Usage volume
+
+        Returns:
+            Calculated cost based on counter-specific default rates
+        """
+        # Counter-specific default rates
+        default_rates = {
+            "compute": Decimal("1.0"),
+            "storage": Decimal("0.1"),
+            "network": Decimal("0.01"),
+        }
+
+        # Find matching rate by prefix
+        for prefix, rate in default_rates.items():
+            if counter_name.startswith(prefix):
+                return volume * rate
+
+        # Fallback to generic default if counter_name is unknown
         return volume * Decimal("1.0")
 
     def _get_unpaid_amounts(

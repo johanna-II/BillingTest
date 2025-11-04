@@ -2146,7 +2146,7 @@ def provider_states():
     state = data.get("state")
 
     # Use handler mapping to reduce complexity (walrus operator for conciseness)
-    if state and isinstance(state, str) and (handler := PACT_STATE_HANDLERS.get(state)):
+    if state and (handler := PACT_STATE_HANDLERS.get(state)):
         handler()
 
     return jsonify({"result": STATUS_SUCCESS.lower()}), 200

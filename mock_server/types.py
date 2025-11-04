@@ -6,7 +6,7 @@ and better IDE support.
 
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 
 class UsageItem(TypedDict):
@@ -37,7 +37,7 @@ class CreditItem(TypedDict):
 
     # Required fields
     amount: int
-    type: str  # PROMOTIONAL, FREE, PAID
+    type: Literal["PROMOTIONAL", "FREE", "PAID"]
 
     # Optional fields
     campaignId: NotRequired[str]
@@ -54,8 +54,8 @@ class AdjustmentItem(TypedDict):
     """
 
     # Required fields
-    type: str  # DISCOUNT, SURCHARGE
-    method: str  # FIXED, RATE
+    type: Literal["DISCOUNT", "SURCHARGE"]
+    method: Literal["FIXED", "RATE"]
     value: float
 
     # Optional fields
@@ -63,6 +63,10 @@ class AdjustmentItem(TypedDict):
     level: NotRequired[str]  # PROJECT, BILLING_GROUP
     targetProjectId: NotRequired[str]
     month: NotRequired[str]
+
+    # Legacy/alternate field names - these duplicate the required fields above.
+    # Use adjustmentType instead of type and adjustmentValue instead of value
+    # when interfacing with systems that expect these alternative field names.
     adjustmentType: NotRequired[str]
     adjustmentValue: NotRequired[float]
 

@@ -10,14 +10,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mock_server.app import app
 
-# Global flag for graceful shutdown
-shutdown_requested = False
-
 
 def signal_handler(signum, _frame):
     """Handle shutdown signals gracefully."""
-    global shutdown_requested
-    shutdown_requested = True
     print(f"\nReceived signal {signum}, shutting down gracefully...")
     sys.exit(0)
 

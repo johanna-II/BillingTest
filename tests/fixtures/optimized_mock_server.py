@@ -94,6 +94,20 @@ class OptimizedMockServerManager:
         except (requests.RequestException, ConnectionError):
             return False
 
+    def _get_process_output(self) -> tuple[bytes, bytes]:
+        """Safely read stdout and stderr from the process.
+
+        Returns:
+            Tuple of (stdout_bytes, stderr_bytes). Returns empty bytes if process
+            is None or pipes are not available.
+        """
+        if not self.process:
+            return b"", b""
+
+        stdout = self.process.stdout.read() if self.process.stdout else b""
+        stderr = self.process.stderr.read() if self.process.stderr else b""
+        return stdout, stderr
+
     def _wait_for_server(self) -> None:
         """Wait for server to become ready with optimized polling."""
         start_time = time.time()
@@ -124,8 +138,7 @@ class OptimizedMockServerManager:
             return
 
         # Process crashed - raise error
-        stderr = self.process.stderr.read() if self.process.stderr else b""
-        stdout = self.process.stdout.read() if self.process.stdout else b""
+        stdout, stderr = self._get_process_output()
         error_msg = (
             f"Mock server crashed during startup (attempt {attempt}):\n"
             f"STDOUT: {stdout.decode()}\n"
@@ -169,8 +182,7 @@ class OptimizedMockServerManager:
                 if self.process.poll() is None
                 else f"exited with code {self.process.returncode}"
             )
-            stderr = self.process.stderr.read() if self.process.stderr else b""
-            stdout = self.process.stdout.read() if self.process.stdout else b""
+            stdout, stderr = self._get_process_output()
             error_msg = (
                 f"Mock server failed to start on port {self.port} after {elapsed:.2f}s "
                 f"({attempt} attempts).\n"

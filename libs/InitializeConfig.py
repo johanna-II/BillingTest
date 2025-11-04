@@ -583,7 +583,7 @@ class InitializeConfig:
 
         Args:
             statements: Statement amount
-            payments: Payment amount
+            _payments: Payment amount (unused, kept for backward compatibility)
             expected_result: Expected result
         """
         if statements != expected_result:

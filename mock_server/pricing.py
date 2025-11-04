@@ -55,13 +55,14 @@ def calculate_amount(counter_name: str, volume: float) -> int:
             - Network: hours
 
     Returns:
-        Calculated amount in KRW
+        Calculated amount in KRW (rounded to nearest won)
     """
     unit_price = get_unit_price(counter_name)
 
     # All counters: direct multiplication
     # Storage volume is already in GB units
-    return int(volume * unit_price)
+    # Use round() for proper rounding instead of truncation
+    return int(round(volume * unit_price))
 
 
 def calculate_vat(charge: int) -> int:
@@ -71,9 +72,10 @@ def calculate_vat(charge: int) -> int:
         charge: Charge amount before VAT
 
     Returns:
-        VAT amount
+        VAT amount (rounded to nearest won)
     """
-    return int(charge * VAT_RATE)
+    rounded_vat = round(charge * VAT_RATE)
+    return int(rounded_vat)
 
 
 def calculate_total_with_vat(charge: int) -> int:
@@ -100,12 +102,12 @@ def calculate_contract_discount(
         discount_rate: Discount rate (e.g., 0.3 for 30%)
 
     Returns:
-        Discount amount in KRW
+        Discount amount in KRW (rounded to nearest won)
     """
     if not has_contract:
         return 0
 
-    return int(subtotal * discount_rate)
+    return int(round(subtotal * discount_rate))
 
 
 def calculate_compute_amount_with_contract(
@@ -121,8 +123,9 @@ def calculate_compute_amount_with_contract(
         _contract_discount_rate: Unused in mock (discount applied elsewhere)
 
     Returns:
-        Calculated compute amount using standard pricing
+        Calculated compute amount using standard pricing (rounded to nearest won)
     """
     # Standard compute pricing formula
     # Contract discounts are applied later in the billing calculation
-    return int(volume * UNIT_PRICES["compute.c2.c8m8"])
+    # Use round() for proper rounding instead of truncation
+    return int(round(volume * UNIT_PRICES["compute.c2.c8m8"]))

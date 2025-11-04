@@ -154,14 +154,26 @@ class MeteringManager:
         counter_volume: float | str,
         counter_type: CounterType | str | None = None,
         app_key: str | None = None,
-        _target_time: str | None = None,
-        uuid: str | None = None,
-        _app_id: str | None = None,
-        project_id: str | None = None,
+        target_time: str | None = None,  # Deprecated but kept for compatibility
+        uuid: str | None = None,  # Deprecated but kept for compatibility
+        app_id: str | None = None,  # Deprecated but kept for compatibility
+        project_id: str | None = None,  # Deprecated but kept for compatibility
     ) -> dict[str, Any]:
         """Send IaaS metering data (legacy compatibility method).
 
-        This is an alias for send_metering() for backward compatibility.
+        Args:
+            counter_name: Counter name
+            counter_unit: Counter unit
+            counter_volume: Counter volume
+            counter_type: Counter type
+            app_key: App key
+            target_time: (Deprecated) Not used - kept for backward compatibility
+            uuid: (Deprecated) Not used - kept for backward compatibility
+            app_id: (Deprecated) Not used - kept for backward compatibility
+            project_id: (Deprecated) Not used - kept for backward compatibility
+
+        Returns:
+            Metering response
         """
         # Use instance appkey if app_key not provided (legacy pattern)
         if app_key is None:
