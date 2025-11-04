@@ -248,10 +248,9 @@ class BillingCalculationService:
         1. They have a positive balance
         2. They were created before or during the billing period
         3. Their expiration date is after the billing period start (valid during period)
-        4. They pass the current is_available check (for additional validation)
 
         This ensures credits are evaluated against the historical billing period,
-        not just the current date, enabling correct billing for past periods.
+        not the current date, enabling correct billing for past periods.
 
         Args:
             user_id: User ID
@@ -270,7 +269,6 @@ class BillingCalculationService:
                 c.balance > 0
                 and c.created_at <= period.end_date
                 and c.expires_at >= period.start_date  # Credit valid during period
-                and c.is_available  # Additional current validation
             )
         ]
 
