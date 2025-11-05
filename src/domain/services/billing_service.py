@@ -20,6 +20,8 @@ from src.domain.models import (
     UsageAggregation,
 )
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from src.domain.repositories import (
         AdjustmentRepository,
@@ -187,7 +189,6 @@ class BillingCalculationService:
                 return volume * rate
 
         # Fallback to generic default if counter_name is unknown
-        logger = logging.getLogger(__name__)
         logger.warning(
             "No DEFAULT_RATES prefix matched for counter '%s' (volume=%s). "
             "Applying generic default rate of 1.0. "

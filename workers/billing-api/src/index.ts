@@ -365,22 +365,49 @@ function getUnitPrice(counterName: string): number {
   return prices[counterName] || 100
 }
 
+// Helper: Validate adjustment type with assertion signature
+function validateAdjustmentType(value: string): asserts value is 'DISCOUNT' | 'SURCHARGE' {
+  if (value !== 'DISCOUNT' && value !== 'SURCHARGE') {
+    throw new Error(
+      `Invalid adjustment type: "${value}". Must be "DISCOUNT" or "SURCHARGE".`
+    )
+  }
+}
+
+// Helper: Validate adjustment method with assertion signature
+function validateAdjustmentMethod(value: string): asserts value is 'FIXED' | 'RATE' {
+  if (value !== 'FIXED' && value !== 'RATE') {
+    throw new Error(
+      `Invalid adjustment method: "${value}". Must be "FIXED" or "RATE".`
+    )
+  }
+}
+
 // Helper: Normalize adjustment item with runtime validation
 function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
   // Check if this is a legacy format (has adjustmentType)
   if ('adjustmentType' in item) {
-    // Runtime validation: ensure adjustmentType is valid
-    if (item.adjustmentType !== 'DISCOUNT' && item.adjustmentType !== 'SURCHARGE') {
+    // Validate adjustmentType using helper with assertion signature
+    validateAdjustmentType(item.adjustmentType)
+
+    // Validate method using helper with assertion signature
+    validateAdjustmentMethod(item.method)
+
+    // Validate adjustmentValue is present and a finite number
+    if (item.adjustmentValue === undefined || item.adjustmentValue === null) {
       throw new Error(
-        `Invalid adjustment type: "${item.adjustmentType}". Must be "DISCOUNT" or "SURCHARGE".`
+        `Missing required field: adjustmentValue must be provided in legacy format.`
       )
     }
 
-    // Type is validated, safe to use
-    const validType: 'DISCOUNT' | 'SURCHARGE' = item.adjustmentType
+    if (typeof item.adjustmentValue !== 'number' || !Number.isFinite(item.adjustmentValue)) {
+      throw new Error(
+        `Invalid adjustmentValue: "${item.adjustmentValue}". Must be a finite number (not NaN or Infinity).`
+      )
+    }
 
     const normalized: AdjustmentItem = {
-      type: validType,
+      type: item.adjustmentType,
       method: item.method,
       value: item.adjustmentValue,
     }
@@ -394,10 +421,20 @@ function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
     return normalized
   }
 
-  // Already modern format - validate type field
-  if (item.type !== 'DISCOUNT' && item.type !== 'SURCHARGE') {
+  // Already modern format - validate type and method fields
+  validateAdjustmentType(item.type)
+  validateAdjustmentMethod(item.method)
+
+  // Validate value is present and a finite number
+  if (item.value === undefined || item.value === null) {
     throw new Error(
-      `Invalid adjustment type: "${item.type}". Must be "DISCOUNT" or "SURCHARGE".`
+      `Missing required field: value must be provided.`
+    )
+  }
+
+  if (typeof item.value !== 'number' || !Number.isFinite(item.value)) {
+    throw new Error(
+      `Invalid value: "${item.value}". Must be a finite number (not NaN or Infinity).`
     )
   }
 
