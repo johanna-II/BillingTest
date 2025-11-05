@@ -1,62 +1,404 @@
+/**
+ * Billing API Client
+ * Type-safe HTTP client with comprehensive error handling
+ */
+
+import { ErrorCode } from '@/types/billing'
 import type {
   BillingInput,
   BillingStatement,
-  PaymentResult
-} from '@/types/billing';
+  PaymentResult,
+  ApiResponseHeader,
+  CalculationError,
+} from '@/types/billing'
 
-// API request/response types
-export interface PaymentRequest {
-  amount: number;
-  paymentGroupId: string;
+// ============================================================================
+// API Response Format Documentation
+// ============================================================================
+/**
+ * API Endpoints Response Format:
+ *
+ * NEW FORMAT (recommended):
+ * - /api/billing/admin/calculate → { header, data: BillingStatement }
+ *
+ * LEGACY FORMAT (⚠️ DEPRECATED - backwards compatible):
+ * - /api/billing/payments/:month/statements → { header, ...BillingStatement }
+ * - /api/billing/payments/:month → { header, ...PaymentResult }
+ *
+ * ⚠️ LEGACY FORMAT CONSTRAINT:
+ * The response data type T must NOT contain a field named 'header'.
+ * If it does, that field will be silently excluded during destructuring.
+ * Current safe types: BillingStatement, PaymentResult (verified to have no 'header' field)
+ *
+ * The client handles both formats automatically via extractDataFromResponse()
+ */
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+/**
+ * HTTP Status Codes
+ * Standard HTTP response status codes used for API error categorization
+ */
+const HttpStatus = {
+  // 2xx Success
+  OK: 200,
+  CREATED: 201,
+
+  // 4xx Client Errors
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+
+  // 5xx Server Errors
+  INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+  SERVICE_UNAVAILABLE: 503,
+} as const
+
+/**
+ * HTTP Status Code to ErrorCode Mapping
+ * Maps specific HTTP status codes to application error codes for consistent error handling
+ */
+const STATUS_TO_ERROR_MAP: ReadonlyMap<number, ErrorCode> = new Map([
+  // Validation errors - input problems that can be fixed by the client
+  [HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR],
+  [HttpStatus.UNPROCESSABLE_ENTITY, ErrorCode.VALIDATION_ERROR],
+
+  // Authentication/Authorization errors - credential or permission issues
+  [HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_ERROR],
+  [HttpStatus.FORBIDDEN, ErrorCode.AUTH_ERROR],
+
+  // Resource errors - not found or rate limiting
+  [HttpStatus.NOT_FOUND, ErrorCode.API_ERROR],
+  [HttpStatus.TOO_MANY_REQUESTS, ErrorCode.API_ERROR],
+])
+
+const API_CONFIG = {
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
+  ENDPOINTS: {
+    CALCULATE: '/api/billing/admin/calculate',
+    STATEMENTS: '/api/billing/payments',
+    PAYMENT: '/api/billing/payments',
+  },
+  HEADERS: {
+    CONTENT_TYPE: 'application/json',
+    UUID_HEADER: 'uuid',
+  },
+  LATE_FEE: {
+    RATE: 0.05,
+  },
+  TIMEOUT: {
+    DEFAULT: 30000, // 30 seconds
+  },
+} as const
+
+// ============================================================================
+// Custom Error Classes
+// ============================================================================
+
+export class APIError extends Error {
+  public readonly name = 'APIError' as const
+  public readonly statusCode: number
+  public readonly errorCode: ErrorCode
+
+  constructor(message: string, statusCode: number, errorCode: ErrorCode = ErrorCode.API_ERROR) {
+    super(message)
+    this.statusCode = statusCode
+    this.errorCode = errorCode
+    Object.setPrototypeOf(this, APIError.prototype)
+  }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+export class NetworkError extends Error {
+  public readonly name = 'NetworkError' as const
+  public readonly errorCode: ErrorCode = ErrorCode.NETWORK_ERROR
+
+  constructor(message: string, public readonly originalError?: unknown) {
+    super(message)
+    Object.setPrototypeOf(this, NetworkError.prototype)
+  }
+}
+
+export class ValidationError extends Error {
+  public readonly name = 'ValidationError' as const
+  public readonly errorCode: ErrorCode = ErrorCode.VALIDATION_ERROR
+
+  constructor(
+    message: string,
+    public readonly field?: string,
+    public readonly details?: Record<string, unknown>
+  ) {
+    super(message)
+    Object.setPrototypeOf(this, ValidationError.prototype)
+  }
+}
+
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+export interface PaymentRequest {
+  readonly amount: number
+  readonly paymentGroupId: string
+}
+
+/**
+ * API Response format supporting both:
+ * - New format: { header, data: T }
+ * - Legacy format: { header, ...T } (backwards compatibility)
+ */
+interface ApiResponse<T> {
+  readonly header: ApiResponseHeader
+  readonly data?: T
+}
+
+/**
+ * Legacy flat response format (backwards compatibility)
+ * All fields from T are at the same level as header
+ *
+ * ⚠️ DEPRECATED: This format is maintained for backwards compatibility only.
+ * New APIs should use the standard format: { header, data: T }
+ *
+ * ⚠️ CONSTRAINT: The generic type T must NOT contain a field named 'header'.
+ * If T has a 'header' field, it will be excluded during destructuring and lost.
+ *
+ * Known safe types: BillingStatement, PaymentResult (verified to have no 'header' field)
+ */
+type LegacyApiResponse<T> = {
+  readonly header: ApiResponseHeader
+} & Partial<T>
+
+// ============================================================================
+// Runtime Validation Helpers
+// ============================================================================
+
+/**
+ * Validates critical fields of a BillingStatement response
+ * Lightweight validation without external libraries
+ */
+function validateBillingStatement(data: unknown): data is BillingStatement {
+  if (!data || typeof data !== 'object') return false
+  const statement = data as Partial<BillingStatement>
+
+  return (
+    typeof statement.statementId === 'string' &&
+    typeof statement.month === 'string' &&
+    typeof statement.totalAmount === 'number' &&
+    Array.isArray(statement.lineItems)
+  )
+}
+
+/**
+ * Validates critical fields of a PaymentResult response
+ */
+function validatePaymentResult(data: unknown): data is PaymentResult {
+  if (!data || typeof data !== 'object') return false
+  const result = data as Partial<PaymentResult>
+
+  return (
+    typeof result.paymentId === 'string' &&
+    typeof result.status === 'string' &&
+    typeof result.amount === 'number'
+  )
+}
+
+// ============================================================================
+// HTTP Client
+// ============================================================================
+
+class HTTPClient {
+  private readonly baseUrl: string
+  private readonly timeout: number
+
+  constructor(baseUrl: string = API_CONFIG.BASE_URL, timeout: number = API_CONFIG.TIMEOUT.DEFAULT) {
+    this.baseUrl = baseUrl
+    this.timeout = timeout
+  }
+
+  private createAbortController(): { controller: AbortController; cleanup: () => void } {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+    return {
+      controller,
+      cleanup: () => clearTimeout(timeoutId),
+    }
+  }
+
+  private async handleResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+      let errorText: string
+      try {
+        errorText = await response.text()
+      } catch (error) {
+        errorText = `Unable to read error response: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+      throw new APIError(
+        `HTTP ${response.status}: ${errorText}`,
+        response.status,
+        this.mapStatusToErrorCode(response.status)
+      )
+    }
+
+    try {
+      const data = await response.json()
+      // Note: Type assertion here is necessary as JSON.parse returns 'any'
+      // Actual runtime validation happens in extractDataFromResponse()
+      // for critical response types (BillingStatement, PaymentResult)
+      return data as T
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new APIError(
+        `Failed to parse response JSON: ${errorMessage}`,
+        response.status,
+        ErrorCode.API_ERROR
+      )
+    }
+  }
+
+  /**
+   * Maps HTTP status codes to application error codes
+   *
+   * Uses a declarative mapping table for known status codes, with fallback logic
+   * for unmapped status codes based on HTTP status code ranges.
+   *
+   * @param status - HTTP response status code
+   * @returns Corresponding application ErrorCode
+   */
+  private mapStatusToErrorCode(status: number): ErrorCode {
+    // First, check if we have an explicit mapping for this status code
+    const mappedError = STATUS_TO_ERROR_MAP.get(status)
+    if (mappedError) {
+      return mappedError
+    }
+
+    // Fallback to range-based categorization for unmapped status codes
+    if (this.isClientError(status)) {
+      return ErrorCode.API_ERROR
+    }
+
+    if (this.isServerError(status)) {
+      return ErrorCode.API_ERROR
+    }
+
+    // Unknown or unexpected status code
+    return ErrorCode.UNKNOWN_ERROR
+  }
+
+  /**
+   * Checks if the status code represents a client error (4xx)
+   */
+  private isClientError(status: number): boolean {
+    return status >= 400 && status < 500
+  }
+
+  /**
+   * Checks if the status code represents a server error (5xx)
+   */
+  private isServerError(status: number): boolean {
+    return status >= 500 && status < 600
+  }
+
+  async post<T>(
+    endpoint: string,
+    body: unknown,
+    headers: Record<string, string> = {}
+  ): Promise<T> {
+    const { controller, cleanup } = this.createAbortController()
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          [API_CONFIG.HEADERS.CONTENT_TYPE]: 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      return this.handleResponse<T>(response)
+    } catch (error) {
+      if (error instanceof APIError) throw error
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new NetworkError('Request timeout', error)
+      }
+      throw new NetworkError('Network request failed', error)
+    } finally {
+      cleanup()
+    }
+  }
+
+  async get<T>(endpoint: string, headers: Record<string, string> = {}): Promise<T> {
+    const { controller, cleanup } = this.createAbortController()
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      })
+
+      return this.handleResponse<T>(response)
+    } catch (error) {
+      if (error instanceof APIError) throw error
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new NetworkError('Request timeout', error)
+      }
+      throw new NetworkError('Network request failed', error)
+    } finally {
+      cleanup()
+    }
+  }
+}
+
+// ============================================================================
+// Billing API Client
+// ============================================================================
 
 export class BillingAPIClient {
-  private baseUrl: string;
+  private readonly httpClient: HTTPClient
 
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    this.httpClient = new HTTPClient(baseUrl)
   }
 
-  async calculateBilling(
-    request: BillingInput
-  ): Promise<BillingStatement> {
-    const response = await fetch(`${this.baseUrl}/api/billing/admin/calculate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'uuid': request.uuid,
-      },
-      body: JSON.stringify(request),
-    });
+  async calculateBilling(request: BillingInput): Promise<BillingStatement> {
+    this.validateBillingInput(request)
 
-    if (!response.ok) {
-      throw new Error(`Failed to calculate billing: ${response.statusText}`);
-    }
+    const response = await this.httpClient.post<ApiResponse<BillingStatement>>(
+      API_CONFIG.ENDPOINTS.CALCULATE,
+      request,
+      { [API_CONFIG.HEADERS.UUID_HEADER]: request.uuid }
+    )
 
-    return response.json();
+    return this.extractStatementFromResponse(response, request)
   }
 
-  async getPaymentStatements(
-    uuid: string,
-    month: string
-  ): Promise<BillingStatement> {
-    const response = await fetch(
-      `${this.baseUrl}/api/billing/payments/${month}/statements`,
-      {
-        method: 'GET',
-        headers: {
-          'uuid': uuid,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to get statements: ${response.statusText}`);
+  async getPaymentStatements(uuid: string, month: string): Promise<BillingStatement> {
+    if (!uuid || !month) {
+      throw new ValidationError('UUID and month are required', 'uuid,month')
     }
 
-    return response.json();
+    const endpoint = `${API_CONFIG.ENDPOINTS.STATEMENTS}/${month}/statements`
+    const response = await this.httpClient.get<ApiResponse<BillingStatement>>(endpoint, {
+      [API_CONFIG.HEADERS.UUID_HEADER]: uuid,
+    })
+
+    const data = this.extractDataFromResponse(response)
+
+    // Runtime validation for critical response type
+    if (!validateBillingStatement(data)) {
+      throw new APIError(
+        'Invalid BillingStatement response: missing required fields',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    return data
   }
 
   async processPayment(
@@ -64,43 +406,198 @@ export class BillingAPIClient {
     month: string,
     request: PaymentRequest
   ): Promise<PaymentResult> {
-    const response = await fetch(`${this.baseUrl}/api/billing/payments/${month}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'uuid': uuid,
-      },
-      body: JSON.stringify(request),
-    });
+    this.validatePaymentRequest(request)
 
-    if (!response.ok) {
-      throw new Error(`Failed to process payment: ${response.statusText}`);
+    const endpoint = `${API_CONFIG.ENDPOINTS.PAYMENT}/${month}`
+    const response = await this.httpClient.post<ApiResponse<PaymentResult>>(
+      endpoint,
+      request,
+      { [API_CONFIG.HEADERS.UUID_HEADER]: uuid }
+    )
+
+    const data = this.extractDataFromResponse(response)
+
+    // Runtime validation for critical response type
+    if (!validatePaymentResult(data)) {
+      throw new APIError(
+        'Invalid PaymentResult response: missing required fields',
+        500,
+        ErrorCode.API_ERROR
+      )
     }
 
-    return response.json();
+    return data
+  }
+
+  // ============================================================================
+  // Private Helper Methods
+  // ============================================================================
+
+  private validateBillingInput(input: BillingInput): void {
+    if (!input.uuid) {
+      throw new ValidationError('UUID is required', 'uuid')
+    }
+    if (!input.billingGroupId) {
+      throw new ValidationError('Billing group ID is required', 'billingGroupId')
+    }
+  }
+
+  private validatePaymentRequest(request: PaymentRequest): void {
+    if (typeof request.amount !== 'number' || !Number.isFinite(request.amount) || request.amount < 0) {
+      throw new ValidationError('Valid amount is required', 'amount')
+    }
+    if (!request.paymentGroupId) {
+      throw new ValidationError('Payment group ID is required', 'paymentGroupId')
+    }
+  }
+
+  private extractStatementFromResponse(
+    response: ApiResponse<BillingStatement>,
+    request: BillingInput
+  ): BillingStatement {
+    const baseStatement = this.extractDataFromResponse(response)
+
+    // Runtime validation for critical response type
+    if (!validateBillingStatement(baseStatement)) {
+      throw new APIError(
+        'Invalid BillingStatement response: missing required fields',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    // Apply client-side enhancements (unpaid amount and late fee)
+    const unpaidAmount = request.unpaidAmount ?? 0
+    const lateFee =
+      request.isOverdue === true && unpaidAmount > 0
+        ? Math.floor(unpaidAmount * API_CONFIG.LATE_FEE.RATE)
+        : 0
+
+    return {
+      ...baseStatement,
+      unpaidAmount,
+      lateFee,
+      totalAmount: baseStatement.totalAmount + unpaidAmount + lateFee,
+    }
+  }
+
+  private extractDataFromResponse<T>(response: ApiResponse<T>): T {
+    // Validate response has header
+    if (!response.header || typeof response.header !== 'object') {
+      throw new APIError(
+        'Invalid API response: missing or invalid header',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    // New format: { header, data: T }
+    if ('data' in response && response.data !== undefined) {
+      if (typeof response.data !== 'object' || response.data === null) {
+        throw new APIError(
+          'Invalid API response: data field must be an object',
+          500,
+          ErrorCode.API_ERROR
+        )
+      }
+      return response.data
+    }
+
+    // Legacy format: { header, ...T } - for backwards compatibility
+    // Extract all non-header fields as the data
+    const originalResponse = response as unknown as Record<string, unknown>
+    const { header, ...data } = response as LegacyApiResponse<T>
+
+    // Runtime check: Warn about potential type collision
+    // If the original response has very few keys, it might indicate a 'header' field was lost
+    if (process.env.NODE_ENV === 'development') {
+      const responseKeys = Object.keys(originalResponse)
+      const dataKeys = Object.keys(data)
+
+      // If response has keys but data extracted very few, warn about potential collision
+      // This catches cases where T might have a 'header' field that got excluded
+      if (responseKeys.length > 1 && dataKeys.length === 0) {
+        console.warn(
+          '[API Warning] Legacy response format extracted no data fields. ' +
+          'If the response type T has a "header" field, it was excluded during destructuring. ' +
+          'Consider migrating this endpoint to use the new format: { header, data: T }'
+        )
+      }
+    }
+
+    // Validate we have some data beyond just the header
+    if (Object.keys(data).length === 0) {
+      throw new APIError(
+        'Invalid API response: no data found in response',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    return data as T
   }
 }
 
-export const billingAPI = new BillingAPIClient();
+// ============================================================================
+// Singleton Instance & Convenience Functions
+// ============================================================================
 
-// Export convenience functions with client-side enhancements
+export const billingAPI = new BillingAPIClient()
+
 export const calculateBilling = async (request: BillingInput): Promise<BillingStatement> => {
-  const statement = await billingAPI.calculateBilling(request);
+  return billingAPI.calculateBilling(request)
+}
 
-  // Add unpaid amount and late fee client-side (doesn't affect backend/tests)
-  const unpaidAmount = request.unpaidAmount || 0;
-  const lateFee = request.isOverdue && unpaidAmount > 0 ? unpaidAmount * 0.05 : 0;
+export const getPaymentStatements = async (uuid: string, month: string): Promise<BillingStatement> => {
+  return billingAPI.getPaymentStatements(uuid, month)
+}
+
+export const processPayment = async (
+  uuid: string,
+  month: string,
+  request: PaymentRequest
+): Promise<PaymentResult> => {
+  return billingAPI.processPayment(uuid, month, request)
+}
+
+// ============================================================================
+// Error Helper Functions
+// ============================================================================
+
+export const createCalculationError = (error: unknown): CalculationError => {
+  if (error instanceof ValidationError) {
+    return {
+      code: error.errorCode,
+      message: error.message,
+      field: error.field,
+      details: error.details,
+    }
+  }
+
+  if (error instanceof APIError) {
+    return {
+      code: error.errorCode,
+      message: error.message,
+      details: { statusCode: error.statusCode },
+    }
+  }
+
+  if (error instanceof NetworkError) {
+    return {
+      code: error.errorCode,
+      message: error.message,
+    }
+  }
+
+  if (error instanceof Error) {
+    return {
+      code: ErrorCode.UNKNOWN_ERROR,
+      message: error.message,
+    }
+  }
 
   return {
-    ...statement,
-    unpaidAmount,
-    lateFee,
-    totalAmount: statement.totalAmount + unpaidAmount + lateFee,
-  };
-};
-
-export const getPaymentStatements = (uuid: string, month: string) =>
-  billingAPI.getPaymentStatements(uuid, month);
-
-export const processPayment = (uuid: string, month: string, request: PaymentRequest) =>
-  billingAPI.processPayment(uuid, month, request);
+    code: ErrorCode.UNKNOWN_ERROR,
+    message: 'An unknown error occurred',
+  }
+}

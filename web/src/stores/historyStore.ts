@@ -1,57 +1,218 @@
 /**
- * History Store with Zustand
- * Manages calculation history with localStorage persistence
+ * History Store - Zustand State Management
+ * Type-safe localStorage persistence with proper serialization
  */
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { BillingInput, BillingStatement, PaymentResult } from '@/types/billing'
 
+// ============================================================================
+// Configuration
+// ============================================================================
+
+const STORE_CONFIG = {
+  STORAGE: {
+    NAME: 'billing-history-storage',
+    MAX_ENTRIES: 50,
+  },
+  ID: {
+    PREFIX: 'entry-',
+    RANDOM_LENGTH: 9,
+    RANDOM_BASE: 36,
+  },
+} as const
+
+// ============================================================================
+// Types
+// ============================================================================
+
 export interface HistoryEntry {
-  id: string
-  timestamp: Date
-  input: BillingInput
-  statement: BillingStatement | null
-  payment: PaymentResult | null
-  notes?: string
+  readonly id: string
+  readonly timestamp: Date
+  readonly input: BillingInput
+  readonly statement: BillingStatement | null
+  readonly payment: PaymentResult | null
+  readonly notes?: string
 }
 
-interface HistoryStore {
-  history: HistoryEntry[]
-  addEntry: (entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => void
-  updateEntry: (id: string, updates: Partial<HistoryEntry>) => void
-  deleteEntry: (id: string) => void
-  clearHistory: () => void
-  getEntry: (id: string) => HistoryEntry | undefined
+interface SerializedHistoryEntry {
+  readonly id: string
+  readonly timestamp: string
+  readonly input: SerializedBillingInput
+  readonly statement: SerializedBillingStatement | null
+  readonly payment: SerializedPaymentResult | null
+  readonly notes?: string
 }
+
+interface SerializedBillingInput extends Omit<BillingInput, 'targetDate'> {
+  readonly targetDate: string
+}
+
+interface SerializedBillingStatement extends Omit<BillingStatement, 'dueDate' | 'createdAt'> {
+  readonly dueDate?: string
+  readonly createdAt?: string
+}
+
+interface SerializedPaymentResult extends Omit<PaymentResult, 'transactionDate'> {
+  readonly transactionDate: string
+}
+
+interface PersistedState {
+  readonly history: ReadonlyArray<SerializedHistoryEntry>
+}
+
+// ============================================================================
+// Store Interface
+// ============================================================================
+
+interface HistoryStore {
+  readonly history: ReadonlyArray<HistoryEntry>
+  readonly addEntry: (entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => void
+  readonly updateEntry: (id: string, updates: Partial<Omit<HistoryEntry, 'id' | 'timestamp'>>) => void
+  readonly deleteEntry: (id: string) => void
+  readonly clearHistory: () => void
+  readonly getEntry: (id: string) => HistoryEntry | undefined
+}
+
+// ============================================================================
+// Serialization Helpers
+// ============================================================================
+
+const serializeDate = (date: Date | undefined): string | undefined => {
+  return date instanceof Date ? date.toISOString() : undefined
+}
+
+const deserializeDate = (dateStr: string | undefined): Date | undefined => {
+  if (!dateStr) return undefined
+  const date = new Date(dateStr)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+const serializeHistoryEntry = (entry: HistoryEntry): SerializedHistoryEntry => {
+  return {
+    id: entry.id,
+    timestamp: entry.timestamp.toISOString(),
+    input: {
+      ...entry.input,
+      targetDate: entry.input.targetDate.toISOString(),
+    },
+    statement: entry.statement
+      ? {
+          ...entry.statement,
+          dueDate: serializeDate(entry.statement.dueDate),
+          createdAt: serializeDate(entry.statement.createdAt),
+        }
+      : null,
+    payment: entry.payment
+      ? {
+          ...entry.payment,
+          transactionDate: entry.payment.transactionDate.toISOString(),
+        }
+      : null,
+    notes: entry.notes,
+  }
+}
+
+const deserializeHistoryEntry = (serialized: SerializedHistoryEntry): HistoryEntry => {
+  // Deserialize and validate all required date fields
+  const timestamp = deserializeDate(serialized.timestamp)
+  const targetDate = deserializeDate(serialized.input.targetDate)
+
+  // Ensure required date fields are valid
+  if (!timestamp || !targetDate) {
+    throw new Error(
+      `Invalid required date fields in history entry: ${serialized.id}. ` +
+      `timestamp=${serialized.timestamp}, targetDate=${serialized.input.targetDate}`
+    )
+  }
+
+  // Deserialize payment transaction date with validation
+  let transactionDate: Date | undefined
+  if (serialized.payment) {
+    transactionDate = deserializeDate(serialized.payment.transactionDate)
+    if (!transactionDate) {
+      // Use epoch as fallback for corrupted payment date to preserve data
+      console.warn(
+        `Invalid transactionDate in history entry ${serialized.id}: ${serialized.payment.transactionDate}. Using epoch.`
+      )
+      transactionDate = new Date(0)
+    }
+  }
+
+  return {
+    id: serialized.id,
+    timestamp,
+    input: {
+      ...serialized.input,
+      targetDate,
+    },
+    statement: serialized.statement
+      ? {
+          ...serialized.statement,
+          dueDate: deserializeDate(serialized.statement.dueDate),
+          createdAt: deserializeDate(serialized.statement.createdAt),
+        }
+      : null,
+    payment: serialized.payment
+      ? {
+          ...serialized.payment,
+          transactionDate: transactionDate!,
+        }
+      : null,
+    notes: serialized.notes,
+  }
+}
+
+// ============================================================================
+// ID Generation
+// ============================================================================
+
+const generateEntryId = (): string => {
+  const timestamp = Date.now()
+
+  // Use crypto.getRandomValues for secure random generation
+  const randomArray = new Uint32Array(1)
+  crypto.getRandomValues(randomArray)
+  const random = randomArray[0].toString(STORE_CONFIG.ID.RANDOM_BASE)
+    .substring(0, STORE_CONFIG.ID.RANDOM_LENGTH)
+    .padEnd(STORE_CONFIG.ID.RANDOM_LENGTH, '0')
+
+  return `${STORE_CONFIG.ID.PREFIX}${timestamp}-${random}`
+}
+
+// ============================================================================
+// Store Implementation
+// ============================================================================
 
 export const useHistoryStore = create<HistoryStore>()(
   persist(
     (set, get) => ({
       history: [],
 
-      addEntry: (entry) => {
+      addEntry: (entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => {
         const newEntry: HistoryEntry = {
           ...entry,
-          id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: generateEntryId(),
           timestamp: new Date(),
         }
+
         set((state) => ({
-          history: [newEntry, ...state.history].slice(0, 50), // Keep last 50 entries
+          history: [newEntry, ...state.history].slice(0, STORE_CONFIG.STORAGE.MAX_ENTRIES),
         }))
       },
 
-      updateEntry: (id, updates) => {
+      updateEntry: (id: string, updates: Partial<Omit<HistoryEntry, 'id' | 'timestamp'>>) => {
         set((state) => ({
-          history: state.history.map((entry: HistoryEntry) =>
+          history: state.history.map((entry) =>
             entry.id === id ? { ...entry, ...updates } : entry
           ),
         }))
       },
 
-      deleteEntry: (id) => {
+      deleteEntry: (id: string) => {
         set((state) => ({
-          history: state.history.filter((entry: HistoryEntry) => entry.id !== id),
+          history: state.history.filter((entry) => entry.id !== id),
         }))
       },
 
@@ -59,59 +220,62 @@ export const useHistoryStore = create<HistoryStore>()(
         set({ history: [] })
       },
 
-      getEntry: (id) => {
-        return get().history.find((entry: HistoryEntry) => entry.id === id)
+      getEntry: (id: string) => {
+        return get().history.find((entry) => entry.id === id)
       },
     }),
     {
-      name: 'billing-history-storage',
+      name: STORE_CONFIG.STORAGE.NAME,
+
       // Custom serialization to handle Date objects
-      partialize: (state) => ({
-        history: state.history.map((entry: HistoryEntry) => ({
-          ...entry,
-          timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp,
-          input: {
-            ...entry.input,
-            targetDate: entry.input.targetDate instanceof Date ? entry.input.targetDate.toISOString() : entry.input.targetDate,
-          },
-          statement: entry.statement ? {
-            ...entry.statement,
-            dueDate: entry.statement.dueDate instanceof Date ? entry.statement.dueDate.toISOString() : entry.statement.dueDate,
-            createdAt: entry.statement.createdAt instanceof Date ? entry.statement.createdAt.toISOString() : entry.statement.createdAt,
-          } : null,
-          payment: entry.payment ? {
-            ...entry.payment,
-            transactionDate: entry.payment.transactionDate instanceof Date ? entry.payment.transactionDate.toISOString() : entry.payment.transactionDate,
-          } : null,
-        })),
+      partialize: (state: HistoryStore): PersistedState => ({
+        history: state.history.map(serializeHistoryEntry),
       }),
+
       // Custom deserialization to convert strings back to Date objects
-      merge: (persistedState: any, currentState: HistoryStore) => {
-        if (!persistedState || !persistedState.history) {
+      merge: (persistedState: unknown, currentState: HistoryStore): HistoryStore => {
+        if (!isPersistedState(persistedState)) {
           return currentState
         }
 
-        return {
-          ...currentState,
-          history: persistedState.history.map((entry: any) => ({
-            ...entry,
-            timestamp: typeof entry.timestamp === 'string' ? new Date(entry.timestamp) : entry.timestamp,
-            input: {
-              ...entry.input,
-              targetDate: typeof entry.input.targetDate === 'string' ? new Date(entry.input.targetDate) : entry.input.targetDate,
-            },
-            statement: entry.statement ? {
-              ...entry.statement,
-              dueDate: typeof entry.statement.dueDate === 'string' ? new Date(entry.statement.dueDate) : entry.statement.dueDate,
-              createdAt: typeof entry.statement.createdAt === 'string' ? new Date(entry.statement.createdAt) : entry.statement.createdAt,
-            } : null,
-            payment: entry.payment ? {
-              ...entry.payment,
-              transactionDate: typeof entry.payment.transactionDate === 'string' ? new Date(entry.payment.transactionDate) : entry.payment.transactionDate,
-            } : null,
-          })),
+        try {
+          return {
+            ...currentState,
+            history: persistedState.history.map(deserializeHistoryEntry),
+          }
+        } catch (error) {
+          console.error('Failed to deserialize history store:', error)
+          return currentState
         }
       },
     }
   )
 )
+
+// ============================================================================
+// Type Guard
+// ============================================================================
+
+function isPersistedState(value: unknown): value is PersistedState {
+  if (!value || typeof value !== 'object') return false
+  const obj = value as Record<string, unknown>
+
+  if (!Array.isArray(obj.history)) return false
+
+  // Validate each entry has required fields
+  return obj.history.every((entry) => {
+    if (!entry || typeof entry !== 'object') return false
+    const e = entry as Record<string, unknown>
+
+    // Validate date strings can be parsed
+    const timestamp = typeof e.timestamp === 'string' ? new Date(e.timestamp) : null
+    if (!timestamp || Number.isNaN(timestamp.getTime())) return false
+
+    return (
+      typeof e.id === 'string' &&
+      typeof e.timestamp === 'string' &&
+      e.input !== undefined &&
+      typeof e.input === 'object'
+    )
+  })
+}

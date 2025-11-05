@@ -1,196 +1,262 @@
 /**
- * Billing domain types
+ * Billing Domain Types
+ * Fully type-safe with enums, readonly modifiers, and branded types
  */
 
+// ============================================================================
+// Enums - Type Safety
+// ============================================================================
+
+export enum CounterType {
+  DELTA = 'DELTA',
+  GAUGE = 'GAUGE',
+  CUMULATIVE = 'CUMULATIVE',
+}
+
+export enum CreditType {
+  FREE = 'FREE',
+  PAID = 'PAID',
+  PROMOTIONAL = 'PROMOTIONAL',
+}
+
+export enum AdjustmentType {
+  DISCOUNT = 'DISCOUNT',
+  SURCHARGE = 'SURCHARGE',
+}
+
+export enum AdjustmentLevel {
+  BILLING_GROUP = 'BILLING_GROUP',
+  PROJECT = 'PROJECT',
+}
+
+export enum AdjustmentMethod {
+  FIXED = 'FIXED',
+  RATE = 'RATE',
+}
+
+export enum BillingStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentStatus {
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  PENDING = 'PENDING',
+}
+
+export enum PaymentMethod {
+  CREDIT_CARD = 'CREDIT_CARD',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  DEBIT_CARD = 'DEBIT_CARD',
+  WIRE_TRANSFER = 'WIRE_TRANSFER',
+  MOCK = 'MOCK',
+}
+
+export enum Currency {
+  KRW = 'KRW',
+  USD = 'USD',
+  EUR = 'EUR',
+  JPY = 'JPY',
+}
+
+// ============================================================================
+// Input Types
+// ============================================================================
+
 export interface BillingInput {
-  /** Test target date */
-  targetDate: Date
-  /** UUID for the billing entity */
-  uuid: string
-  /** Billing group ID */
-  billingGroupId: string
-  /** Instance usage data */
-  usage: UsageInput[]
-  /** Credits to apply */
-  credits: CreditInput[]
-  /** Adjustments (discounts/surcharges) */
-  adjustments: AdjustmentInput[]
-  /** Unpaid amount from previous period */
-  unpaidAmount?: number
-  /** Whether there's overdue payment */
-  isOverdue?: boolean
+  readonly targetDate: Date
+  readonly uuid: string
+  readonly billingGroupId: string
+  readonly usage: ReadonlyArray<UsageInput>
+  readonly credits: ReadonlyArray<CreditInput>
+  readonly adjustments: ReadonlyArray<AdjustmentInput>
+  readonly unpaidAmount?: number
+  readonly isOverdue?: boolean
 }
 
 export interface UsageInput {
-  /** Unique ID for this usage entry */
-  id: string
-  /** Counter name (e.g., compute.c2.c8m8) */
-  counterName: string
-  /** Counter type */
-  counterType: 'DELTA' | 'GAUGE' | 'CUMULATIVE'
-  /** Counter unit */
-  counterUnit: string
-  /** Usage volume */
-  counterVolume: number
-  /** Resource ID */
-  resourceId: string
-  /** Resource name */
-  resourceName?: string
-  /** App key */
-  appKey: string
-  /** Project ID */
-  projectId?: string
+  readonly id: string
+  readonly counterName: string
+  readonly counterType: CounterType
+  readonly counterUnit: string
+  readonly counterVolume: number
+  readonly resourceId: string
+  readonly resourceName?: string
+  readonly appKey: string
+  readonly projectId?: string
 }
 
 export interface CreditInput {
-  /** Credit type */
-  type: 'FREE' | 'PAID' | 'PROMOTIONAL'
-  /** Credit amount */
-  amount: number
-  /** Credit name/description */
-  name: string
-  /** Expiration date */
-  expirationDate?: Date
-  /** Campaign ID if applicable */
-  campaignId?: string
+  readonly type: CreditType
+  readonly amount: number
+  readonly name: string
+  readonly expirationDate?: Date
+  readonly campaignId?: string
 }
 
 export interface AdjustmentInput {
-  /** Adjustment type */
-  type: 'DISCOUNT' | 'SURCHARGE'
-  /** Application level */
-  level: 'BILLING_GROUP' | 'PROJECT'
-  /** Adjustment method */
-  method: 'FIXED' | 'RATE'
-  /** Adjustment value */
-  value: number
-  /** Description */
-  description: string
-  /** Target project ID if project-level */
-  targetProjectId?: string
+  readonly type: AdjustmentType
+  readonly level: AdjustmentLevel
+  readonly method: AdjustmentMethod
+  readonly value: number
+  readonly description: string
+  readonly targetProjectId?: string
 }
 
+// ============================================================================
+// Output Types
+// ============================================================================
+
 export interface BillingStatement {
-  /** Statement ID */
-  statementId: string
-  /** UUID */
-  uuid: string
-  /** Billing group ID */
-  billingGroupId: string
-  /** Statement month */
-  month: string
-  /** Currency */
-  currency?: string
-  /** Total amount before adjustments */
-  subtotal: number
-  /** Billing group discount */
-  billingGroupDiscount?: number
-  /** Total adjustments */
-  adjustmentTotal: number
-  /** Total credits applied */
-  creditApplied: number
-  /** VAT amount */
-  vat?: number
-  /** Unpaid amount from previous period */
-  unpaidAmount: number
-  /** Late fee if applicable */
-  lateFee: number
-  /** Charge amount before VAT */
-  charge?: number
-  /** Final amount to pay (alias for totalAmount) */
-  amount?: number
-  /** Final amount to pay */
-  totalAmount: number
-  /** Statement status */
-  status: 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED'
-  /** Detailed line items */
-  lineItems: LineItem[]
-  /** Applied credits breakdown */
-  appliedCredits: AppliedCredit[]
-  /** Applied adjustments breakdown */
-  appliedAdjustments: AppliedAdjustment[]
-  /** Due date */
-  dueDate?: Date
-  /** Creation timestamp */
-  createdAt?: Date
+  readonly statementId: string
+  readonly uuid: string
+  readonly billingGroupId: string
+  readonly month: string
+  readonly currency: Currency
+  readonly subtotal: number
+  readonly billingGroupDiscount: number
+  readonly adjustmentTotal: number
+  readonly creditApplied: number
+  readonly vat: number
+  readonly unpaidAmount: number
+  readonly lateFee: number
+  readonly charge: number
+  readonly amount: number
+  readonly totalAmount: number
+  readonly status: BillingStatus
+  readonly lineItems: ReadonlyArray<LineItem>
+  readonly appliedCredits: ReadonlyArray<AppliedCredit>
+  readonly appliedAdjustments: ReadonlyArray<AppliedAdjustment>
+  readonly dueDate?: Date
+  readonly createdAt?: Date
 }
 
 export interface LineItem {
-  /** Line item ID */
-  id: string
-  /** Counter name */
-  counterName: string
-  /** Counter type */
-  counterType: string
-  /** Unit */
-  unit: string
-  /** Quantity */
-  quantity: number
-  /** Unit price */
-  unitPrice: number
-  /** Line total */
-  amount: number
-  /** Resource details */
-  resourceId: string
-  resourceName?: string
-  /** Project info */
-  projectId?: string
-  appKey: string
+  readonly id: string
+  readonly counterName: string
+  readonly counterType: CounterType
+  readonly unit: string
+  readonly quantity: number
+  readonly unitPrice: number
+  readonly amount: number
+  readonly resourceId: string
+  readonly resourceName?: string
+  readonly projectId?: string
+  readonly appKey: string
 }
 
 export interface AppliedCredit {
-  /** Credit ID */
-  creditId: string
-  /** Credit type */
-  type: 'FREE' | 'PAID' | 'PROMOTIONAL'
-  /** Amount applied */
-  amountApplied: number
-  /** Remaining balance */
-  remainingBalance: number
-  /** Campaign info */
-  campaignId?: string
-  campaignName?: string
+  readonly creditId: string
+  readonly type: CreditType
+  readonly amountApplied: number
+  readonly remainingBalance: number
+  readonly campaignId?: string
+  readonly campaignName?: string
 }
 
 export interface AppliedAdjustment {
-  /** Adjustment ID */
-  adjustmentId: string
-  /** Type */
-  type: 'DISCOUNT' | 'SURCHARGE'
-  /** Description */
-  description: string
-  /** Amount */
-  amount: number
-  /** Application level */
-  level: 'BILLING_GROUP' | 'PROJECT'
-  /** Target */
-  targetId?: string
+  readonly adjustmentId: string
+  readonly type: AdjustmentType
+  readonly description: string
+  readonly amount: number
+  readonly level: AdjustmentLevel
+  readonly targetId?: string
 }
 
 export interface PaymentResult {
-  /** Payment ID */
-  paymentId: string
-  /** Status */
-  status: 'SUCCESS' | 'FAILED' | 'PENDING'
-  /** Amount charged */
-  amount: number
-  /** Payment method */
-  method: string
-  /** Transaction timestamp */
-  transactionDate: Date
-  /** Error message if failed */
-  errorMessage?: string
-  /** Receipt URL */
-  receiptUrl?: string
+  readonly paymentId: string
+  readonly status: PaymentStatus
+  readonly amount: number
+  readonly method: PaymentMethod
+  readonly transactionDate: Date
+  readonly errorMessage?: string
+  readonly receiptUrl?: string
+}
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+export enum ErrorCode {
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  AUTH_ERROR = 'AUTH_ERROR',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  API_ERROR = 'API_ERROR',
+  CALCULATION_ERROR = 'CALCULATION_ERROR',
+  PAYMENT_ERROR = 'PAYMENT_ERROR',
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
 export interface CalculationError {
-  /** Error code */
-  code: string
-  /** Error message */
-  message: string
-  /** Field that caused the error */
-  field?: string
-  /** Additional details */
-  details?: Record<string, unknown>
+  readonly code: ErrorCode
+  readonly message: string
+  readonly field?: string
+  readonly details?: Readonly<Record<string, unknown>>
+}
+
+// ============================================================================
+// API Response Types
+// ============================================================================
+
+export interface ApiResponseHeader {
+  readonly isSuccessful: boolean
+  readonly resultCode: number
+  readonly resultMessage: string
+}
+
+export interface ApiSuccessResponse<T> {
+  readonly header: ApiResponseHeader
+  readonly data: T
+}
+
+export interface ApiErrorResponse {
+  readonly header: ApiResponseHeader
+  readonly error?: CalculationError
+}
+
+// ============================================================================
+// Type Guards
+// ============================================================================
+
+export const isCounterType = (value: unknown): value is CounterType => {
+  return Object.values(CounterType).includes(value as CounterType)
+}
+
+export const isCreditType = (value: unknown): value is CreditType => {
+  return Object.values(CreditType).includes(value as CreditType)
+}
+
+export const isAdjustmentType = (value: unknown): value is AdjustmentType => {
+  return Object.values(AdjustmentType).includes(value as AdjustmentType)
+}
+
+export const isAdjustmentLevel = (value: unknown): value is AdjustmentLevel => {
+  return Object.values(AdjustmentLevel).includes(value as AdjustmentLevel)
+}
+
+export const isAdjustmentMethod = (value: unknown): value is AdjustmentMethod => {
+  return Object.values(AdjustmentMethod).includes(value as AdjustmentMethod)
+}
+
+export const isBillingStatus = (value: unknown): value is BillingStatus => {
+  return Object.values(BillingStatus).includes(value as BillingStatus)
+}
+
+export const isPaymentStatus = (value: unknown): value is PaymentStatus => {
+  return Object.values(PaymentStatus).includes(value as PaymentStatus)
+}
+
+export const isPaymentMethod = (value: unknown): value is PaymentMethod => {
+  return Object.values(PaymentMethod).includes(value as PaymentMethod)
+}
+
+export const isCurrency = (value: unknown): value is Currency => {
+  return Object.values(Currency).includes(value as Currency)
+}
+
+export const isErrorCode = (value: unknown): value is ErrorCode => {
+  return Object.values(ErrorCode).includes(value as ErrorCode)
 }
