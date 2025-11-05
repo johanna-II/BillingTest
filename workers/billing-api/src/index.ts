@@ -329,50 +329,52 @@ const assertPositiveNumber = (
  * Handles all JavaScript types with appropriate formatting
  */
 const formatValue = (value: unknown): string => {
+  // Handle null and undefined first
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
 
-  // Get the type of value
-  const valueType = typeof value
-
-  // Handle each JavaScript type explicitly
-  switch (valueType) {
-    case 'string':
-      return value as string
-
-    case 'number':
-      return String(value)
-
-    case 'boolean':
-      return String(value)
-
-    case 'bigint':
-      return `${value}n`
-
-    case 'object':
-      // Objects and arrays - use JSON.stringify
-      try {
-        return JSON.stringify(value)
-      } catch {
-        // Fallback for circular references or non-serializable objects
-        return '[object Object]'
-      }
-
-    case 'function':
-      return '[function]'
-
-    case 'symbol':
-      return (value as symbol).toString()
-
-    case 'undefined':
-      // Already handled above, but included for completeness
-      return 'undefined'
-
-    default:
-      // TypeScript ensures we've covered all possible typeof results
-      // This is a safety fallback that should never execute
-      return '[unknown type]'
+  // Type guard for string
+  if (typeof value === 'string') {
+    return value
   }
+
+  // Type guard for number
+  if (typeof value === 'number') {
+    return String(value)
+  }
+
+  // Type guard for boolean
+  if (typeof value === 'boolean') {
+    return String(value)
+  }
+
+  // Type guard for bigint
+  if (typeof value === 'bigint') {
+    return `${value}n`
+  }
+
+  // Type guard for function
+  if (typeof value === 'function') {
+    return '[function]'
+  }
+
+  // Type guard for symbol
+  if (typeof value === 'symbol') {
+    return value.toString()
+  }
+
+  // Type guard for object (includes arrays and null, but null already handled)
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      // Fallback for circular references or non-serializable objects
+      return '[object Object]'
+    }
+  }
+
+  // Exhaustive fallback - should never reach here
+  return '[unknown type]'
 }
 
 // ============================================================================
