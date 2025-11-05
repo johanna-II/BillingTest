@@ -369,39 +369,39 @@ function getUnitPrice(counterName: string): number {
 function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
   // Check if this is a legacy format (has adjustmentType)
   if ('adjustmentType' in item) {
-    const legacy = item as LegacyAdjustmentItem
-
     // Runtime validation: ensure adjustmentType is valid
-    if (legacy.adjustmentType !== 'DISCOUNT' && legacy.adjustmentType !== 'SURCHARGE') {
+    if (item.adjustmentType !== 'DISCOUNT' && item.adjustmentType !== 'SURCHARGE') {
       throw new Error(
-        `Invalid adjustment type: "${legacy.adjustmentType}". Must be "DISCOUNT" or "SURCHARGE".`
+        `Invalid adjustment type: "${item.adjustmentType}". Must be "DISCOUNT" or "SURCHARGE".`
       )
     }
 
+    // Type is validated, safe to use
+    const validType: 'DISCOUNT' | 'SURCHARGE' = item.adjustmentType
+
     const normalized: AdjustmentItem = {
-      type: legacy.adjustmentType as 'DISCOUNT' | 'SURCHARGE',
-      method: legacy.method,
-      value: legacy.adjustmentValue,
+      type: validType,
+      method: item.method,
+      value: item.adjustmentValue,
     }
 
     // Copy optional fields
-    if (legacy.description) normalized.description = legacy.description
-    if (legacy.level) normalized.level = legacy.level
-    if (legacy.targetProjectId) normalized.targetProjectId = legacy.targetProjectId
-    if (legacy.month) normalized.month = legacy.month
+    if (item.description) normalized.description = item.description
+    if (item.level) normalized.level = item.level
+    if (item.targetProjectId) normalized.targetProjectId = item.targetProjectId
+    if (item.month) normalized.month = item.month
 
     return normalized
   }
 
   // Already modern format - validate type field
-  const modern = item as AdjustmentItem
-  if (modern.type !== 'DISCOUNT' && modern.type !== 'SURCHARGE') {
+  if (item.type !== 'DISCOUNT' && item.type !== 'SURCHARGE') {
     throw new Error(
-      `Invalid adjustment type: "${modern.type}". Must be "DISCOUNT" or "SURCHARGE".`
+      `Invalid adjustment type: "${item.type}". Must be "DISCOUNT" or "SURCHARGE".`
     )
   }
 
-  return modern
+  return item
 }
 
 // Helper: 조정 금액 계산

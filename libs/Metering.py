@@ -185,14 +185,14 @@ class MeteringManager:
             ValueError: If app_key is not provided
         """
         # Handle deprecated underscore-prefixed parameters
-        if _target_time is not None:
+        if _target_time is not None:  # pragma: no cover
             warnings.warn(
                 "_target_time is deprecated, use target_time instead",
                 DeprecationWarning,
                 stacklevel=2,
             )
 
-        if _app_id is not None:
+        if _app_id is not None:  # pragma: no cover
             warnings.warn(
                 "_app_id is deprecated, use app_id instead",
                 DeprecationWarning,
@@ -200,7 +200,7 @@ class MeteringManager:
             )
 
         # Silence unused parameter warnings - these are kept for backward compatibility
-        _ = (target_time, uuid, app_id, project_id)
+        _ = (target_time, uuid, app_id, project_id)  # pragma: no cover
 
         # Use instance appkey if app_key not provided (legacy pattern)
         if app_key is None:
