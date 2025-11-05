@@ -202,7 +202,9 @@ class MeteringManager:
         for param, message in deprecated_params.items():
             if param in kwargs:
                 logger.warning(
-                    f"Deprecated parameter '{param}' passed to send_iaas_metering: {message}"
+                    "Deprecated parameter '%s' passed to send_iaas_metering: %s",
+                    param,
+                    message,
                 )
                 # Remove deprecated parameter from kwargs
                 kwargs.pop(param)
@@ -210,12 +212,13 @@ class MeteringManager:
         # Warn about any remaining unexpected kwargs
         if kwargs:
             logger.warning(
-                f"Unexpected parameters passed to send_iaas_metering and will be ignored: {list(kwargs.keys())}"
+                "Unexpected parameters passed to send_iaas_metering and will be ignored: %s",
+                list(kwargs.keys()),
             )
 
         # Use instance appkey if app_key not provided (legacy pattern)
         if app_key is None:
-            app_key = getattr(self, "appkey", None)
+            app_key = self.appkey
             if app_key is None:
                 msg = "app_key must be provided or set as self.appkey"
                 raise ValueError(msg)

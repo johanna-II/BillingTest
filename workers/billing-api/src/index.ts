@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, Context } from 'hono'
 import { cors } from 'hono/cors'
 
 // ============================================================================
@@ -92,7 +92,7 @@ const app = new Hono<{ Bindings: Env }>()
 
 // CORS 설정 - 모든 도메인 허용 또는 특정 도메인만
 app.use('/*', cors({
-  origin: (origin) => {
+  origin: (origin: string | undefined) => {
     // 로컬 개발 또는 Cloudflare Pages/Workers 도메인 허용
     const allowedOrigins = [
       'http://localhost:3000',
@@ -120,7 +120,7 @@ app.use('/*', cors({
 }))
 
 // Health check
-app.get('/health', (c) => {
+app.get('/health', (c: Context<{ Bindings: Env }>) => {
   return c.json({
     header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
     status: 'healthy',
@@ -129,7 +129,7 @@ app.get('/health', (c) => {
 })
 
 // Calculate billing endpoint
-app.post('/api/billing/admin/calculate', async (c) => {
+app.post('/api/billing/admin/calculate', async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
 
@@ -141,7 +141,6 @@ app.post('/api/billing/admin/calculate', async (c) => {
     try {
       body = await c.req.json<BillingRequest>()
     } catch (err) {
-      console.error('Failed to parse billing request JSON:', err)
       return c.json({
         header: {
           isSuccessful: false,
@@ -158,7 +157,6 @@ app.post('/api/billing/admin/calculate', async (c) => {
     try {
       normalizedAdjustments = adjustments.map(normalizeAdjustmentItem)
     } catch (err) {
-      console.error('Invalid adjustment item:', err)
       return c.json({
         header: {
           isSuccessful: false,
@@ -258,7 +256,6 @@ app.post('/api/billing/admin/calculate', async (c) => {
     }))
   })
   } catch (error) {
-    console.error('Calculate billing error:', error)
     return c.json({
       header: {
         isSuccessful: false,
@@ -270,7 +267,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
 })
 
 // Get payment statements
-app.get('/api/billing/payments/:month/statements', async (c) => {
+app.get('/api/billing/payments/:month/statements', async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
     const month = c.req.param('month')
@@ -301,7 +298,6 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
       }]
     })
   } catch (error) {
-    console.error('Get statements error:', error)
     return c.json({
       header: {
         isSuccessful: false,
@@ -313,7 +309,7 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
 })
 
 // Process payment
-app.post('/api/billing/payments/:month', async (c) => {
+app.post('/api/billing/payments/:month', async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
 
@@ -322,7 +318,6 @@ app.post('/api/billing/payments/:month', async (c) => {
     try {
       body = await c.req.json<PaymentRequest>()
     } catch (err) {
-      console.error('Failed to parse payment request JSON:', err)
       return c.json({
         header: {
           isSuccessful: false,
@@ -343,7 +338,6 @@ app.post('/api/billing/payments/:month', async (c) => {
       receiptUrl: `https://receipt.example.com/${Date.now()}`
     })
   } catch (error) {
-    console.error('Payment processing error:', error)
     return c.json({
       header: {
         isSuccessful: false,
@@ -383,6 +377,30 @@ function validateAdjustmentMethod(value: string): asserts value is 'FIXED' | 'RA
   }
 }
 
+// Helper: Validate adjustment value (presence, type, and positivity)
+function validateAdjustmentValue(value: unknown, fieldName: string): asserts value is number {
+  // Check presence
+  if (value === undefined || value === null) {
+    throw new Error(
+      `Missing required field: ${fieldName} must be provided.`
+    )
+  }
+
+  // Check type and finiteness
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(
+      `Invalid ${fieldName}: "${value}". Must be a finite number (not NaN or Infinity).`
+    )
+  }
+
+  // Check positivity
+  if (value <= 0) {
+    throw new Error(
+      `Invalid ${fieldName}: "${value}". Must be a positive number greater than 0.`
+    )
+  }
+}
+
 // Helper: Normalize adjustment item with runtime validation
 function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
   // Check if this is a legacy format (has adjustmentType)
@@ -393,18 +411,8 @@ function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
     // Validate method using helper with assertion signature
     validateAdjustmentMethod(item.method)
 
-    // Validate adjustmentValue is present and a finite number
-    if (item.adjustmentValue === undefined || item.adjustmentValue === null) {
-      throw new Error(
-        `Missing required field: adjustmentValue must be provided in legacy format.`
-      )
-    }
-
-    if (typeof item.adjustmentValue !== 'number' || !Number.isFinite(item.adjustmentValue)) {
-      throw new TypeError(
-        `Invalid adjustmentValue: "${item.adjustmentValue}". Must be a finite number (not NaN or Infinity).`
-      )
-    }
+    // Validate adjustmentValue (presence, type, positivity)
+    validateAdjustmentValue(item.adjustmentValue, 'adjustmentValue')
 
     const normalized: AdjustmentItem = {
       type: item.adjustmentType,
@@ -425,18 +433,8 @@ function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
   validateAdjustmentType(item.type)
   validateAdjustmentMethod(item.method)
 
-  // Validate value is present and a finite number
-  if (item.value === undefined || item.value === null) {
-    throw new Error(
-      `Missing required field: value must be provided.`
-    )
-  }
-
-  if (typeof item.value !== 'number' || !Number.isFinite(item.value)) {
-    throw new TypeError(
-      `Invalid value: "${item.value}". Must be a finite number (not NaN or Infinity).`
-    )
-  }
+  // Validate value (presence, type, positivity)
+  validateAdjustmentValue(item.value, 'value')
 
   return item
 }
