@@ -12,6 +12,9 @@ sys.path.insert(0, "..")
 
 from libs.Metering import MeteringManager
 
+# Constants
+COUNTER_NAME_COMPUTE_C2_C8M8 = "compute.c2.c8m8"
+
 # Configure logging to show warnings
 logging.basicConfig(
     level=logging.WARNING, format="%(levelname)s - %(name)s - %(message)s"
@@ -34,7 +37,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
     )
@@ -44,7 +47,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
         target_time="2024-01-01",  # DEPRECATED
@@ -55,7 +58,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
         uuid="test-uuid-123",  # DEPRECATED
@@ -66,7 +69,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
         app_id="old-app-id",  # DEPRECATED
@@ -77,7 +80,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
         project_id="old-project-id",  # DEPRECATED
@@ -88,7 +91,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
         target_time="2024-01-01",  # DEPRECATED
@@ -102,7 +105,7 @@ with patch("libs.Metering.BillingAPIClient") as mock_client_class:
     print("-" * 80)
     result = metering.send_iaas_metering(
         app_key="test-app",
-        counter_name="compute.c2.c8m8",
+        counter_name=COUNTER_NAME_COMPUTE_C2_C8M8,
         counter_unit="HOURS",
         counter_volume="10",
         unknown_param="some-value",  # NOT in deprecated list

@@ -401,7 +401,7 @@ function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
     }
 
     if (typeof item.adjustmentValue !== 'number' || !Number.isFinite(item.adjustmentValue)) {
-      throw new Error(
+      throw new TypeError(
         `Invalid adjustmentValue: "${item.adjustmentValue}". Must be a finite number (not NaN or Infinity).`
       )
     }
@@ -433,7 +433,7 @@ function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
   }
 
   if (typeof item.value !== 'number' || !Number.isFinite(item.value)) {
-    throw new Error(
+    throw new TypeError(
       `Invalid value: "${item.value}". Must be a finite number (not NaN or Infinity).`
     )
   }
