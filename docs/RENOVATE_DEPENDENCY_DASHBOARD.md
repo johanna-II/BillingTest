@@ -7,6 +7,7 @@ The Dependency Dashboard is an automated issue created and maintained by Renovat
 ## What is the Dependency Dashboard?
 
 The Dependency Dashboard (Issue) serves as a centralized location to:
+
 - View all pending dependency updates
 - Track which updates are awaiting their schedule
 - Manually trigger updates before their scheduled time
@@ -17,6 +18,7 @@ The Dependency Dashboard (Issue) serves as a centralized location to:
 ### Awaiting Schedule
 
 This section lists dependency updates that are scheduled to run at specific times based on the `renovate.json` configuration. The current configuration uses:
+
 - **Weekly schedule**: Updates are grouped and created once per week
 - **Package-specific schedules** (see `renovate.json` for current details):
   - Example: pytest packages, linting tools, OpenTelemetry, Flask
@@ -27,6 +29,7 @@ To trigger an update immediately, simply check the box next to the update in the
 ### Detected Dependencies
 
 This section would display all detected dependencies in the repository. It appears when:
+
 - `:dependencyDashboardApproval` preset is enabled (requires manual approval for updates)
 - Renovate first scans the repository
 - There are specific dependency issues to highlight
@@ -38,6 +41,7 @@ This section would display all detected dependencies in the repository. It appea
 Location: `renovate.json`
 
 Key features:
+
 - **Dependency Dashboard**: Enabled via `:dependencyDashboard` preset
 - **Semantic Commits**: Uses conventional commit format
 - **Grouped Updates**: Non-major updates are grouped together
@@ -48,6 +52,7 @@ Key features:
 ## Package Management
 
 The repository uses multiple package managers:
+
 - **Poetry**: Python dependencies (pyproject.toml)
 - **pip**: Python requirements (requirements*.txt files)
 - **npm**: JavaScript/TypeScript dependencies (package.json in web/ and workers/billing-api/)
@@ -64,6 +69,7 @@ The repository uses multiple package managers:
 ## Dependency Groups
 
 The configuration includes several package groups:
+
 - **pytest packages**: All pytest-related dependencies
 - **linting tools**: mypy, ruff, black
 - **OpenTelemetry packages**: All opentelemetry-* packages
@@ -73,6 +79,7 @@ The configuration includes several package groups:
 ## Triggering Updates Manually
 
 To manually trigger an update before its scheduled time:
+
 1. Navigate to the Dependency Dashboard issue
 2. Find the update in the "Awaiting Schedule" section
 3. Check the box next to the update
@@ -80,9 +87,10 @@ To manually trigger an update before its scheduled time:
 
 ## No Action Required
 
-⚠️ **Important**: The Dependency Dashboard issue itself is **not a bug or problem**. It's a feature that provides visibility into dependency management. 
+⚠️ **Important**: The Dependency Dashboard issue itself is **not a bug or problem**. It's a feature that provides visibility into dependency management.
 
 The issue will:
+
 - Update automatically as Renovate scans for updates
 - Remain persistently open to track pending updates
 - Display current status of scheduled and awaiting dependency updates
