@@ -389,7 +389,7 @@ function validateAdjustmentValue(value: unknown, fieldName: string): asserts val
   // Check type and finiteness
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(
-      `Invalid ${fieldName}: "${value}". Must be a finite number (not NaN or Infinity).`
+      `Invalid ${fieldName}: "${String(value)}". Must be a finite number (not NaN or Infinity).`
     )
   }
 

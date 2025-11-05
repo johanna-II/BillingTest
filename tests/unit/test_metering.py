@@ -314,7 +314,7 @@ class TestMeteringManagerUnit:
 
         # Verify unexpected kwargs are not included in the API payload
         call_args = self.mock_client.post.call_args
-        json_data = call_args[1]["json"]
+        json_data = call_args[1]["json_data"]
         meter_entry = json_data["meterList"][0]
         assert "unknown_param" not in meter_entry
         assert "another_param" not in meter_entry
