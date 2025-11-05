@@ -32,7 +32,6 @@ interface CreditItem {
   restAmount?: number
 }
 
-// Modern adjustment item format
 interface AdjustmentItem {
   // Required fields for type safety
   type: 'DISCOUNT' | 'SURCHARGE'
@@ -45,20 +44,18 @@ interface AdjustmentItem {
   month?: string
 }
 
-// Legacy adjustment item format for backward compatibility
+// Legacy adjustment format for backward compatibility
 interface LegacyAdjustmentItem {
-  // Required fields
-  adjustmentType: string  // Should be "DISCOUNT" or "SURCHARGE"
+  adjustmentType: string
   method: 'FIXED' | 'RATE'
   adjustmentValue: number
-  // Optional fields
   description?: string
   level?: string
   targetProjectId?: string
   month?: string
 }
 
-// Union type to accept either format
+// Union type to accept either modern or legacy format
 type AdjustmentItemInput = AdjustmentItem | LegacyAdjustmentItem
 
 interface BillingRequest {
@@ -137,16 +134,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
     const uuid = c.req.header('uuid')
 
     // Get configurable VAT rate from environment or use default
-    let vatRate = DEFAULT_VAT_RATE
-    if (c.env.VAT_RATE) {
-      const parsedVatRate = Number.parseFloat(c.env.VAT_RATE)
-      if (!Number.isFinite(parsedVatRate) || parsedVatRate < 0 || parsedVatRate > 1) {
-        console.error(`Invalid VAT_RATE environment variable: "${c.env.VAT_RATE}". Expected a finite number between 0 and 1. Falling back to default: ${DEFAULT_VAT_RATE}`)
-        // vatRate remains DEFAULT_VAT_RATE
-      } else {
-        vatRate = parsedVatRate
-      }
-    }
+    const vatRate = c.env.VAT_RATE ? Number.parseFloat(c.env.VAT_RATE) : DEFAULT_VAT_RATE
 
     // Parse request body - don't hide JSON errors
     let body: BillingRequest
@@ -165,8 +153,20 @@ app.post('/api/billing/admin/calculate', async (c) => {
 
     const { usage = [], credits = [], adjustments = [] } = body
 
-    // Normalize adjustments to modern format
-    const normalizedAdjustments = adjustments.map(normalizeAdjustmentItem)
+    // Normalize adjustments (convert legacy format and validate)
+    let normalizedAdjustments: AdjustmentItem[]
+    try {
+      normalizedAdjustments = adjustments.map(normalizeAdjustmentItem)
+    } catch (err) {
+      console.error('Invalid adjustment item:', err)
+      return c.json({
+        header: {
+          isSuccessful: false,
+          resultCode: -1,
+          resultMessage: err instanceof Error ? err.message : 'Invalid adjustment data'
+        }
+      }, 400)
+    }
 
     // 사용량 계산
     const subtotal = usage.reduce((sum: number, item: UsageItem) => {
@@ -354,38 +354,6 @@ app.post('/api/billing/payments/:month', async (c) => {
   }
 })
 
-// Helper: Normalize adjustment item to modern format
-function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
-  // Check if this is a legacy format (has adjustmentType)
-  if ('adjustmentType' in item) {
-    const legacy = item as LegacyAdjustmentItem
-    return {
-      type: legacy.adjustmentType as 'DISCOUNT' | 'SURCHARGE',
-      method: legacy.method,
-      value: legacy.adjustmentValue,
-      description: legacy.description,
-      level: legacy.level,
-      targetProjectId: legacy.targetProjectId,
-      month: legacy.month
-    }
-  }
-  // Already modern format
-  return item as AdjustmentItem
-}
-
-// Helper: Convert modern to legacy format
-function toLegacyAdjustmentItem(item: AdjustmentItem): LegacyAdjustmentItem {
-  return {
-    adjustmentType: item.type,
-    method: item.method,
-    adjustmentValue: item.value,
-    description: item.description,
-    level: item.level,
-    targetProjectId: item.targetProjectId,
-    month: item.month
-  }
-}
-
 // Helper: 단가 계산 (단위당 가격)
 function getUnitPrice(counterName: string): number {
   const prices: Record<string, number> = {
@@ -395,6 +363,45 @@ function getUnitPrice(counterName: string): number {
     'network.floating_ip': 25         // 25원/시간
   }
   return prices[counterName] || 100
+}
+
+// Helper: Normalize adjustment item with runtime validation
+function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
+  // Check if this is a legacy format (has adjustmentType)
+  if ('adjustmentType' in item) {
+    const legacy = item as LegacyAdjustmentItem
+
+    // Runtime validation: ensure adjustmentType is valid
+    if (legacy.adjustmentType !== 'DISCOUNT' && legacy.adjustmentType !== 'SURCHARGE') {
+      throw new Error(
+        `Invalid adjustment type: "${legacy.adjustmentType}". Must be "DISCOUNT" or "SURCHARGE".`
+      )
+    }
+
+    const normalized: AdjustmentItem = {
+      type: legacy.adjustmentType as 'DISCOUNT' | 'SURCHARGE',
+      method: legacy.method,
+      value: legacy.adjustmentValue,
+    }
+
+    // Copy optional fields
+    if (legacy.description) normalized.description = legacy.description
+    if (legacy.level) normalized.level = legacy.level
+    if (legacy.targetProjectId) normalized.targetProjectId = legacy.targetProjectId
+    if (legacy.month) normalized.month = legacy.month
+
+    return normalized
+  }
+
+  // Already modern format - validate type field
+  const modern = item as AdjustmentItem
+  if (modern.type !== 'DISCOUNT' && modern.type !== 'SURCHARGE') {
+    throw new Error(
+      `Invalid adjustment type: "${modern.type}". Must be "DISCOUNT" or "SURCHARGE".`
+    )
+  }
+
+  return modern
 }
 
 // Helper: 조정 금액 계산
@@ -415,10 +422,8 @@ function calculateAdjustmentTotal(adjustments: AdjustmentItem[], subtotal: numbe
 
     if (adj.type === 'DISCOUNT') {
       total -= amount
-    } else if (adj.type === 'SURCHARGE') {
+    } else {  // SURCHARGE
       total += amount
-    } else {
-      throw new Error(`Unexpected adjustment type: ${adj.type}`)
     }
   }
 

@@ -72,13 +72,14 @@ class Credit:
         return not self.is_expired and self.balance > 0
 
     @property
-    def days_until_expiry(self) -> int | float:
+    def days_until_expiry(self) -> int | None:
         """Calculate days until expiration.
 
-        Returns float('inf') if credit never expires.
+        Returns None if credit never expires.
+        Returns 0 if credit is already expired.
         """
         if self.expires_at is None:
-            return float("inf")  # Never expires
+            return None  # Never expires
         if self.is_expired:
             return 0
         delta = self.expires_at - datetime.now()
@@ -87,7 +88,8 @@ class Credit:
     @property
     def priority(self) -> CreditPriority:
         """Determine credit priority for usage order."""
-        if self.days_until_expiry <= 7:
+        days = self.days_until_expiry
+        if days is not None and days <= 7:
             return CreditPriority.EXPIRING_SOON
         if self.type == CreditType.FREE:
             return CreditPriority.FREE
