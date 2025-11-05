@@ -268,6 +268,7 @@ const CONFIG = {
     STATEMENT: 'stmt-',
     PAYMENT: 'PAY-',
     PAYMENT_GROUP: 'PG-',
+    BILLING_GROUP: 'BG-',
     LINE_ITEM: 'line-',
     ADJUSTMENT: 'adj-',
     CREDIT: 'credit-',
@@ -323,31 +324,55 @@ const assertPositiveNumber = (
   }
 }
 
+/**
+ * Safely converts any value to a string representation
+ * Handles all JavaScript types with appropriate formatting
+ */
 const formatValue = (value: unknown): string => {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
 
-  // Handle primitive types that stringify well
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'boolean') return String(value)
-  if (typeof value === 'bigint') return `${value}n`
+  // Get the type of value
+  const valueType = typeof value
 
-  // Handle objects and arrays with JSON.stringify
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value)
-    } catch {
-      return '[object Object]'
-    }
+  // Handle each JavaScript type explicitly
+  switch (valueType) {
+    case 'string':
+      return value as string
+
+    case 'number':
+      return String(value)
+
+    case 'boolean':
+      return String(value)
+
+    case 'bigint':
+      return `${value}n`
+
+    case 'object':
+      // Objects and arrays - use JSON.stringify
+      try {
+        return JSON.stringify(value)
+      } catch {
+        // Fallback for circular references or non-serializable objects
+        return '[object Object]'
+      }
+
+    case 'function':
+      return '[function]'
+
+    case 'symbol':
+      return (value as symbol).toString()
+
+    case 'undefined':
+      // Already handled above, but included for completeness
+      return 'undefined'
+
+    default:
+      // TypeScript ensures we've covered all possible typeof results
+      // This is a safety fallback that should never execute
+      return '[unknown type]'
   }
-
-  // Handle functions and symbols
-  if (typeof value === 'function') return '[function]'
-  if (typeof value === 'symbol') return value.toString()
-
-  // Fallback for any other types
-  return String(value)
 }
 
 // ============================================================================
@@ -678,6 +703,7 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
         {
           statementId: `${CONFIG.ID_PREFIX.STATEMENT}${month}`,
           uuid,
+          billingGroupId: `${CONFIG.ID_PREFIX.BILLING_GROUP}${extractUuidPrefix(uuid)}`,
           month,
           currency: CONFIG.CURRENCY.DEFAULT,
           amount: 0,
@@ -685,6 +711,7 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
           billingGroupDiscount: 0,
           adjustmentTotal: 0,
           creditApplied: 0,
+          charge: 0,
           vat: 0,
           unpaidAmount: 0,
           lateFee: 0,
