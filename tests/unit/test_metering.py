@@ -212,3 +212,167 @@ class TestMeteringManagerUnit:
         assert meter["parentResourceId"] == "test"
         assert meter["resourceId"] == "test"
         assert meter["resourceName"] == "test"
+
+    def test_send_iaas_metering_success(self) -> None:
+        """Test successful IaaS metering submission."""
+        self.mock_client.post.return_value = {"status": "SUCCESS"}
+
+        result = self.metering.send_iaas_metering(
+            app_key="test-app-key",
+            counter_name="compute.c2.c8m8",
+            counter_unit="HOURS",
+            counter_volume=100.5,
+        )
+
+        assert result == {"status": "SUCCESS"}
+
+        # Verify API was called with correct data
+        call_args = self.mock_client.post.call_args
+        meter_data = call_args[1]["json_data"]["meterList"][0]
+        assert meter_data["appKey"] == "test-app-key"
+        assert meter_data["counterName"] == "compute.c2.c8m8"
+        assert meter_data["counterUnit"] == "HOURS"
+        assert meter_data["counterVolume"] == "100.5"  # Should be converted to string
+
+    @patch("libs.Metering.logger")
+    @pytest.mark.parametrize(
+        "param_name,param_value",
+        [
+            ("target_time", "2024-01-01"),
+            ("uuid", "test-uuid-123"),
+            ("app_id", "old-app-id"),
+            ("project_id", "old-project-id"),
+        ],
+    )
+    def test_send_iaas_metering_deprecated_params(
+        self, mock_logger, param_name, param_value
+    ) -> None:
+        """Test that deprecated parameters emit warnings."""
+        self.mock_client.post.return_value = {"status": "SUCCESS"}
+
+        kwargs = {
+            "app_key": "test-app",
+            "counter_name": "test.counter",
+            "counter_unit": "HOURS",
+            "counter_volume": "10",
+            param_name: param_value,
+        }
+        self.metering.send_iaas_metering(**kwargs)
+
+        # Verify warning was logged
+        mock_logger.warning.assert_called()
+        warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
+        assert any(
+            param_name in str(call) and "deprecated" in str(call).lower()
+            for call in warning_calls
+        )
+
+    @patch("libs.Metering.logger")
+    def test_send_iaas_metering_multiple_deprecated_params(self, mock_logger) -> None:
+        """Test that multiple deprecated parameters each emit their own warning."""
+        self.mock_client.post.return_value = {"status": "SUCCESS"}
+
+        self.metering.send_iaas_metering(
+            app_key="test-app",
+            counter_name="test.counter",
+            counter_unit="HOURS",
+            counter_volume="10",
+            target_time="2024-01-01",
+            uuid="test-uuid",
+            app_id="old-app-id",
+            project_id="old-project-id",
+        )
+
+        # Verify all deprecated parameters triggered warnings
+        warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
+
+        assert any("target_time" in str(call) for call in warning_calls)
+        assert any("uuid" in str(call) for call in warning_calls)
+        assert any("app_id" in str(call) for call in warning_calls)
+        assert any("project_id" in str(call) for call in warning_calls)
+
+        # Should have at least 4 warning calls (one for each deprecated param)
+        assert mock_logger.warning.call_count >= 4
+
+    @patch("libs.Metering.logger")
+    def test_send_iaas_metering_unexpected_kwargs(self, mock_logger) -> None:
+        """Test that unexpected kwargs trigger warning."""
+        self.mock_client.post.return_value = {"status": "SUCCESS"}
+
+        self.metering.send_iaas_metering(
+            app_key="test-app",
+            counter_name="test.counter",
+            counter_unit="HOURS",
+            counter_volume="10",
+            unknown_param="value",
+            another_param="value2",
+        )
+
+        # Verify warning was logged for unexpected parameters
+        warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
+        assert any("unexpected" in str(call).lower() for call in warning_calls)
+
+        # Verify unexpected kwargs are not included in the API payload
+        call_args = self.mock_client.post.call_args
+        json_data = call_args[1]["json_data"]
+        meter_entry = json_data["meterList"][0]
+        assert "unknown_param" not in meter_entry
+        assert "another_param" not in meter_entry
+
+    @patch("libs.Metering.logger")
+    def test_send_iaas_metering_deprecated_params_ignored(self, mock_logger) -> None:
+        """Test that deprecated parameters are actually ignored and don't affect functionality."""
+        self.mock_client.post.return_value = {"status": "SUCCESS"}
+
+        # Call with deprecated params
+        result = self.metering.send_iaas_metering(
+            app_key="correct-app-key",
+            counter_name="test.counter",
+            counter_unit="HOURS",
+            counter_volume="10",
+            app_id="wrong-app-id",  # Should be ignored
+            target_time="2020-01-01",  # Should be ignored
+        )
+
+        # Verify the function still returns success
+        assert result == {"status": "SUCCESS"}
+
+        # Verify that the underlying send_metering was called with correct params
+        call_args = self.mock_client.post.call_args
+        meter_data = call_args[1]["json_data"]["meterList"][0]
+
+        # Verify correct app_key is used (not app_id)
+        assert meter_data["appKey"] == "correct-app-key"
+
+    def test_send_iaas_metering_appkey_fallback(self) -> None:
+        """Test that self.appkey is used when app_key is not provided."""
+        self.mock_client.post.return_value = {"status": "SUCCESS"}
+        self.metering.appkey = "fallback-app-key"
+
+        result = self.metering.send_iaas_metering(
+            # app_key intentionally omitted
+            counter_name="test.counter",
+            counter_unit="HOURS",
+            counter_volume="10",
+        )
+
+        assert result == {"status": "SUCCESS"}
+
+        # Verify fallback appkey was used
+        call_args = self.mock_client.post.call_args
+        meter_data = call_args[1]["json_data"]["meterList"][0]
+        assert meter_data["appKey"] == "fallback-app-key"
+
+    def test_send_iaas_metering_missing_app_key_raises_error(self) -> None:
+        """Test that ValueError is raised when app_key is not provided and self.appkey is None."""
+        # Ensure self.appkey is None
+        self.metering.appkey = None
+
+        with pytest.raises(ValueError) as exc_info:
+            self.metering.send_iaas_metering(
+                counter_name="test.counter",
+                counter_unit="HOURS",
+                counter_volume="10",
+            )
+
+        assert "app_key must be provided" in str(exc_info.value)

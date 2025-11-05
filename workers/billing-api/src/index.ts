@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, Context } from 'hono'
 import { cors } from 'hono/cors'
 
 // ============================================================================
@@ -42,9 +42,21 @@ interface AdjustmentItem {
   level?: string
   targetProjectId?: string
   month?: string
-  adjustmentType?: string
-  adjustmentValue?: number
 }
+
+// Legacy adjustment format for backward compatibility
+interface LegacyAdjustmentItem {
+  adjustmentType: string
+  method: 'FIXED' | 'RATE'
+  adjustmentValue: number
+  description?: string
+  level?: string
+  targetProjectId?: string
+  month?: string
+}
+
+// Union type to accept either modern or legacy format
+type AdjustmentItemInput = AdjustmentItem | LegacyAdjustmentItem
 
 interface BillingRequest {
   uuid?: string
@@ -54,7 +66,7 @@ interface BillingRequest {
   isOverdue?: boolean
   usage?: UsageItem[]
   credits?: CreditItem[]
-  adjustments?: AdjustmentItem[]
+  adjustments?: AdjustmentItemInput[]
 }
 
 interface PaymentRequest {
@@ -80,7 +92,7 @@ const app = new Hono<{ Bindings: Env }>()
 
 // CORS 설정 - 모든 도메인 허용 또는 특정 도메인만
 app.use('/*', cors({
-  origin: (origin) => {
+  origin: (origin: string | undefined) => {
     // 로컬 개발 또는 Cloudflare Pages/Workers 도메인 허용
     const allowedOrigins = [
       'http://localhost:3000',
@@ -108,7 +120,7 @@ app.use('/*', cors({
 }))
 
 // Health check
-app.get('/health', (c) => {
+app.get('/health', (c: Context<{ Bindings: Env }>) => {
   return c.json({
     header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
     status: 'healthy',
@@ -117,7 +129,7 @@ app.get('/health', (c) => {
 })
 
 // Calculate billing endpoint
-app.post('/api/billing/admin/calculate', async (c) => {
+app.post('/api/billing/admin/calculate', async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
 
@@ -129,7 +141,6 @@ app.post('/api/billing/admin/calculate', async (c) => {
     try {
       body = await c.req.json<BillingRequest>()
     } catch (err) {
-      console.error('Failed to parse billing request JSON:', err)
       return c.json({
         header: {
           isSuccessful: false,
@@ -141,6 +152,20 @@ app.post('/api/billing/admin/calculate', async (c) => {
 
     const { usage = [], credits = [], adjustments = [] } = body
 
+    // Normalize adjustments (convert legacy format and validate)
+    let normalizedAdjustments: AdjustmentItem[]
+    try {
+      normalizedAdjustments = adjustments.map(normalizeAdjustmentItem)
+    } catch (err) {
+      return c.json({
+        header: {
+          isSuccessful: false,
+          resultCode: -1,
+          resultMessage: err instanceof Error ? err.message : 'Invalid adjustment data'
+        }
+      }, 400)
+    }
+
     // 사용량 계산
     const subtotal = usage.reduce((sum: number, item: UsageItem) => {
       const amount = calculateAmount(item.counterName, item.counterVolume)
@@ -148,7 +173,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
     }, 0)
 
     // 조정 적용
-    const adjustmentTotal = calculateAdjustmentTotal(adjustments, subtotal)
+    const adjustmentTotal = calculateAdjustmentTotal(normalizedAdjustments, subtotal)
 
     // 크레딧 적용 전 금액
     const chargeBeforeCredit = Math.max(0, subtotal + adjustmentTotal)
@@ -221,7 +246,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
         appKey: item.appKey
       })),
     appliedCredits: appliedCreditsList,
-    appliedAdjustments: adjustments.map((adj: AdjustmentItem, idx: number) => ({
+    appliedAdjustments: normalizedAdjustments.map((adj: AdjustmentItem, idx: number) => ({
       adjustmentId: `adj-${idx}`,
       type: adj.type,
       description: adj.description,
@@ -231,7 +256,6 @@ app.post('/api/billing/admin/calculate', async (c) => {
     }))
   })
   } catch (error) {
-    console.error('Calculate billing error:', error)
     return c.json({
       header: {
         isSuccessful: false,
@@ -243,7 +267,7 @@ app.post('/api/billing/admin/calculate', async (c) => {
 })
 
 // Get payment statements
-app.get('/api/billing/payments/:month/statements', async (c) => {
+app.get('/api/billing/payments/:month/statements', async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
     const month = c.req.param('month')
@@ -274,7 +298,6 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
       }]
     })
   } catch (error) {
-    console.error('Get statements error:', error)
     return c.json({
       header: {
         isSuccessful: false,
@@ -286,7 +309,7 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
 })
 
 // Process payment
-app.post('/api/billing/payments/:month', async (c) => {
+app.post('/api/billing/payments/:month', async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
 
@@ -295,7 +318,6 @@ app.post('/api/billing/payments/:month', async (c) => {
     try {
       body = await c.req.json<PaymentRequest>()
     } catch (err) {
-      console.error('Failed to parse payment request JSON:', err)
       return c.json({
         header: {
           isSuccessful: false,
@@ -316,7 +338,6 @@ app.post('/api/billing/payments/:month', async (c) => {
       receiptUrl: `https://receipt.example.com/${Date.now()}`
     })
   } catch (error) {
-    console.error('Payment processing error:', error)
     return c.json({
       header: {
         isSuccessful: false,
@@ -336,6 +357,94 @@ function getUnitPrice(counterName: string): number {
     'network.floating_ip': 25         // 25원/시간
   }
   return prices[counterName] || 100
+}
+
+// Helper: Validate adjustment type with assertion signature
+function validateAdjustmentType(value: string): asserts value is 'DISCOUNT' | 'SURCHARGE' {
+  if (value !== 'DISCOUNT' && value !== 'SURCHARGE') {
+    throw new Error(
+      `Invalid adjustment type: "${value}". Must be "DISCOUNT" or "SURCHARGE".`
+    )
+  }
+}
+
+// Helper: Validate adjustment method with assertion signature
+function validateAdjustmentMethod(value: string): asserts value is 'FIXED' | 'RATE' {
+  if (value !== 'FIXED' && value !== 'RATE') {
+    throw new Error(
+      `Invalid adjustment method: "${value}". Must be "FIXED" or "RATE".`
+    )
+  }
+}
+
+// Helper: Validate adjustment value (presence, type, and positivity)
+function validateAdjustmentValue(value: unknown, fieldName: string): asserts value is number {
+  // Check presence
+  if (value === undefined || value === null) {
+    throw new Error(
+      `Missing required field: ${fieldName} must be provided.`
+    )
+  }
+
+  // Check type and finiteness
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    let valueStr: string
+    if (typeof value === 'object' && value !== null) {
+      valueStr = JSON.stringify(value)
+    } else if (value === null) {
+      valueStr = 'null'
+    } else {
+      valueStr = String(value)
+    }
+    throw new TypeError(
+      `Invalid ${fieldName}: ${valueStr}. Must be a finite number (not NaN or Infinity).`
+    )
+  }
+
+  // Check positivity
+  if (value <= 0) {
+    throw new Error(
+      `Invalid ${fieldName}: "${value}". Must be a positive number greater than 0.`
+    )
+  }
+}
+
+// Helper: Normalize adjustment item with runtime validation
+function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
+  // Check if this is a legacy format (has adjustmentType)
+  if ('adjustmentType' in item) {
+    // Validate adjustmentType using helper with assertion signature
+    validateAdjustmentType(item.adjustmentType)
+
+    // Validate method using helper with assertion signature
+    validateAdjustmentMethod(item.method)
+
+    // Validate adjustmentValue (presence, type, positivity)
+    validateAdjustmentValue(item.adjustmentValue, 'adjustmentValue')
+
+    const normalized: AdjustmentItem = {
+      type: item.adjustmentType,
+      method: item.method,
+      value: item.adjustmentValue,
+    }
+
+    // Copy optional fields
+    if (item.description) normalized.description = item.description
+    if (item.level) normalized.level = item.level
+    if (item.targetProjectId) normalized.targetProjectId = item.targetProjectId
+    if (item.month) normalized.month = item.month
+
+    return normalized
+  }
+
+  // Already modern format - validate type and method fields
+  validateAdjustmentType(item.type)
+  validateAdjustmentMethod(item.method)
+
+  // Validate value (presence, type, positivity)
+  validateAdjustmentValue(item.value, 'value')
+
+  return item
 }
 
 // Helper: 조정 금액 계산

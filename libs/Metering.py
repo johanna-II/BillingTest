@@ -18,12 +18,18 @@ logger = logging.getLogger(__name__)
 class MeteringManager:
     """Manages metering data submission and deletion."""
 
-    def __init__(self, month: str, client: BillingAPIClient | None = None) -> None:
+    def __init__(
+        self,
+        month: str,
+        client: BillingAPIClient | None = None,
+        appkey: str | None = None,
+    ) -> None:
         """Initialize metering manager.
 
         Args:
             month: Target month in YYYY-MM format
             client: Optional API client (creates default if not provided)
+            appkey: Optional default app key for metering operations
 
         Raises:
             ValidationException: If month format is invalid
@@ -32,6 +38,7 @@ class MeteringManager:
         self.month = month
         self._client = client or BillingAPIClient(url.BASE_METERING_URL)
         self._iaas_template = self._create_default_template()
+        self.appkey = appkey
 
     def __repr__(self) -> str:
         """Return string representation of MeteringManager."""
@@ -154,36 +161,69 @@ class MeteringManager:
         counter_volume: float | str,
         counter_type: CounterType | str | None = None,
         app_key: str | None = None,
-        target_time: str | None = None,  # Deprecated but kept for compatibility
-        uuid: str | None = None,  # Deprecated but kept for compatibility
-        app_id: str | None = None,  # Deprecated but kept for compatibility
-        project_id: str | None = None,  # Deprecated but kept for compatibility
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Send IaaS metering data (legacy compatibility method).
+
+        This is a convenience wrapper around send_metering that:
+        - Converts counter_volume to string if needed
+        - Uses instance appkey as fallback if app_key not provided
+        - Sets counter_type default to DELTA
 
         Args:
             counter_name: Counter name
             counter_unit: Counter unit
-            counter_volume: Counter volume
-            counter_type: Counter type
-            app_key: App key
-            target_time: (Deprecated) Not used - kept for backward compatibility
-            uuid: (Deprecated) Not used - kept for backward compatibility
-            app_id: (Deprecated) Not used - kept for backward compatibility
-            project_id: (Deprecated) Not used - kept for backward compatibility
+            counter_volume: Counter volume (accepts float or string)
+            counter_type: Counter type (defaults to DELTA)
+            app_key: App key (uses self.appkey if not provided)
+            **kwargs: Deprecated/ignored keyword arguments (target_time, uuid,
+                app_id, project_id) accepted for backward compatibility only.
+                To configure the instance appkey, set it as an attribute:
+                `manager.appkey = 'your-key'` after initialization.
 
         Returns:
             Metering response
+
+        Raises:
+            ValueError: If app_key is not provided
+
+        Note:
+            Deprecated parameters (target_time, uuid, app_id, project_id) will emit
+            warnings and be ignored.
         """
+        # Check for deprecated parameters and warn
+        deprecated_params = {
+            "target_time": "target_time is deprecated and will be ignored",
+            "uuid": "uuid is deprecated and will be ignored",
+            "app_id": "app_id is deprecated and will be ignored; use app_key instead",
+            "project_id": "project_id is deprecated and will be ignored",
+        }
+
+        for param, message in deprecated_params.items():
+            if param in kwargs:
+                logger.warning(
+                    "Deprecated parameter '%s' passed to send_iaas_metering: %s",
+                    param,
+                    message,
+                )
+                # Remove deprecated parameter from kwargs
+                kwargs.pop(param)
+
+        # Warn about any remaining unexpected kwargs
+        if kwargs:
+            logger.warning(
+                "Unexpected parameters passed to send_iaas_metering and will be ignored: %s",
+                list(kwargs.keys()),
+            )
+
         # Use instance appkey if app_key not provided (legacy pattern)
         if app_key is None:
-            app_key = getattr(self, "appkey", None)
+            app_key = self.appkey
             if app_key is None:
                 msg = "app_key must be provided or set as self.appkey"
                 raise ValueError(msg)
 
         # Call send_metering with only supported parameters
-        # (ignoring legacy parameters: target_time, uuid, app_id, project_id)
         return self.send_metering(
             app_key=app_key,
             counter_name=counter_name,

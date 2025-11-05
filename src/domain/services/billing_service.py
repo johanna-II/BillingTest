@@ -6,6 +6,7 @@ coordinating between different domain models and repositories.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -18,6 +19,8 @@ from src.domain.models import (
     UnpaidAmount,
     UsageAggregation,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from src.domain.repositories import (
@@ -186,6 +189,13 @@ class BillingCalculationService:
                 return volume * rate
 
         # Fallback to generic default if counter_name is unknown
+        logger.warning(
+            "No DEFAULT_RATES prefix matched for counter '%s' (volume=%s). "
+            "Applying generic default rate of 1.0. "
+            "This may indicate a misspelling or missing rate entry.",
+            counter_name,
+            volume,
+        )
         return volume * Decimal("1.0")
 
     def _get_unpaid_amounts(
