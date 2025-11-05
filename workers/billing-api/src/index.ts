@@ -23,9 +23,9 @@ enum AdjustmentMethod {
 
 enum BillingStatus {
   PENDING = 'PENDING',
-  READY = 'READY',
   PAID = 'PAID',
   OVERDUE = 'OVERDUE',
+  CANCELLED = 'CANCELLED',
 }
 
 enum PaymentStatus {
@@ -45,11 +45,14 @@ enum PaymentMethod {
 enum CounterType {
   DELTA = 'DELTA',
   GAUGE = 'GAUGE',
+  CUMULATIVE = 'CUMULATIVE',
 }
 
 enum Currency {
   KRW = 'KRW',
   USD = 'USD',
+  EUR = 'EUR',
+  JPY = 'JPY',
 }
 
 // ============================================================================
@@ -323,6 +326,14 @@ const assertPositiveNumber = (
 const formatValue = (value: unknown): string => {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
+
+  // Handle primitive types that stringify well
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'boolean') return String(value)
+  if (typeof value === 'bigint') return `${value}n`
+
+  // Handle objects and arrays with JSON.stringify
   if (typeof value === 'object') {
     try {
       return JSON.stringify(value)
@@ -330,6 +341,12 @@ const formatValue = (value: unknown): string => {
       return '[object Object]'
     }
   }
+
+  // Handle functions and symbols
+  if (typeof value === 'function') return '[function]'
+  if (typeof value === 'symbol') return value.toString()
+
+  // Fallback for any other types
   return String(value)
 }
 
@@ -672,7 +689,7 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
           unpaidAmount: 0,
           lateFee: 0,
           totalAmount: 0,
-          status: BillingStatus.READY,
+          status: BillingStatus.PENDING,
           lineItems: [],
           appliedCredits: [],
           appliedAdjustments: [],

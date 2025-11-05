@@ -5,6 +5,7 @@
 'use client'
 
 import React from 'react'
+import { AdjustmentType, AdjustmentLevel, AdjustmentMethod } from '@/types/billing'
 import type { AdjustmentInput } from '@/types/billing'
 
 interface AdjustmentInputSectionProps {
@@ -18,9 +19,9 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
 }) => {
   const addAdjustment = (): void => {
     const newAdjustment: AdjustmentInput = {
-      type: 'DISCOUNT',
-      level: 'PROJECT',
-      method: 'RATE',
+      type: AdjustmentType.DISCOUNT,
+      level: AdjustmentLevel.PROJECT,
+      method: AdjustmentMethod.RATE,
       value: 5,
       description: 'Project Special Discount',
       targetProjectId: 'project-001',

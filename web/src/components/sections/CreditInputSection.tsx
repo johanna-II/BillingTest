@@ -5,6 +5,7 @@
 'use client'
 
 import React from 'react'
+import { CreditType } from '@/types/billing'
 import type { CreditInput } from '@/types/billing'
 
 interface CreditInputSectionProps {
@@ -15,7 +16,7 @@ interface CreditInputSectionProps {
 const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCredits }) => {
   const addCredit = (): void => {
     const newCredit: CreditInput = {
-      type: 'FREE',
+      type: CreditType.FREE,
       amount: 10000,
       name: 'Test Credit',
     }

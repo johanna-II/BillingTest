@@ -5,6 +5,7 @@
 'use client'
 
 import React from 'react'
+import { CounterType } from '@/types/billing'
 import type { UsageInput } from '@/types/billing'
 
 interface UsageInputSectionProps {
@@ -46,7 +47,7 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
     const newUsage: UsageInput = {
       id: `usage-${Date.now()}`,
       counterName: defaultInstance.value,
-      counterType: 'DELTA',
+      counterType: CounterType.DELTA,
       counterUnit: defaultInstance.unit,
       counterVolume: 100,
       resourceId: `resource-${Date.now()}`,

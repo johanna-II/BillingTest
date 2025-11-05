@@ -64,19 +64,21 @@ const HttpStatus = {
  * HTTP Status Code to ErrorCode Mapping
  * Maps specific HTTP status codes to application error codes for consistent error handling
  */
-const STATUS_TO_ERROR_MAP: ReadonlyMap<number, ErrorCode> = new Map([
-  // Validation errors - input problems that can be fixed by the client
-  [HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR],
-  [HttpStatus.UNPROCESSABLE_ENTITY, ErrorCode.VALIDATION_ERROR],
+const STATUS_TO_ERROR_MAP: ReadonlyMap<number, ErrorCode> = Object.freeze(
+  new Map([
+    // Validation errors - input problems that can be fixed by the client
+    [HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR],
+    [HttpStatus.UNPROCESSABLE_ENTITY, ErrorCode.VALIDATION_ERROR],
 
-  // Authentication/Authorization errors - credential or permission issues
-  [HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_ERROR],
-  [HttpStatus.FORBIDDEN, ErrorCode.AUTH_ERROR],
+    // Authentication/Authorization errors - credential or permission issues
+    [HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_ERROR],
+    [HttpStatus.FORBIDDEN, ErrorCode.AUTH_ERROR],
 
-  // Resource errors - not found or rate limiting
-  [HttpStatus.NOT_FOUND, ErrorCode.API_ERROR],
-  [HttpStatus.TOO_MANY_REQUESTS, ErrorCode.API_ERROR],
-])
+    // Resource errors - not found or rate limiting
+    [HttpStatus.NOT_FOUND, ErrorCode.API_ERROR],
+    [HttpStatus.TOO_MANY_REQUESTS, ErrorCode.API_ERROR],
+  ])
+)
 
 const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
@@ -508,17 +510,17 @@ export class BillingAPIClient {
     const originalResponse = response as unknown as Record<string, unknown>
     const { header, ...data } = response as LegacyApiResponse<T>
 
-    // Runtime check: Warn about potential type collision
-    // If the original response has very few keys, it might indicate a 'header' field was lost
+    // Runtime check: Warn about potential type collision in development
     if (process.env.NODE_ENV === 'development') {
       const responseKeys = Object.keys(originalResponse)
       const dataKeys = Object.keys(data)
 
-      // If response has keys but data extracted very few, warn about potential collision
-      // This catches cases where T might have a 'header' field that got excluded
-      if (responseKeys.length > 1 && dataKeys.length === 0) {
+      // Warn only if we have non-header keys in response but extracted nothing
+      // This suggests a 'header' field collision (not just an empty response)
+      const hasNonHeaderKeys = responseKeys.some(key => key !== 'header')
+      if (hasNonHeaderKeys && dataKeys.length === 0) {
         console.warn(
-          '[API Warning] Legacy response format extracted no data fields. ' +
+          '[API Warning] Legacy response format extracted no data fields despite non-header keys present. ' +
           'If the response type T has a "header" field, it was excluded during destructuring. ' +
           'Consider migrating this endpoint to use the new format: { header, data: T }'
         )

@@ -8,6 +8,7 @@
 import React, { useState } from 'react'
 import { useBilling } from '@/contexts/BillingContext'
 import { calculateBilling } from '@/lib/api/billing-api'
+import { ErrorCode } from '@/types/billing'
 import type { BillingInput, UsageInput, CreditInput, AdjustmentInput } from '@/types/billing'
 import UsageInputSection from './sections/UsageInputSection'
 import CreditInputSection from './sections/CreditInputSection'
@@ -75,7 +76,7 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
     } catch (err) {
       actions.setCalculating(false)
       actions.setError({
-        code: 'CALCULATION_ERROR',
+        code: ErrorCode.CALCULATION_ERROR,
         message: err instanceof Error ? err.message : 'Failed to calculate billing',
       })
       setError(err instanceof Error ? err.message : 'Failed to calculate billing')

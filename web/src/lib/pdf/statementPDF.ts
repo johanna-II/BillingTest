@@ -100,20 +100,7 @@ type PDFDocument = jsPDF & {
 // ============================================================================
 
 export function generateStatementPDF(statement: BillingStatement): void {
-  // Validate input
-  if (!statement) {
-    throw new TypeError('Cannot generate PDF: statement is required')
-  }
-
-  if (typeof statement !== 'object') {
-    throw new TypeError('Cannot generate PDF: statement must be an object')
-  }
-
-  if (Array.isArray(statement)) {
-    throw new TypeError('Cannot generate PDF: statement must be an object, not an array')
-  }
-
-  const doc = new jsPDF() as PDFDocument
+  const doc: PDFDocument = new jsPDF()
   let currentY: number = PDF_CONFIG.PAGE.MARGIN_TOP
 
   // Render sections
