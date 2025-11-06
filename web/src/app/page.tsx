@@ -20,6 +20,9 @@ export default function HomePage(): JSX.Element {
   const { getEntry, addEntry } = useHistoryStore()
   const [activeSection, setActiveSection] = useState<'input' | 'statement' | 'payment'>('input')
 
+  // Track last saved entry to prevent duplicates
+  const lastSavedRef = React.useRef<string | undefined>(undefined)
+
   const handleLoadHistoryEntry = (entryId: string): void => {
     const entry = getEntry(entryId)
     if (entry) {
@@ -34,16 +37,33 @@ export default function HomePage(): JSX.Element {
   }
 
   // Save to history when calculation completes
+  // History tracks calculation results only; payment state is separate
+  // Deduplication prevents duplicate entries from re-renders
   React.useEffect(() => {
-    if (state.billingInput && state.calculatedStatement) {
-      addEntry({
-        input: state.billingInput,
-        statement: state.calculatedStatement,
-        payment: state.paymentResult,
-      })
+    if (!state.billingInput || !state.calculatedStatement) {
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.calculatedStatement])
+
+    // Create unique key for deduplication (input + statement only)
+    const entryKey = JSON.stringify({
+      input: state.billingInput,
+      statement: state.calculatedStatement,
+    })
+
+    // Skip if already saved
+    if (lastSavedRef.current === entryKey) {
+      return
+    }
+
+    // Save calculation to history
+    // Note: payment is included but doesn't trigger re-saves
+    lastSavedRef.current = entryKey
+    addEntry({
+      input: state.billingInput,
+      statement: state.calculatedStatement,
+      payment: state.paymentResult,
+    })
+  }, [state.billingInput, state.calculatedStatement, addEntry, state.paymentResult])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -117,12 +137,12 @@ export default function HomePage(): JSX.Element {
 
 // Step Indicator Component
 interface StepIndicatorProps {
-  number: number
-  label: string
-  active: boolean
-  completed: boolean
-  disabled?: boolean
-  onClick: () => void
+  readonly number: number
+  readonly label: string
+  readonly active: boolean
+  readonly completed: boolean
+  readonly disabled?: boolean
+  readonly onClick: () => void
 }
 
 function StepIndicator({
@@ -133,34 +153,49 @@ function StepIndicator({
   disabled = false,
   onClick
 }: StepIndicatorProps): JSX.Element {
+  // Calculate step circle styles based on state
+  const getStepCircleStyles = (): string => {
+    if (completed) {
+      return 'bg-kinfolk-gray-900 text-white'
+    }
+    if (active) {
+      return 'border-2 border-kinfolk-gray-900 text-kinfolk-gray-900'
+    }
+    return 'border border-kinfolk-gray-300 text-kinfolk-gray-400'
+  }
+
+  // Calculate button styles to avoid opacity class conflicts
+  const getButtonStyles = (): string => {
+    if (disabled) {
+      return 'opacity-30 cursor-not-allowed'
+    }
+    if (active) {
+      return 'opacity-100 cursor-pointer hover:opacity-100'
+    }
+    return 'opacity-60 cursor-pointer hover:opacity-100'
+  }
+
+  const labelColor = active ? 'text-kinfolk-gray-900' : 'text-kinfolk-gray-500'
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={`
         flex flex-col items-center space-y-2 transition-opacity duration-300
-        ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer hover:opacity-100'}
-        ${active ? 'opacity-100' : 'opacity-60'}
+        ${getButtonStyles()}
       `}
     >
       <div
         className={`
           w-12 h-12 rounded-full flex items-center justify-center
           text-sm font-medium transition-colors duration-300
-          ${completed
-            ? 'bg-kinfolk-gray-900 text-white'
-            : active
-            ? 'border-2 border-kinfolk-gray-900 text-kinfolk-gray-900'
-            : 'border border-kinfolk-gray-300 text-kinfolk-gray-400'
-          }
+          ${getStepCircleStyles()}
         `}
       >
         {completed ? '✓' : number}
       </div>
-      <span className={`
-        text-xs uppercase tracking-widest
-        ${active ? 'text-kinfolk-gray-900' : 'text-kinfolk-gray-500'}
-      `}>
+      <span className={`text-xs uppercase tracking-widest ${labelColor}`}>
         {label}
       </span>
     </button>

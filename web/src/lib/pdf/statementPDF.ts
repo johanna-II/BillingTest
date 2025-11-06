@@ -6,84 +6,13 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { BillingStatement, Currency } from '@/types/billing'
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
-const PDF_CONFIG = {
-  PAGE: {
-    MARGIN_LEFT: 20,
-    MARGIN_TOP: 20,
-    MARGIN_BOTTOM: 20,
-  },
-  FONT_SIZE: {
-    TITLE: 20,
-    SECTION: 14,
-    BODY: 12,
-  },
-  SPACING: {
-    AFTER_TITLE: 15,
-    LINE_HEIGHT: 7,
-    SECTION_GAP: 10,
-    SECTION_HEADER_GAP: 3, // Gap after section titles before tables
-    BEFORE_SUMMARY: 15,
-    SUMMARY_HEADER: 10,
-    FINAL_AMOUNT_GAP: 5,
-  },
-  TABLE: {
-    START_Y_OFFSET: 50,
-  },
-  FONT: {
-    FAMILY: 'helvetica',
-    STYLE_NORMAL: 'normal',
-    STYLE_BOLD: 'bold',
-  },
-  LABELS: {
-    TITLE: 'Billing Statement',
-    MONTH: 'Month',
-    CURRENCY: 'Currency',
-    ADJUSTMENTS_TITLE: 'Adjustments (Discounts/Surcharges)',
-    CREDITS_TITLE: 'Applied Credits',
-    SUMMARY_TITLE: 'Summary',
-    SUBTOTAL: 'Subtotal',
-    BILLING_GROUP_DISCOUNT: 'Billing Group Discount',
-    ADJUSTMENTS_TOTAL: 'Adjustments Total',
-    CREDIT_APPLIED: 'Credit Applied',
-    CHARGE_BEFORE_VAT: 'Charge (before VAT)',
-    VAT: 'VAT (10%)',
-    UNPAID_AMOUNT_PREVIOUS: 'Unpaid Amount (Previous)',
-    LATE_FEE: 'Late Fee',
-    TOTAL_AMOUNT: 'Total Amount',
-    NOT_AVAILABLE: 'N/A',
-    NO_CAMPAIGN: '-',
-  },
-  TABLE_HEADERS: {
-    LINE_ITEMS: ['Resource', 'Quantity', 'Unit Price', 'Amount'],
-    ADJUSTMENTS: ['Type', 'Description', 'Level', 'Amount'],
-    CREDITS: ['Type', 'Amount Applied', 'Remaining Balance', 'Campaign'],
-  },
-  DEFAULT: {
-    CURRENCY: 'KRW' as Currency,
-    MONTH: 'unknown',
-    ZERO: 0,
-  },
-  FORMAT: {
-    LOCALE_MAP: {
-      KRW: 'ko-KR',
-      USD: 'en-US',
-      EUR: 'en-GB',
-    } as const,
-    DEFAULT_LOCALE: 'en-US',
-    // Currency-specific fraction digit overrides
-    // Only override when the default behavior needs adjustment
-    FRACTION_DIGITS: {
-      KRW: 0, // Korean Won doesn't use decimal places
-      JPY: 0, // Japanese Yen doesn't use decimal places
-      // USD, EUR, GBP, etc. use default (2 decimal places)
-    } as const,
-  },
-} as const
+import { PDF_CONFIG } from '@/constants/pdf'
+import {
+  formatNumber,
+  formatCurrency,
+  formatAdjustmentAmount,
+  generatePDFFileName,
+} from '@/lib/utils/pdf-format'
 
 // ============================================================================
 // Type Definitions
@@ -111,7 +40,7 @@ export function generateStatementPDF(statement: BillingStatement): void {
   renderSummary(doc, statement, currentY)
 
   // Download PDF
-  const fileName = generateFileName(statement.month)
+  const fileName = generatePDFFileName(statement.month)
   doc.save(fileName)
 }
 
@@ -162,9 +91,9 @@ function renderLineItemsTable(
     head: [[...PDF_CONFIG.TABLE_HEADERS.LINE_ITEMS]],
     body: statement.lineItems.map((item) => [
       item.counterName ?? item.resourceName ?? PDF_CONFIG.LABELS.NOT_AVAILABLE,
-      formatNumber(item.quantity, currency), // Non-monetary: quantity
-      formatCurrency(item.unitPrice, currency), // Monetary: unit price
-      formatCurrency(item.amount, currency), // Monetary: total amount
+      formatNumber(item.quantity, currency),
+      formatCurrency(item.unitPrice, currency),
+      formatCurrency(item.amount, currency),
     ]),
   })
 
@@ -222,8 +151,8 @@ function renderCreditsTable(
     head: [[...PDF_CONFIG.TABLE_HEADERS.CREDITS]],
     body: statement.appliedCredits.map((credit) => [
       credit.type ?? PDF_CONFIG.LABELS.NOT_AVAILABLE,
-      formatCurrency(credit.amountApplied, currency), // Monetary: amount applied
-      formatCurrency(credit.remainingBalance, currency), // Monetary: remaining balance
+      formatCurrency(credit.amountApplied, currency),
+      formatCurrency(credit.remainingBalance, currency),
       credit.campaignName ?? credit.campaignId ?? PDF_CONFIG.LABELS.NO_CAMPAIGN,
     ]),
   })
@@ -251,18 +180,23 @@ function renderSummary(doc: PDFDocument, statement: BillingStatement, startY: nu
 }
 
 function calculateSummaryHeight(statement: BillingStatement): number {
-  let lineCount = 2 // Title + Total (always present)
-  if (shouldRenderValue(statement.subtotal)) lineCount++
-  if (shouldRenderValue(statement.billingGroupDiscount)) lineCount++
-  if (shouldRenderValue(statement.adjustmentTotal)) lineCount++
-  if (shouldRenderValue(statement.creditApplied)) lineCount++
-  if (shouldRenderValue(statement.charge)) lineCount++
-  if (shouldRenderValue(statement.vat)) lineCount++
-  if (shouldRenderValue(statement.unpaidAmount)) lineCount++
-  if (shouldRenderValue(statement.lateFee)) lineCount++
+  // Count lines: Title + Total (always present) + optional items
+  const optionalValues = [
+    statement.subtotal,
+    statement.billingGroupDiscount,
+    statement.adjustmentTotal,
+    statement.creditApplied,
+    statement.charge,
+    statement.vat,
+    statement.unpaidAmount,
+    statement.lateFee,
+  ]
+
+  const visibleItemCount = optionalValues.filter(shouldRenderValue).length
+  const totalLines = 2 + visibleItemCount // Title + Total + visible items
 
   return (
-    lineCount * PDF_CONFIG.SPACING.LINE_HEIGHT +
+    totalLines * PDF_CONFIG.SPACING.LINE_HEIGHT +
     PDF_CONFIG.SPACING.SUMMARY_HEADER +
     PDF_CONFIG.SPACING.FINAL_AMOUNT_GAP
   )
@@ -272,6 +206,16 @@ function renderSummaryHeader(doc: PDFDocument, y: number): number {
   doc.setFontSize(PDF_CONFIG.FONT_SIZE.SECTION)
   doc.text(PDF_CONFIG.LABELS.SUMMARY_TITLE, PDF_CONFIG.PAGE.MARGIN_LEFT, y)
   return y + PDF_CONFIG.SPACING.SUMMARY_HEADER
+}
+
+/**
+ * Summary item configuration for data-driven rendering
+ */
+type SummaryItemConfig = {
+  readonly value: number | undefined
+  readonly label: string
+  readonly negate?: boolean
+  readonly showSign?: boolean
 }
 
 function renderSummaryItems(
@@ -288,70 +232,47 @@ function renderSummaryItems(
   // Subtotal (always shown)
   y = renderSummaryLine(doc, PDF_CONFIG.LABELS.SUBTOTAL, statement.subtotal, currency, y)
 
-  // Optional items
-  if (shouldRenderValue(statement.billingGroupDiscount)) {
-    y = renderSummaryLine(
-      doc,
-      PDF_CONFIG.LABELS.BILLING_GROUP_DISCOUNT,
-      -statement.billingGroupDiscount,
-      currency,
-      y
-    )
-  }
+  // Optional items - data-driven approach for maintainability
+  const optionalItems: readonly SummaryItemConfig[] = [
+    {
+      value: statement.billingGroupDiscount,
+      label: PDF_CONFIG.LABELS.BILLING_GROUP_DISCOUNT,
+      negate: true,
+    },
+    {
+      value: statement.adjustmentTotal,
+      label: PDF_CONFIG.LABELS.ADJUSTMENTS_TOTAL,
+      showSign: true,
+    },
+    {
+      value: statement.creditApplied,
+      label: PDF_CONFIG.LABELS.CREDIT_APPLIED,
+      negate: true,
+    },
+    {
+      value: statement.charge,
+      label: PDF_CONFIG.LABELS.CHARGE_BEFORE_VAT,
+    },
+    {
+      value: statement.vat,
+      label: PDF_CONFIG.LABELS.VAT,
+    },
+    {
+      value: statement.unpaidAmount,
+      label: PDF_CONFIG.LABELS.UNPAID_AMOUNT_PREVIOUS,
+    },
+    {
+      value: statement.lateFee,
+      label: PDF_CONFIG.LABELS.LATE_FEE,
+    },
+  ]
 
-  if (shouldRenderValue(statement.adjustmentTotal)) {
-    y = renderSummaryLine(
-      doc,
-      PDF_CONFIG.LABELS.ADJUSTMENTS_TOTAL,
-      statement.adjustmentTotal,
-      currency,
-      y,
-      true
-    )
-  }
-
-  if (shouldRenderValue(statement.creditApplied)) {
-    y = renderSummaryLine(
-      doc,
-      PDF_CONFIG.LABELS.CREDIT_APPLIED,
-      -statement.creditApplied,
-      currency,
-      y
-    )
-  }
-
-  if (shouldRenderValue(statement.charge)) {
-    y = renderSummaryLine(
-      doc,
-      PDF_CONFIG.LABELS.CHARGE_BEFORE_VAT,
-      statement.charge,
-      currency,
-      y
-    )
-  }
-
-  if (shouldRenderValue(statement.vat)) {
-    y = renderSummaryLine(doc, PDF_CONFIG.LABELS.VAT, statement.vat, currency, y)
-  }
-
-  if (shouldRenderValue(statement.unpaidAmount)) {
-    y = renderSummaryLine(
-      doc,
-      PDF_CONFIG.LABELS.UNPAID_AMOUNT_PREVIOUS,
-      statement.unpaidAmount,
-      currency,
-      y
-    )
-  }
-
-  if (shouldRenderValue(statement.lateFee)) {
-    y = renderSummaryLine(
-      doc,
-      PDF_CONFIG.LABELS.LATE_FEE,
-      statement.lateFee,
-      currency,
-      y
-    )
+  // Render each optional item
+  for (const item of optionalItems) {
+    if (shouldRenderValue(item.value)) {
+      const displayValue = item.negate ? -item.value : item.value
+      y = renderSummaryLine(doc, item.label, displayValue, currency, y, item.showSign)
+    }
   }
 
   return y
@@ -378,11 +299,6 @@ function renderSummaryTotal(
 // Helper Functions
 // ============================================================================
 
-function getLocaleForCurrency(currency: Currency): string {
-  return PDF_CONFIG.FORMAT.LOCALE_MAP[currency as keyof typeof PDF_CONFIG.FORMAT.LOCALE_MAP]
-    ?? PDF_CONFIG.FORMAT.DEFAULT_LOCALE
-}
-
 function renderSummaryLine(
   doc: PDFDocument,
   label: string,
@@ -403,62 +319,13 @@ function renderSummaryLine(
   )
   return y + PDF_CONFIG.SPACING.LINE_HEIGHT
 }
+
 function getTableEndPosition(doc: PDFDocument, fallbackY: number): number {
   return (doc.lastAutoTable?.finalY ?? fallbackY) + PDF_CONFIG.SPACING.SECTION_GAP
-}
-
-function formatNumber(value: number | undefined, currency: Currency): string {
-  const locale = getLocaleForCurrency(currency)
-  return value?.toLocaleString(locale) ?? String(PDF_CONFIG.DEFAULT.ZERO)
-}
-
-function formatCurrency(value: number, currency: Currency): string {
-  const locale = getLocaleForCurrency(currency)
-
-  // Use Intl.NumberFormat for proper currency formatting
-  try {
-    // Check if this currency has a specific fraction digit override
-    const fractionDigits = PDF_CONFIG.FORMAT.FRACTION_DIGITS[
-      currency as keyof typeof PDF_CONFIG.FORMAT.FRACTION_DIGITS
-    ]
-
-    // Build formatter options
-    const options: Intl.NumberFormatOptions = {
-      style: 'currency',
-      currency: currency,
-    }
-
-    // Only override fraction digits if explicitly configured
-    // Otherwise, let Intl.NumberFormat use currency-appropriate defaults
-    if (fractionDigits !== undefined) {
-      options.minimumFractionDigits = fractionDigits
-      options.maximumFractionDigits = fractionDigits
-    }
-
-    return new Intl.NumberFormat(locale, options).format(value)
-  } catch {
-    // Fallback if currency code is not supported
-    return `${value.toLocaleString(locale)} ${currency}`
-  }
-}
-
-function formatAdjustmentAmount(
-  type: string | undefined,
-  amount: number | undefined,
-  currency: Currency
-): string {
-  const sign = type === 'SURCHARGE' ? '+' : '-'
-  const absAmount = Math.abs(amount ?? PDF_CONFIG.DEFAULT.ZERO)
-  return `${sign}${formatCurrency(absAmount, currency)}`
 }
 
 function shouldRenderValue(value: number | undefined): value is number {
   // Render all defined numeric values, including zero
   // This ensures transparency (e.g., "Discount: 0.00 KRW" confirms no discount)
   return value !== undefined && value !== null
-}
-
-function generateFileName(month: string | undefined): string {
-  const monthStr = month ?? PDF_CONFIG.DEFAULT.MONTH
-  return `billing-statement-${monthStr}.pdf`
 }

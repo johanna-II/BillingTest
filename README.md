@@ -178,7 +178,7 @@ BillingTest/
 | **Design** | Comprehensive (testing) | YAGNI (production) |
 | **Backend** | External APIs (tested) | Cloudflare Workers (self-contained) |
 | **Enum Values** | Extensive for coverage | Minimal for clarity |
-| **Integration** | None - independent projects | |
+| **Integration** | None - independent projects | None - independent stacks |
 
 ---
 
@@ -195,18 +195,6 @@ BillingTest/
 - Modern tooling (Vitest, Playwright)
 
 **Timeline:** TBD - Python stack remains active
-
----
-
-### CI/CD Pipelines
-
-```text
-.github/workflows/
-├── ci.yml                  # Python tests (4.5 min)
-├── security.yml            # Security scans (weekly)
-├── performance-test.yml    # k6 load tests
-└── scheduled-tests.yml     # Daily regression
-```
 
 ---
 

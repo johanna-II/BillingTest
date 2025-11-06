@@ -7,19 +7,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { processPayment, createCalculationError } from '@/lib/api/billing-api'
 import type { PaymentResult, CalculationError } from '@/types/billing'
 import type { PaymentRequest } from '@/lib/api/billing-api'
+import { PAYMENT_QUERY_CONFIG } from '@/constants/query'
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
-const PAYMENT_CONFIG = {
-  RETRY: {
-    MAX_ATTEMPTS: 0, // Payments should not be retried automatically
-  },
-  CACHE_KEY: {
-    PREFIX: 'payment',
-  },
-} as const
 // ============================================================================
 // Types
 // ============================================================================
@@ -62,7 +51,7 @@ export function usePaymentProcessing(): UsePaymentProcessingResult {
 
     onSuccess: (data: PaymentResult, variables: PaymentProcessingInput) => {
       // Cache the payment result
-      queryClient.setQueryData([PAYMENT_CONFIG.CACHE_KEY.PREFIX, data.paymentId], data)
+      queryClient.setQueryData([PAYMENT_QUERY_CONFIG.CACHE_KEY.PREFIX, data.paymentId], data)
 
       // Invalidate only specific billing queries affected by this payment
       queryClient.invalidateQueries({
@@ -76,7 +65,7 @@ export function usePaymentProcessing(): UsePaymentProcessingResult {
       })
     },
 
-    retry: PAYMENT_CONFIG.RETRY.MAX_ATTEMPTS,
+    retry: PAYMENT_QUERY_CONFIG.RETRY.MAX_RETRIES,
   })
 
   return {

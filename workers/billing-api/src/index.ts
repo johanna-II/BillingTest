@@ -226,11 +226,20 @@ type PricingKey =
   | 'storage.volume.ssd'
   | 'network.floating_ip'
 
+/**
+ * Pricing Table
+ *
+ * Price Storage Strategy:
+ * - Prices stored as integers (multiplied by 100) to avoid floating-point errors
+ * - Example: ₩397/hour → 39700, ₩166.67/hour → 16667
+ * - This preserves 2 decimal places of precision
+ * - Use integer prices for all calculations, convert for display only
+ */
 const PRICING_TABLE: Record<PricingKey, number> = {
-  'compute.c2.c8m8': 397,
-  'compute.g2.t4.c8m64': 166.67,
-  'storage.volume.ssd': 100,
-  'network.floating_ip': 25,
+  'compute.c2.c8m8': 39700,     // ₩397/hour * 100
+  'compute.g2.t4.c8m64': 16667, // ₩166.67/hour * 100
+  'storage.volume.ssd': 10000,  // ₩100/GB/month * 100
+  'network.floating_ip': 2500,  // ₩25/hour * 100
 } as const
 
 const CONFIG = {
@@ -241,7 +250,7 @@ const CONFIG = {
     RATE: 0.05,
   },
   PRICING: PRICING_TABLE,
-  DEFAULT_PRICE: 100,
+  DEFAULT_PRICE: 10000, // ₩100 in hundredths
   CORS: {
     ALLOWED_ORIGINS: [
       'http://localhost:3000',
@@ -263,6 +272,9 @@ const CONFIG = {
   },
   BILLING: {
     DEFAULT_DISCOUNT: 0,
+  },
+  ADJUSTMENT: {
+    PERCENTAGE_DIVISOR: 100, // Convert percentage (5) to decimal (0.05)
   },
   ID_PREFIX: {
     STATEMENT: 'stmt-',
@@ -334,8 +346,9 @@ const formatValue = (value: unknown): string => {
   if (value === undefined) return 'undefined'
 
   // Type guard for string
+  // Quote strings for clarity in error messages (e.g., "" vs empty, "hello world" vs multiple values)
   if (typeof value === 'string') {
-    return value
+    return `"${value}"`
   }
 
   // Type guard for number
@@ -407,14 +420,49 @@ const createErrorResponse = (message: string): ErrorResponse => ({
 class PricingService {
   private constructor() {}
 
-  static getUnitPrice(counterName: string): number {
-    const price = CONFIG.PRICING[counterName as PricingKey]
-    return price ?? CONFIG.DEFAULT_PRICE
+  /**
+   * Get stored unit price for calculations
+   *
+   * ✅ FOR CALCULATIONS - Returns integer in hundredths for precision
+   *
+   * @param counterName - Resource counter name
+   * @returns Integer price in hundredths (e.g., 39700 for ₩397)
+   */
+  private static getStoredUnitPrice(counterName: string): number {
+    return CONFIG.PRICING[counterName as PricingKey] ?? CONFIG.DEFAULT_PRICE
   }
 
+  /**
+   * Get unit price for display
+   *
+   * ⚠️ FOR DISPLAY ONLY - May have floating-point imprecision
+   *
+   * @param counterName - Resource counter name
+   * @returns Unit price in Won (e.g., 397 for ₩397)
+   */
+  static getUnitPrice(counterName: string): number {
+    const priceInHundredths = PricingService.getStoredUnitPrice(counterName)
+    // Convert from hundredths to display value
+    // Note: This may introduce floating-point imprecision, acceptable for display
+    return priceInHundredths / 100
+  }
+
+  /**
+   * Calculate amount for usage
+   *
+   * ✅ Uses integer arithmetic throughout to maintain precision
+   * Converts to Won at the end (hundredths → Won)
+   *
+   * @param counterName - Resource counter name
+   * @param volume - Usage volume
+   * @returns Amount in Won (e.g., 39,700 for 100 hours at ₩397/hour)
+   */
   static calculateAmount(counterName: string, volume: number): number {
-    const unitPrice = PricingService.getUnitPrice(counterName)
-    return Math.floor(volume * unitPrice)
+    const priceInHundredths = PricingService.getStoredUnitPrice(counterName)
+    // Calculate in hundredths: volume * price (in hundredths)
+    const amountInHundredths = volume * priceInHundredths
+    // Convert to Won by dividing by 100 and flooring
+    return Math.floor(amountInHundredths / 100)
   }
 
   static calculateSubtotal(usageItems: ReadonlyArray<UsageItem>): number {
@@ -462,7 +510,8 @@ class AdjustmentService {
     if (adjustment.method === AdjustmentMethod.FIXED) {
       return adjustment.value
     }
-    return Math.floor(subtotal * (adjustment.value / 100))
+    // Convert percentage (e.g., 5) to decimal (0.05) and apply to subtotal
+    return Math.floor(subtotal * (adjustment.value / CONFIG.ADJUSTMENT.PERCENTAGE_DIVISOR))
   }
 
   static calculateTotal(

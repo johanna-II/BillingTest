@@ -7,15 +7,16 @@ import type * as React from 'react'
 
 declare global {
   namespace JSX {
-    interface Element extends React.ReactElement<any, any> {}
-    interface ElementClass extends React.Component<any> {
+    // Extend React.JSX types directly to avoid 'any' usage
+    interface Element extends React.ReactElement {}
+    interface ElementClass extends React.Component {
       render(): React.ReactNode
     }
     interface ElementAttributesProperty {
-      props: {}
+      props: Record<string, unknown>
     }
     interface ElementChildrenAttribute {
-      children: {}
+      children: React.ReactNode
     }
     type LibraryManagedAttributes<C, P> = React.JSX.LibraryManagedAttributes<C, P>
     interface IntrinsicAttributes extends React.JSX.IntrinsicAttributes {}

@@ -242,13 +242,11 @@ export const useBillingLoading = (): {
   readonly isProcessingPayment: boolean
 } => {
   const { state } = useBilling()
-  return useMemo(
-    () => ({
+  // Return simple object - no useMemo needed for primitive values
+  return {
       isCalculating: state.isCalculating,
       isProcessingPayment: state.isProcessingPayment,
-    }),
-    [state.isCalculating, state.isProcessingPayment]
-  )
+  }
 }
 
 /**

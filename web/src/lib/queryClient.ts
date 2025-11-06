@@ -4,25 +4,7 @@
  */
 
 import { QueryClient, QueryKey } from '@tanstack/react-query'
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
-export const QUERY_CLIENT_CONFIG = {
-  QUERIES: {
-    STALE_TIME_MS: 60 * 1000, // 1 minute
-    REFETCH_ON_WINDOW_FOCUS: false,
-    RETRY_ATTEMPTS: 1,
-    RETRY_DELAY_MS: 1000,
-  },
-  MUTATIONS: {
-    RETRY_ATTEMPTS: 0,
-  },
-  CACHE: {
-    GC_TIME_MS: 5 * 60 * 1000, // 5 minutes
-  },
-} as const
+import { QUERY_CLIENT_CONFIG } from '@/constants/query'
 
 // ============================================================================
 // Query Client Instance

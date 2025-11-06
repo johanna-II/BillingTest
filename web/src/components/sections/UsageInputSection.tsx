@@ -7,70 +7,49 @@
 import React from 'react'
 import { CounterType } from '@/types/billing'
 import type { UsageInput } from '@/types/billing'
+import { generateUsageId, generateResourceId } from '@/lib/utils/id'
+import { INSTANCE_TYPES, getInstanceDescription } from '@/constants/instance-types'
+import { getCurrentLocale } from '@/lib/i18n/locale'
 
 interface UsageInputSectionProps {
   usage: UsageInput[]
   setUsage: (usage: UsageInput[]) => void
 }
 
-// Available instance types with pricing
-const INSTANCE_TYPES = [
-  {
-    value: 'compute.c2.c8m8',
-    label: 'compute.c2.c8m8 (8 vCPU, 8GB RAM)',
-    unit: 'HOURS',
-    description: '일반 컴퓨팅 인스턴스 - ₩397/시간'
-  },
-  {
-    value: 'compute.g2.t4.c8m64',
-    label: 'compute.g2.t4.c8m64 (GPU T4, 8 vCPU, 64GB RAM)',
-    unit: 'HOURS',
-    description: 'GPU 인스턴스 - ₩166.67/시간'
-  },
-  {
-    value: 'storage.volume.ssd',
-    label: 'storage.volume.ssd (SSD Storage)',
-    unit: 'GB',
-    description: 'SSD 블록 스토리지 - ₩100/GB/월'
-  },
-  {
-    value: 'network.floating_ip',
-    label: 'network.floating_ip (Floating IP)',
-    unit: 'HOURS',
-    description: 'Floating IP - ₩25/시간'
-  },
-]
-
 const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }) => {
-  const addUsage = (): void => {
+  // Get locale once to avoid repeated calls during render
+  const currentLocale = getCurrentLocale()
+
+  // Memoize callbacks to prevent unnecessary re-renders in child components
+  const addUsage = React.useCallback((): void => {
     const defaultInstance = INSTANCE_TYPES[0]
     const newUsage: UsageInput = {
-      id: `usage-${Date.now()}`,
+      id: generateUsageId(),
       counterName: defaultInstance.value,
       counterType: CounterType.DELTA,
       counterUnit: defaultInstance.unit,
-      counterVolume: 100,
-      resourceId: `resource-${Date.now()}`,
-      resourceName: 'Test Resource',
-      appKey: 'app-kr-master-001',
-      projectId: 'project-001',
+      counterVolume: 0,
+      resourceId: generateResourceId(),
+      resourceName: '',
+      appKey: '',
+      projectId: '',
     }
     setUsage([...usage, newUsage])
-  }
+  }, [usage, setUsage])
 
-  const removeUsage = (id: string): void => {
+  const removeUsage = React.useCallback((id: string): void => {
     setUsage(usage.filter((u) => u.id !== id))
-  }
+  }, [usage, setUsage])
 
-  const updateUsage = (id: string, field: keyof UsageInput, value: string | number): void => {
+  const updateUsage = React.useCallback((id: string, field: keyof UsageInput, value: string | number): void => {
     setUsage(
       usage.map((u) =>
         u.id === id ? { ...u, [field]: value } : u
       )
     )
-  }
+  }, [usage, setUsage])
 
-  const updateInstanceType = (id: string, counterName: string): void => {
+  const updateInstanceType = React.useCallback((id: string, counterName: string): void => {
     const instance = INSTANCE_TYPES.find(i => i.value === counterName)
     if (instance) {
       setUsage(
@@ -79,7 +58,7 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
         )
       )
     }
-  }
+  }, [usage, setUsage])
 
   return (
     <div>
@@ -100,8 +79,11 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
             <div key={item.id} className="p-6 border border-kinfolk-gray-200 bg-white">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="md:col-span-2">
-                  <label className="kinfolk-label">Instance Type</label>
+                  <label htmlFor={`usage-instance-${item.id}`} className="kinfolk-label">
+                    Instance Type
+                  </label>
                   <select
+                    id={`usage-instance-${item.id}`}
                     value={item.counterName}
                     onChange={(e) => updateInstanceType(item.id, e.target.value)}
                     className="kinfolk-input"
@@ -113,16 +95,33 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
                     ))}
                   </select>
                   <p className="text-xs text-kinfolk-gray-600 mt-1">
-                    {INSTANCE_TYPES.find(i => i.value === item.counterName)?.description}
+                    {getInstanceDescription(item.counterName, currentLocale)}
                   </p>
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Volume</label>
+                  <label htmlFor={`usage-volume-${item.id}`} className="kinfolk-label">
+                    Volume
+                  </label>
                   <input
+                    id={`usage-volume-${item.id}`}
                     type="number"
                     value={item.counterVolume}
-                    onChange={(e) => updateUsage(item.id, 'counterVolume', Number(e.target.value))}
+                    onChange={(e) => {
+                      const inputValue = e.target.value
+
+                      // Explicit handling of empty input
+                      if (inputValue === '') {
+                        updateUsage(item.id, 'counterVolume', 0)
+                        return
+                      }
+
+                      // Validate numeric input
+                      const value = Number(inputValue)
+                      if (!Number.isNaN(value) && value >= 0) {
+                        updateUsage(item.id, 'counterVolume', value)
+                      }
+                    }}
                     className="kinfolk-input"
                     min="0"
                     step="1"
@@ -133,8 +132,11 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Resource Name</label>
+                  <label htmlFor={`usage-name-${item.id}`} className="kinfolk-label">
+                    Resource Name
+                  </label>
                   <input
+                    id={`usage-name-${item.id}`}
                     type="text"
                     value={item.resourceName || ''}
                     onChange={(e) => updateUsage(item.id, 'resourceName', e.target.value)}
@@ -145,10 +147,12 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                 <div>
-                  <label className="kinfolk-label">Resource ID</label>
+                  <label htmlFor={`usage-resource-${item.id}`} className="kinfolk-label">
+                    Resource ID
+                  </label>
                   <input
+                    id={`usage-resource-${item.id}`}
                     type="text"
                     value={item.resourceId}
                     onChange={(e) => updateUsage(item.id, 'resourceId', e.target.value)}
@@ -157,23 +161,27 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">App Key</label>
+                  <label htmlFor={`usage-appkey-${item.id}`} className="kinfolk-label">
+                    App Key
+                  </label>
                   <input
+                    id={`usage-appkey-${item.id}`}
                     type="text"
                     value={item.appKey}
                     onChange={(e) => updateUsage(item.id, 'appKey', e.target.value)}
                     className="kinfolk-input"
                   />
                 </div>
+              </div>
 
-                <div className="flex items-end">
-                  <button
-                    onClick={() => removeUsage(item.id)}
-                    className="text-sm text-red-600 hover:text-red-800 uppercase tracking-widest"
-                  >
-                    Remove
-                  </button>
-                </div>
+              {/* Remove button - full width for better layout */}
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => removeUsage(item.id)}
+                  className="text-sm text-red-600 hover:text-red-800 uppercase tracking-widest"
+                >
+                  Remove
+                </button>
               </div>
             </div>
           ))}

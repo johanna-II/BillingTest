@@ -7,6 +7,7 @@
 import React from 'react'
 import { AdjustmentType, AdjustmentLevel, AdjustmentMethod } from '@/types/billing'
 import type { AdjustmentInput } from '@/types/billing'
+import { generateAdjustmentId } from '@/lib/utils/id'
 
 interface AdjustmentInputSectionProps {
   adjustments: AdjustmentInput[]
@@ -17,31 +18,33 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
   adjustments,
   setAdjustments,
 }) => {
-  const addAdjustment = (): void => {
+  // Memoize callbacks to prevent unnecessary re-renders
+  const addAdjustment = React.useCallback((): void => {
     const newAdjustment: AdjustmentInput = {
+      id: generateAdjustmentId(),
       type: AdjustmentType.DISCOUNT,
-      level: AdjustmentLevel.PROJECT,
+      level: AdjustmentLevel.BILLING_GROUP,
       method: AdjustmentMethod.RATE,
-      value: 5,
-      description: 'Project Special Discount',
-      targetProjectId: 'project-001',
+      value: 0,
+      description: '',
+      targetProjectId: '',
     }
     setAdjustments([...adjustments, newAdjustment])
-  }
+  }, [adjustments, setAdjustments])
 
-  const removeAdjustment = (index: number): void => {
-    setAdjustments(adjustments.filter((_, i) => i !== index))
-  }
+  const removeAdjustment = React.useCallback((id: string): void => {
+    setAdjustments(adjustments.filter((a) => a.id !== id))
+  }, [adjustments, setAdjustments])
 
-  const updateAdjustment = <K extends keyof AdjustmentInput>(
-    index: number,
+  const updateAdjustment = React.useCallback(<K extends keyof AdjustmentInput>(
+    id: string,
     field: K,
     value: AdjustmentInput[K]
   ): void => {
     setAdjustments(
-      adjustments.map((a, i) => (i === index ? { ...a, [field]: value } : a))
+      adjustments.map((a) => (a.id === id ? { ...a, [field]: value } : a))
     )
-  }
+  }, [adjustments, setAdjustments])
 
   return (
     <div>
@@ -58,15 +61,18 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
         </p>
       ) : (
         <div className="space-y-4">
-          {adjustments.map((adjustment, index) => (
-            <div key={index} className="p-6 border border-kinfolk-gray-200 bg-white">
+          {adjustments.map((adjustment) => (
+            <div key={adjustment.id} className="p-6 border border-kinfolk-gray-200 bg-white">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="kinfolk-label">Type</label>
+                  <label htmlFor={`adj-type-${adjustment.id}`} className="kinfolk-label">
+                    Type
+                  </label>
                   <select
+                    id={`adj-type-${adjustment.id}`}
                     value={adjustment.type}
                     onChange={(e) =>
-                      updateAdjustment(index, 'type', e.target.value as AdjustmentInput['type'])
+                      updateAdjustment(adjustment.id, 'type', e.target.value as AdjustmentInput['type'])
                     }
                     className="kinfolk-input"
                   >
@@ -76,11 +82,14 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Level</label>
+                  <label htmlFor={`adj-level-${adjustment.id}`} className="kinfolk-label">
+                    Level
+                  </label>
                   <select
+                    id={`adj-level-${adjustment.id}`}
                     value={adjustment.level}
                     onChange={(e) =>
-                      updateAdjustment(index, 'level', e.target.value as AdjustmentInput['level'])
+                      updateAdjustment(adjustment.id, 'level', e.target.value as AdjustmentInput['level'])
                     }
                     className="kinfolk-input"
                   >
@@ -90,11 +99,14 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Method</label>
+                  <label htmlFor={`adj-method-${adjustment.id}`} className="kinfolk-label">
+                    Method
+                  </label>
                   <select
+                    id={`adj-method-${adjustment.id}`}
                     value={adjustment.method}
                     onChange={(e) =>
-                      updateAdjustment(index, 'method', e.target.value as AdjustmentInput['method'])
+                      updateAdjustment(adjustment.id, 'method', e.target.value as AdjustmentInput['method'])
                     }
                     className="kinfolk-input"
                   >
@@ -104,34 +116,58 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">
+                  <label htmlFor={`adj-value-${adjustment.id}`} className="kinfolk-label">
                     Value {adjustment.method === 'RATE' ? '(%)' : '(₩)'}
                   </label>
                   <input
+                    id={`adj-value-${adjustment.id}`}
                     type="number"
                     value={adjustment.value}
-                    onChange={(e) => updateAdjustment(index, 'value', Number(e.target.value))}
+                    onChange={(e) => {
+                      const inputValue = e.target.value
+
+                      // Explicit handling of empty input
+                      if (inputValue === '') {
+                        updateAdjustment(adjustment.id, 'value', 0)
+                        return
+                      }
+
+                      // Validate numeric input with range check
+                      const value = Number(inputValue)
+                      if (!Number.isNaN(value) && value >= 0) {
+                        updateAdjustment(adjustment.id, 'value', value)
+                      }
+                    }}
                     className="kinfolk-input"
+                    min={0}
+                    max={adjustment.method === AdjustmentMethod.RATE ? 100 : undefined}
+                    step={adjustment.method === AdjustmentMethod.RATE ? 0.1 : 1}
                   />
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Description</label>
+                  <label htmlFor={`adj-desc-${adjustment.id}`} className="kinfolk-label">
+                    Description
+                  </label>
                   <input
+                    id={`adj-desc-${adjustment.id}`}
                     type="text"
                     value={adjustment.description}
-                    onChange={(e) => updateAdjustment(index, 'description', e.target.value)}
+                    onChange={(e) => updateAdjustment(adjustment.id, 'description', e.target.value)}
                     className="kinfolk-input"
                   />
                 </div>
 
                 {adjustment.level === 'PROJECT' && (
                   <div>
-                    <label className="kinfolk-label">Target Project ID</label>
+                    <label htmlFor={`adj-project-${adjustment.id}`} className="kinfolk-label">
+                      Target Project ID
+                    </label>
                     <input
+                      id={`adj-project-${adjustment.id}`}
                       type="text"
                       value={adjustment.targetProjectId || ''}
-                      onChange={(e) => updateAdjustment(index, 'targetProjectId', e.target.value)}
+                      onChange={(e) => updateAdjustment(adjustment.id, 'targetProjectId', e.target.value)}
                       className="kinfolk-input"
                       placeholder="project-001"
                     />
@@ -140,7 +176,7 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
 
                 <div className="md:col-span-3 flex justify-end">
                   <button
-                    onClick={() => removeAdjustment(index)}
+                    onClick={() => removeAdjustment(adjustment.id)}
                     className="text-sm text-red-600 hover:text-red-800 uppercase tracking-widest"
                   >
                     Remove

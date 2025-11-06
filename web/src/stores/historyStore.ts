@@ -132,11 +132,13 @@ const deserializeHistoryEntry = (serialized: SerializedHistoryEntry): HistoryEnt
   if (serialized.payment) {
     transactionDate = deserializeDate(serialized.payment.transactionDate)
     if (!transactionDate) {
-      // Use epoch as fallback for corrupted payment date to preserve data
+      // Use entry timestamp as fallback to preserve data with meaningful date
+      // This is more useful than epoch (1970-01-01) for corrupted payment data
       console.warn(
-        `Invalid transactionDate in history entry ${serialized.id}: ${serialized.payment.transactionDate}. Using epoch.`
+        `Invalid transactionDate in history entry ${serialized.id}: ${serialized.payment.transactionDate}. ` +
+        `Using entry timestamp as fallback.`
       )
-      transactionDate = new Date(0)
+      transactionDate = timestamp
     }
   }
 

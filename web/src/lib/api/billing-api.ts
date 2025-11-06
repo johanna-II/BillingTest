@@ -11,6 +11,7 @@ import type {
   ApiResponseHeader,
   CalculationError,
 } from '@/types/billing'
+import { API_CONFIG, getErrorCodeForStatus } from '@/constants/api'
 
 // ============================================================================
 // API Response Format Documentation
@@ -32,70 +33,6 @@ import type {
  *
  * The client handles both formats automatically via extractDataFromResponse()
  */
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
-/**
- * HTTP Status Codes
- * Standard HTTP response status codes used for API error categorization
- */
-const HttpStatus = {
-  // 2xx Success
-  OK: 200,
-  CREATED: 201,
-
-  // 4xx Client Errors
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  UNPROCESSABLE_ENTITY: 422,
-  TOO_MANY_REQUESTS: 429,
-
-  // 5xx Server Errors
-  INTERNAL_SERVER_ERROR: 500,
-  BAD_GATEWAY: 502,
-  SERVICE_UNAVAILABLE: 503,
-} as const
-
-/**
- * HTTP Status Code to ErrorCode Mapping
- * Maps specific HTTP status codes to application error codes for consistent error handling
- */
-const STATUS_TO_ERROR_MAP = {
-  // Validation errors - input problems that can be fixed by the client
-  [HttpStatus.BAD_REQUEST]: ErrorCode.VALIDATION_ERROR,
-  [HttpStatus.UNPROCESSABLE_ENTITY]: ErrorCode.VALIDATION_ERROR,
-
-  // Authentication/Authorization errors - credential or permission issues
-  [HttpStatus.UNAUTHORIZED]: ErrorCode.AUTH_ERROR,
-  [HttpStatus.FORBIDDEN]: ErrorCode.AUTH_ERROR,
-
-  // Resource errors - not found or rate limiting
-  [HttpStatus.NOT_FOUND]: ErrorCode.API_ERROR,
-  [HttpStatus.TOO_MANY_REQUESTS]: ErrorCode.API_ERROR,
-} as const
-
-const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
-  ENDPOINTS: {
-    CALCULATE: '/api/billing/admin/calculate',
-    STATEMENTS: '/api/billing/payments',
-    PAYMENT: '/api/billing/payments',
-  },
-  HEADERS: {
-    CONTENT_TYPE: 'application/json',
-    UUID_HEADER: 'uuid',
-  },
-  LATE_FEE: {
-    RATE: 0.05,
-  },
-  TIMEOUT: {
-    DEFAULT: 30000, // 30 seconds
-  },
-} as const
 
 // ============================================================================
 // Custom Error Classes
@@ -273,44 +210,13 @@ class HTTPClient {
   /**
    * Maps HTTP status codes to application error codes
    *
-   * Uses a declarative mapping table for known status codes, with fallback logic
-   * for unmapped status codes based on HTTP status code ranges.
+   * Uses helper function with safe fallback for unmapped codes
    *
    * @param status - HTTP response status code
    * @returns Corresponding application ErrorCode
    */
   private mapStatusToErrorCode(status: number): ErrorCode {
-    // First, check if we have an explicit mapping for this status code
-    const mappedError = STATUS_TO_ERROR_MAP[status as keyof typeof STATUS_TO_ERROR_MAP]
-    if (mappedError) {
-      return mappedError
-    }
-
-    // Fallback to range-based categorization for unmapped status codes
-    if (this.isClientError(status)) {
-      return ErrorCode.API_ERROR
-    }
-
-    if (this.isServerError(status)) {
-      return ErrorCode.API_ERROR
-    }
-
-    // Unknown or unexpected status code
-    return ErrorCode.UNKNOWN_ERROR
-  }
-
-  /**
-   * Checks if the status code represents a client error (4xx)
-   */
-  private isClientError(status: number): boolean {
-    return status >= 400 && status < 500
-  }
-
-  /**
-   * Checks if the status code represents a server error (5xx)
-   */
-  private isServerError(status: number): boolean {
-    return status >= 500 && status < 600
+    return getErrorCodeForStatus(status)
   }
 
   async post<T>(
@@ -387,7 +293,15 @@ export class BillingAPIClient {
     return this.extractStatementFromResponse(response)
   }
 
-  async getPaymentStatements(uuid: string, month: string): Promise<BillingStatement> {
+  /**
+   * Get payment statement for a specific month
+   * Extracts the first statement from the envelope response
+   *
+   * @param uuid - User UUID
+   * @param month - Billing month (e.g., '2024-11')
+   * @returns Single billing statement
+   */
+  async getPaymentStatement(uuid: string, month: string): Promise<BillingStatement> {
     if (!uuid || !month) {
       throw new ValidationError('UUID and month are required', 'uuid,month')
     }
@@ -568,8 +482,14 @@ export const calculateBilling = async (request: BillingInput): Promise<BillingSt
   return billingAPI.calculateBilling(request)
 }
 
-export const getPaymentStatements = async (uuid: string, month: string): Promise<BillingStatement> => {
-  return billingAPI.getPaymentStatements(uuid, month)
+/**
+ * Get payment statement for a specific month
+ * @param uuid - User UUID
+ * @param month - Billing month (e.g., '2024-11')
+ * @returns Single billing statement (first from envelope)
+ */
+export const getPaymentStatement = async (uuid: string, month: string): Promise<BillingStatement> => {
+  return billingAPI.getPaymentStatement(uuid, month)
 }
 
 export const processPayment = async (

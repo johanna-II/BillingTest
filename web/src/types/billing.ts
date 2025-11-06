@@ -90,6 +90,7 @@ export interface UsageInput {
 }
 
 export interface CreditInput {
+  readonly id: string // Unique identifier for React key prop
   readonly type: CreditType
   readonly amount: number
   readonly name: string
@@ -98,6 +99,7 @@ export interface CreditInput {
 }
 
 export interface AdjustmentInput {
+  readonly id: string // Unique identifier for React key prop
   readonly type: AdjustmentType
   readonly level: AdjustmentLevel
   readonly method: AdjustmentMethod

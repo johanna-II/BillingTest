@@ -6,22 +6,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { calculateBilling, createCalculationError } from '@/lib/api/billing-api'
 import type { BillingInput, BillingStatement, CalculationError } from '@/types/billing'
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
-const QUERY_CONFIG = {
-  RETRY: {
-    MAX_RETRIES: 2, // Total attempts = 1 initial + 2 retries
-    INITIAL_DELAY_MS: 1000,
-    MAX_DELAY_MS: 30000,
-    BACKOFF_MULTIPLIER: 2,
-  },
-  CACHE_KEY: {
-    PREFIX: 'billing',
-  },
-} as const
+import { BILLING_QUERY_CONFIG } from '@/constants/query'
 
 // ============================================================================
 // Types
@@ -50,16 +35,16 @@ export function useBillingCalculation(): UseBillingCalculationResult {
 
     onSuccess: (data: BillingStatement) => {
       // Cache the successful result
-      queryClient.setQueryData([QUERY_CONFIG.CACHE_KEY.PREFIX, data.statementId], data)
+      queryClient.setQueryData([BILLING_QUERY_CONFIG.CACHE_KEY.PREFIX, data.statementId], data)
     },
 
-    retry: QUERY_CONFIG.RETRY.MAX_RETRIES,
+    retry: BILLING_QUERY_CONFIG.RETRY.MAX_RETRIES,
 
     retryDelay: (attemptIndex: number) => {
       const delay =
-        QUERY_CONFIG.RETRY.INITIAL_DELAY_MS *
-        Math.pow(QUERY_CONFIG.RETRY.BACKOFF_MULTIPLIER, attemptIndex)
-      return Math.min(delay, QUERY_CONFIG.RETRY.MAX_DELAY_MS)
+        BILLING_QUERY_CONFIG.RETRY.INITIAL_DELAY_MS *
+        Math.pow(BILLING_QUERY_CONFIG.RETRY.BACKOFF_MULTIPLIER, attemptIndex)
+      return Math.min(delay, BILLING_QUERY_CONFIG.RETRY.MAX_DELAY_MS)
     },
   })
 

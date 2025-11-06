@@ -10,46 +10,56 @@ import { useBilling } from '@/contexts/BillingContext'
 import { calculateBilling } from '@/lib/api/billing-api'
 import { ErrorCode } from '@/types/billing'
 import type { BillingInput, UsageInput, CreditInput, AdjustmentInput } from '@/types/billing'
+import { BILLING_FORM_DEFAULTS } from '@/constants/forms'
 import UsageInputSection from './sections/UsageInputSection'
 import CreditInputSection from './sections/CreditInputSection'
 import AdjustmentInputSection from './sections/AdjustmentInputSection'
 import BasicInfoSection from './sections/BasicInfoSection'
+
+// ============================================================================
+// Component
+// ============================================================================
 
 interface BillingInputFormProps {
   onComplete: () => void
 }
 
 const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
-  const { actions } = useBilling()
+  const { state, actions } = useBilling()
 
   // Basic info
+  // Note: targetDate always defaults to current date (not from BILLING_FORM_DEFAULTS)
+  // This ensures billing calculations are for the current period by default
   const [targetDate, setTargetDate] = useState<Date>(new Date())
-  const [uuid, setUuid] = useState('test-uuid-001')
-  const [billingGroupId, setBillingGroupId] = useState('bg-kr-test')
-  const [unpaidAmount, setUnpaidAmount] = useState(0)
-  const [isOverdue, setIsOverdue] = useState(false)
+  const [uuid, setUuid] = useState(BILLING_FORM_DEFAULTS.UUID)
+  const [billingGroupId, setBillingGroupId] = useState(BILLING_FORM_DEFAULTS.BILLING_GROUP_ID)
+  const [unpaidAmount, setUnpaidAmount] = useState(BILLING_FORM_DEFAULTS.UNPAID_AMOUNT)
+  const [isOverdue, setIsOverdue] = useState(BILLING_FORM_DEFAULTS.IS_OVERDUE)
 
   // Usage, Credits, Adjustments
   const [usage, setUsage] = useState<UsageInput[]>([])
   const [credits, setCredits] = useState<CreditInput[]>([])
   const [adjustments, setAdjustments] = useState<AdjustmentInput[]>([])
 
-  // UI state
-  const [error, setError] = useState<string | null>(null)
-
   const handleCalculate = async (): Promise<void> => {
     // Validation
     if (!uuid || !billingGroupId) {
-      setError('UUID and Billing Group ID are required')
+      actions.setError({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: 'UUID and Billing Group ID are required',
+      })
       return
     }
 
     if (usage.length === 0) {
-      setError('At least one usage entry is required')
+      actions.setError({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: 'At least one usage entry is required',
+      })
       return
     }
 
-    setError(null)
+    actions.setError(null)
 
     const billingInput: BillingInput = {
       targetDate,
@@ -79,7 +89,6 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
         code: ErrorCode.CALCULATION_ERROR,
         message: err instanceof Error ? err.message : 'Failed to calculate billing',
       })
-      setError(err instanceof Error ? err.message : 'Failed to calculate billing')
     }
   }
 
@@ -88,9 +97,9 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
       <h2 className="text-2xl font-kinfolk-serif mb-8">Billing Parameters</h2>
 
       {/* Error Display */}
-      {error && (
+      {state.error && (
         <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-800 text-sm">
-          {error}
+          {state.error.message}
         </div>
       )}
 
@@ -135,9 +144,10 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
       <div className="mt-12 flex justify-center">
         <button
           onClick={handleCalculate}
-          className="kinfolk-button"
+          disabled={state.isCalculating}
+          className="kinfolk-button disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Calculate Billing
+          {state.isCalculating ? 'Calculating...' : 'Calculate Billing'}
         </button>
       </div>
     </div>
