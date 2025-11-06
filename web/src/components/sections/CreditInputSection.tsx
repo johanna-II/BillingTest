@@ -15,7 +15,6 @@ interface CreditInputSectionProps {
 }
 
 function CreditInputSection({ credits, setCredits }: Readonly<CreditInputSectionProps>) {
-  // Note: Manual memoization removed - React Compiler handles optimization automatically
   const addCredit = (): void => {
     const newCredit: CreditInput = {
       id: generateCreditId(),

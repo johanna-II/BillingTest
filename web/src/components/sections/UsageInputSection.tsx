@@ -20,7 +20,6 @@ function UsageInputSection({ usage, setUsage }: Readonly<UsageInputSectionProps>
   // Get locale once to avoid repeated calls during render
   const currentLocale = getCurrentLocale()
 
-  // Note: Manual memoization (useCallback) removed - React Compiler handles optimization automatically
   const addUsage = (): void => {
     const defaultInstance = INSTANCE_TYPES[0]
     const newUsage: UsageInput = {

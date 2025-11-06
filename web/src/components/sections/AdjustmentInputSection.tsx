@@ -18,7 +18,6 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
   adjustments,
   setAdjustments,
 }) => {
-  // Note: Manual memoization removed - React Compiler handles optimization automatically
   const addAdjustment = (): void => {
     const newAdjustment: AdjustmentInput = {
       id: generateAdjustmentId(),
