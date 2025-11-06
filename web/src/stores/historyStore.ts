@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BillingInput, BillingStatement, PaymentResult } from '@/types/billing'
+import type { BillingInput, BillingStatement, PaymentResult, CreditInput } from '@/types/billing'
 
 // ============================================================================
 // Configuration
@@ -45,8 +45,21 @@ interface SerializedHistoryEntry {
   readonly notes?: string
 }
 
-interface SerializedBillingInput extends Omit<BillingInput, 'targetDate'> {
+/**
+ * Serialized CreditInput type
+ * Converts expirationDate from Date to string
+ */
+interface SerializedCreditInput extends Omit<CreditInput, 'expirationDate'> {
+  readonly expirationDate?: string
+}
+
+/**
+ * Serialized BillingInput type
+ * Converts targetDate and credits[].expirationDate from Date to string
+ */
+interface SerializedBillingInput extends Omit<BillingInput, 'targetDate' | 'credits'> {
   readonly targetDate: string
+  readonly credits: ReadonlyArray<SerializedCreditInput>
 }
 
 interface SerializedBillingStatement extends Omit<BillingStatement, 'dueDate' | 'createdAt'> {
@@ -68,7 +81,7 @@ interface PersistedState {
 
 interface HistoryStore {
   readonly history: ReadonlyArray<HistoryEntry>
-  readonly addEntry: (entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => void
+  readonly addEntry: (entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => string
   readonly updateEntry: (id: string, updates: Partial<Omit<HistoryEntry, 'id' | 'timestamp'>>) => void
   readonly deleteEntry: (id: string) => void
   readonly clearHistory: () => void
@@ -96,6 +109,11 @@ const serializeHistoryEntry = (entry: HistoryEntry): SerializedHistoryEntry => {
     input: {
       ...entry.input,
       targetDate: entry.input.targetDate.toISOString(),
+      // Serialize credits array, converting expirationDate to string
+      credits: entry.input.credits.map(credit => ({
+        ...credit,
+        expirationDate: credit.expirationDate ? credit.expirationDate.toISOString() : undefined,
+      })),
     },
     statement: entry.statement
       ? {
@@ -148,6 +166,11 @@ const deserializeHistoryEntry = (serialized: SerializedHistoryEntry): HistoryEnt
     input: {
       ...serialized.input,
       targetDate,
+      // Deserialize credits array, converting expirationDate strings back to Date objects
+      credits: serialized.input.credits.map((credit): CreditInput => ({
+        ...credit,
+        expirationDate: credit.expirationDate ? deserializeDate(credit.expirationDate) : undefined,
+      })),
     },
     statement: serialized.statement
       ? {
@@ -202,6 +225,9 @@ export const useHistoryStore = create<HistoryStore>()(
         set((state) => ({
           history: [newEntry, ...state.history].slice(0, STORE_CONFIG.STORAGE.MAX_ENTRIES),
         }))
+
+        // Return the ID of the newly created entry
+        return newEntry.id
       },
 
       updateEntry: (id: string, updates: Partial<Omit<HistoryEntry, 'id' | 'timestamp'>>) => {

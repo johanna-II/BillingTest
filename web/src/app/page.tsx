@@ -17,11 +17,12 @@ import { useHistoryStore } from '@/stores/historyStore'
 
 export default function HomePage() {
   const { state, actions } = useBilling()
-  const { getEntry, addEntry } = useHistoryStore()
+  const { getEntry, addEntry, updateEntry } = useHistoryStore()
   const [activeSection, setActiveSection] = useState<'input' | 'statement' | 'payment'>('input')
 
-  // Track last saved entry to prevent duplicates
+  // Track last saved entry to prevent duplicates and enable payment updates
   const lastSavedRef = React.useRef<string | undefined>(undefined)
+  const savedEntryIdRef = React.useRef<string | undefined>(undefined)
 
   const handleLoadHistoryEntry = (entryId: string): void => {
     const entry = getEntry(entryId)
@@ -37,8 +38,7 @@ export default function HomePage() {
   }
 
   // Save to history when calculation completes
-  // History tracks calculation results only; payment state is separate
-  // Deduplication prevents duplicate entries from re-renders
+  // Updates existing entry when payment completes
   React.useEffect(() => {
     if (!state.billingInput || !state.calculatedStatement) {
       return
@@ -50,20 +50,29 @@ export default function HomePage() {
       statement: state.calculatedStatement,
     })
 
-    // Skip if already saved
+    // Check if this is the same calculation
     if (lastSavedRef.current === entryKey) {
+      // Already saved - check if we need to update payment
+      if (savedEntryIdRef.current && state.paymentResult) {
+        // Payment completed - update existing entry
+        updateEntry(savedEntryIdRef.current, {
+          payment: state.paymentResult,
+        })
+      }
       return
     }
 
-    // Save calculation to history
-    // Note: payment is included but doesn't trigger re-saves
+    // New calculation - save to history
     lastSavedRef.current = entryKey
-    addEntry({
+    const entryId = addEntry({
       input: state.billingInput,
       statement: state.calculatedStatement,
       payment: state.paymentResult,
     })
-  }, [state.billingInput, state.calculatedStatement, addEntry, state.paymentResult])
+
+    // Track the ID of the newly created entry for potential payment updates
+    savedEntryIdRef.current = entryId
+  }, [state.billingInput, state.calculatedStatement, state.paymentResult, addEntry, updateEntry])
 
   return (
     <div className="min-h-screen flex flex-col">

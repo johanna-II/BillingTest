@@ -5,6 +5,7 @@
 
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { UseMutateFunction, UseMutateAsyncFunction } from '@tanstack/react-query'
 import { processPayment, createCalculationError } from '@/lib/api/billing-api'
 import type { PaymentResult, CalculationError } from '@/types/billing'
 import type { PaymentRequest } from '@/lib/api/billing-api'
@@ -22,9 +23,13 @@ export interface PaymentProcessingInput {
   readonly billingGroupId: string
 }
 
+/**
+ * Result type for usePaymentProcessing hook
+ * Uses React Query's native types to preserve MutateOptions support
+ */
 interface UsePaymentProcessingResult {
-  readonly mutate: (input: PaymentProcessingInput) => void
-  readonly mutateAsync: (input: PaymentProcessingInput) => Promise<PaymentResult>
+  readonly mutate: UseMutateFunction<PaymentResult, Error, PaymentProcessingInput, unknown>
+  readonly mutateAsync: UseMutateAsyncFunction<PaymentResult, Error, PaymentProcessingInput, unknown>
   readonly data: PaymentResult | undefined
   readonly error: CalculationError | null
   readonly isLoading: boolean

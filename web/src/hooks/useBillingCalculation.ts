@@ -5,6 +5,7 @@
 
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { UseMutateFunction, UseMutateAsyncFunction } from '@tanstack/react-query'
 import { calculateBilling, createCalculationError } from '@/lib/api/billing-api'
 import type { BillingInput, BillingStatement, CalculationError } from '@/types/billing'
 import { BILLING_QUERY_CONFIG } from '@/constants/query'
@@ -13,9 +14,13 @@ import { BILLING_QUERY_CONFIG } from '@/constants/query'
 // Types
 // ============================================================================
 
+/**
+ * Result type for useBillingCalculation hook
+ * Uses React Query's native types to preserve MutateOptions support
+ */
 interface UseBillingCalculationResult {
-  readonly mutate: (input: BillingInput) => void
-  readonly mutateAsync: (input: BillingInput) => Promise<BillingStatement>
+  readonly mutate: UseMutateFunction<BillingStatement, Error, BillingInput, unknown>
+  readonly mutateAsync: UseMutateAsyncFunction<BillingStatement, Error, BillingInput, unknown>
   readonly data: BillingStatement | undefined
   readonly error: CalculationError | null
   readonly isLoading: boolean

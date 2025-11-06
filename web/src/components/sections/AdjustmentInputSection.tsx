@@ -131,9 +131,19 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
                         return
                       }
 
-                      // Validate numeric input with range check
+                      // Validate numeric input with method-specific range check
                       const value = Number(inputValue)
-                      if (!Number.isNaN(value) && value >= 0) {
+                      if (Number.isNaN(value)) {
+                        return // Reject invalid numbers
+                      }
+
+                      // Enforce range based on adjustment method
+                      if (adjustment.method === AdjustmentMethod.RATE) {
+                        // RATE: enforce 0-100 range
+                        const clampedValue = Math.min(100, Math.max(0, value))
+                        updateAdjustment(adjustment.id, 'value', clampedValue)
+                      } else if (value >= 0) {
+                        // FIXED: only enforce >= 0
                         updateAdjustment(adjustment.id, 'value', value)
                       }
                     }}
