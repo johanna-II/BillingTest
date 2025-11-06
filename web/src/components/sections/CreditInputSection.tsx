@@ -14,9 +14,9 @@ interface CreditInputSectionProps {
   setCredits: (credits: CreditInput[]) => void
 }
 
-const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCredits }) => {
-  // Memoize callbacks to prevent unnecessary re-renders
-  const addCredit = React.useCallback((): void => {
+function CreditInputSection({ credits, setCredits }: Readonly<CreditInputSectionProps>) {
+  // Note: Manual memoization removed - React Compiler handles optimization automatically
+  const addCredit = (): void => {
     const newCredit: CreditInput = {
       id: generateCreditId(),
       type: CreditType.FREE,
@@ -24,13 +24,13 @@ const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCre
       name: '',
     }
     setCredits([...credits, newCredit])
-  }, [credits, setCredits])
+  }
 
-  const removeCredit = React.useCallback((id: string): void => {
+  const removeCredit = (id: string): void => {
     setCredits(credits.filter((c) => c.id !== id))
-  }, [credits, setCredits])
+  }
 
-  const updateCredit = React.useCallback(<K extends keyof CreditInput>(
+  const updateCredit = <K extends keyof CreditInput>(
     id: string,
     field: K,
     value: CreditInput[K]
@@ -38,7 +38,7 @@ const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCre
     setCredits(
       credits.map((c) => (c.id === id ? { ...c, [field]: value } : c))
     )
-  }, [credits, setCredits])
+  }
 
   return (
     <div>

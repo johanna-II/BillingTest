@@ -16,12 +16,12 @@ interface UsageInputSectionProps {
   setUsage: (usage: UsageInput[]) => void
 }
 
-const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }) => {
+function UsageInputSection({ usage, setUsage }: Readonly<UsageInputSectionProps>) {
   // Get locale once to avoid repeated calls during render
   const currentLocale = getCurrentLocale()
 
-  // Memoize callbacks to prevent unnecessary re-renders in child components
-  const addUsage = React.useCallback((): void => {
+  // Note: Manual memoization (useCallback) removed - React Compiler handles optimization automatically
+  const addUsage = (): void => {
     const defaultInstance = INSTANCE_TYPES[0]
     const newUsage: UsageInput = {
       id: generateUsageId(),
@@ -35,21 +35,21 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
       projectId: '',
     }
     setUsage([...usage, newUsage])
-  }, [usage, setUsage])
+  }
 
-  const removeUsage = React.useCallback((id: string): void => {
+  const removeUsage = (id: string): void => {
     setUsage(usage.filter((u) => u.id !== id))
-  }, [usage, setUsage])
+  }
 
-  const updateUsage = React.useCallback((id: string, field: keyof UsageInput, value: string | number): void => {
+  const updateUsage = (id: string, field: keyof UsageInput, value: string | number): void => {
     setUsage(
       usage.map((u) =>
         u.id === id ? { ...u, [field]: value } : u
       )
     )
-  }, [usage, setUsage])
+  }
 
-  const updateInstanceType = React.useCallback((id: string, counterName: string): void => {
+  const updateInstanceType = (id: string, counterName: string): void => {
     const instance = INSTANCE_TYPES.find(i => i.value === counterName)
     if (instance) {
       setUsage(
@@ -58,7 +58,7 @@ const UsageInputSection: React.FC<UsageInputSectionProps> = ({ usage, setUsage }
         )
       )
     }
-  }, [usage, setUsage])
+  }
 
   return (
     <div>

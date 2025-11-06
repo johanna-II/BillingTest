@@ -18,8 +18,8 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
   adjustments,
   setAdjustments,
 }) => {
-  // Memoize callbacks to prevent unnecessary re-renders
-  const addAdjustment = React.useCallback((): void => {
+  // Note: Manual memoization removed - React Compiler handles optimization automatically
+  const addAdjustment = (): void => {
     const newAdjustment: AdjustmentInput = {
       id: generateAdjustmentId(),
       type: AdjustmentType.DISCOUNT,
@@ -30,13 +30,13 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
       targetProjectId: '',
     }
     setAdjustments([...adjustments, newAdjustment])
-  }, [adjustments, setAdjustments])
+  }
 
-  const removeAdjustment = React.useCallback((id: string): void => {
+  const removeAdjustment = (id: string): void => {
     setAdjustments(adjustments.filter((a) => a.id !== id))
-  }, [adjustments, setAdjustments])
+  }
 
-  const updateAdjustment = React.useCallback(<K extends keyof AdjustmentInput>(
+  const updateAdjustment = <K extends keyof AdjustmentInput>(
     id: string,
     field: K,
     value: AdjustmentInput[K]
@@ -44,7 +44,7 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
     setAdjustments(
       adjustments.map((a) => (a.id === id ? { ...a, [field]: value } : a))
     )
-  }, [adjustments, setAdjustments])
+  }
 
   return (
     <div>
