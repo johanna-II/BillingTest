@@ -64,21 +64,19 @@ const HttpStatus = {
  * HTTP Status Code to ErrorCode Mapping
  * Maps specific HTTP status codes to application error codes for consistent error handling
  */
-const STATUS_TO_ERROR_MAP: ReadonlyMap<number, ErrorCode> = Object.freeze(
-  new Map([
-    // Validation errors - input problems that can be fixed by the client
-    [HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR],
-    [HttpStatus.UNPROCESSABLE_ENTITY, ErrorCode.VALIDATION_ERROR],
+const STATUS_TO_ERROR_MAP = {
+  // Validation errors - input problems that can be fixed by the client
+  [HttpStatus.BAD_REQUEST]: ErrorCode.VALIDATION_ERROR,
+  [HttpStatus.UNPROCESSABLE_ENTITY]: ErrorCode.VALIDATION_ERROR,
 
-    // Authentication/Authorization errors - credential or permission issues
-    [HttpStatus.UNAUTHORIZED, ErrorCode.AUTH_ERROR],
-    [HttpStatus.FORBIDDEN, ErrorCode.AUTH_ERROR],
+  // Authentication/Authorization errors - credential or permission issues
+  [HttpStatus.UNAUTHORIZED]: ErrorCode.AUTH_ERROR,
+  [HttpStatus.FORBIDDEN]: ErrorCode.AUTH_ERROR,
 
-    // Resource errors - not found or rate limiting
-    [HttpStatus.NOT_FOUND, ErrorCode.API_ERROR],
-    [HttpStatus.TOO_MANY_REQUESTS, ErrorCode.API_ERROR],
-  ])
-)
+  // Resource errors - not found or rate limiting
+  [HttpStatus.NOT_FOUND]: ErrorCode.API_ERROR,
+  [HttpStatus.TOO_MANY_REQUESTS]: ErrorCode.API_ERROR,
+} as const
 
 const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
@@ -283,7 +281,7 @@ class HTTPClient {
    */
   private mapStatusToErrorCode(status: number): ErrorCode {
     // First, check if we have an explicit mapping for this status code
-    const mappedError = STATUS_TO_ERROR_MAP.get(status)
+    const mappedError = STATUS_TO_ERROR_MAP[status as keyof typeof STATUS_TO_ERROR_MAP]
     if (mappedError) {
       return mappedError
     }

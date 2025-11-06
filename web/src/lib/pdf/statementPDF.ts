@@ -236,8 +236,7 @@ function renderSummary(doc: PDFDocument, statement: BillingStatement, startY: nu
   let summaryY = startY + PDF_CONFIG.SPACING.BEFORE_SUMMARY
 
   // Check if we need a new page for the summary
-  // Estimate ~15 lines for complete summary section
-  const estimatedSummaryHeight = 15 * PDF_CONFIG.SPACING.LINE_HEIGHT
+  const estimatedSummaryHeight = calculateSummaryHeight(statement)
   const pageHeight = doc.internal.pageSize.height
 
   if (summaryY + estimatedSummaryHeight > pageHeight - PDF_CONFIG.PAGE.MARGIN_BOTTOM) {
@@ -245,84 +244,126 @@ function renderSummary(doc: PDFDocument, statement: BillingStatement, startY: nu
     summaryY = PDF_CONFIG.PAGE.MARGIN_TOP
   }
 
-  // Summary Title
-  doc.setFontSize(PDF_CONFIG.FONT_SIZE.SECTION)
-  doc.text(PDF_CONFIG.LABELS.SUMMARY_TITLE, PDF_CONFIG.PAGE.MARGIN_LEFT, summaryY)
-  summaryY += PDF_CONFIG.SPACING.SUMMARY_HEADER
+  // Render summary content
+  summaryY = renderSummaryHeader(doc, summaryY)
+  summaryY = renderSummaryItems(doc, statement, currency, summaryY)
+  renderSummaryTotal(doc, statement, currency, summaryY)
+}
 
-  // Summary Items
+function calculateSummaryHeight(statement: BillingStatement): number {
+  let lineCount = 2 // Title + Total (always present)
+  if (shouldRenderValue(statement.subtotal)) lineCount++
+  if (shouldRenderValue(statement.billingGroupDiscount)) lineCount++
+  if (shouldRenderValue(statement.adjustmentTotal)) lineCount++
+  if (shouldRenderValue(statement.creditApplied)) lineCount++
+  if (shouldRenderValue(statement.charge)) lineCount++
+  if (shouldRenderValue(statement.vat)) lineCount++
+  if (shouldRenderValue(statement.unpaidAmount)) lineCount++
+  if (shouldRenderValue(statement.lateFee)) lineCount++
+
+  return (
+    lineCount * PDF_CONFIG.SPACING.LINE_HEIGHT +
+    PDF_CONFIG.SPACING.SUMMARY_HEADER +
+    PDF_CONFIG.SPACING.FINAL_AMOUNT_GAP
+  )
+}
+
+function renderSummaryHeader(doc: PDFDocument, y: number): number {
+  doc.setFontSize(PDF_CONFIG.FONT_SIZE.SECTION)
+  doc.text(PDF_CONFIG.LABELS.SUMMARY_TITLE, PDF_CONFIG.PAGE.MARGIN_LEFT, y)
+  return y + PDF_CONFIG.SPACING.SUMMARY_HEADER
+}
+
+function renderSummaryItems(
+  doc: PDFDocument,
+  statement: BillingStatement,
+  currency: Currency,
+  startY: number
+): number {
+  let y = startY
+
   doc.setFontSize(PDF_CONFIG.FONT_SIZE.BODY)
   doc.setFont(PDF_CONFIG.FONT.FAMILY, PDF_CONFIG.FONT.STYLE_NORMAL)
 
-  summaryY = renderSummaryLine(doc, PDF_CONFIG.LABELS.SUBTOTAL, statement.subtotal, currency, summaryY)
+  // Subtotal (always shown)
+  y = renderSummaryLine(doc, PDF_CONFIG.LABELS.SUBTOTAL, statement.subtotal, currency, y)
 
+  // Optional items
   if (shouldRenderValue(statement.billingGroupDiscount)) {
-    summaryY = renderSummaryLine(
+    y = renderSummaryLine(
       doc,
       PDF_CONFIG.LABELS.BILLING_GROUP_DISCOUNT,
       -statement.billingGroupDiscount,
       currency,
-      summaryY
+      y
     )
   }
 
   if (shouldRenderValue(statement.adjustmentTotal)) {
-    summaryY = renderSummaryLine(
+    y = renderSummaryLine(
       doc,
       PDF_CONFIG.LABELS.ADJUSTMENTS_TOTAL,
       statement.adjustmentTotal,
       currency,
-      summaryY,
+      y,
       true
     )
   }
 
   if (shouldRenderValue(statement.creditApplied)) {
-    summaryY = renderSummaryLine(
+    y = renderSummaryLine(
       doc,
       PDF_CONFIG.LABELS.CREDIT_APPLIED,
       -statement.creditApplied,
       currency,
-      summaryY
+      y
     )
   }
 
   if (shouldRenderValue(statement.charge)) {
-    summaryY = renderSummaryLine(
+    y = renderSummaryLine(
       doc,
       PDF_CONFIG.LABELS.CHARGE_BEFORE_VAT,
       statement.charge,
       currency,
-      summaryY
+      y
     )
   }
 
   if (shouldRenderValue(statement.vat)) {
-    summaryY = renderSummaryLine(doc, PDF_CONFIG.LABELS.VAT, statement.vat, currency, summaryY)
+    y = renderSummaryLine(doc, PDF_CONFIG.LABELS.VAT, statement.vat, currency, y)
   }
 
   if (shouldRenderValue(statement.unpaidAmount)) {
-    summaryY = renderSummaryLine(
+    y = renderSummaryLine(
       doc,
       PDF_CONFIG.LABELS.UNPAID_AMOUNT_PREVIOUS,
       statement.unpaidAmount,
       currency,
-      summaryY
+      y
     )
   }
 
   if (shouldRenderValue(statement.lateFee)) {
-    summaryY = renderSummaryLine(
+    y = renderSummaryLine(
       doc,
       PDF_CONFIG.LABELS.LATE_FEE,
       statement.lateFee,
       currency,
-      summaryY
+      y
     )
   }
 
-  // Total Amount (bold)
-  summaryY += PDF_CONFIG.SPACING.FINAL_AMOUNT_GAP
+  return y
+}
+
+function renderSummaryTotal(
+  doc: PDFDocument,
+  statement: BillingStatement,
+  currency: Currency,
+  y: number
+): void {
+  const summaryY = y + PDF_CONFIG.SPACING.FINAL_AMOUNT_GAP
   doc.setFontSize(PDF_CONFIG.FONT_SIZE.SECTION)
   doc.setFont(PDF_CONFIG.FONT.FAMILY, PDF_CONFIG.FONT.STYLE_BOLD)
   const totalAmount = statement.totalAmount ?? statement.amount ?? PDF_CONFIG.DEFAULT.ZERO
