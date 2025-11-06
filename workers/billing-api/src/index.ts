@@ -383,13 +383,13 @@ const formatValue = (value: unknown): string => {
 
 const createSuccessResponse = <T extends Record<string, unknown>>(
   data: T
-): { readonly header: ApiResponseHeader } & T => ({
+): SuccessResponse<T> => ({
   header: {
     isSuccessful: true,
     resultCode: 0,
     resultMessage: 'SUCCESS',
   } as const,
-  ...data,
+  data,
 })
 
 const createErrorResponse = (message: string): ErrorResponse => ({

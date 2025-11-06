@@ -1,102 +1,223 @@
-# Billing API - Cloudflare Workers
+# Cloudflare Workers - Billing API
 
-무료로 운영 가능한 서버리스 빌링 API입니다.
+TypeScript-based serverless billing API running on Cloudflare's edge network.
 
-## 🚀 빠른 시작
+## 🎯 Purpose
 
-### 1. 설치
+Standalone billing calculation API for portfolio demonstration.
+
+**Note:** This is an **independent implementation**, separate from the Python test suite in `/libs`. It does NOT communicate with the Python backend.
+
+## 🏗️ Architecture
+
+- **Runtime**: Cloudflare Workers (V8 Isolates)
+- **Framework**: [Hono](https://hono.dev/) - Fast, lightweight web framework
+- **Language**: TypeScript 5.3
+- **Deployment**: Cloudflare's global edge network
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 20.x or later
+- npm or pnpm
+- Cloudflare account (for deployment)
+
+### Development
 
 ```bash
-cd workers/billing-api
+# Install dependencies
 npm install
-```
 
-### 2. 로컬 개발
-
-```bash
+# Start local development server
 npm run dev
-```
+# → http://localhost:8787
 
-→ <http://localhost:8787> 에서 테스트
-
-### 3. 배포
-
-```bash
-# Cloudflare 로그인 (처음 한 번만)
-npx wrangler login
-
-# 배포
+# Deploy to Cloudflare (requires login)
 npm run deploy
+
+# View logs
+npm run tail
 ```
 
-→ <https://billing-api.your-subdomain.workers.dev>
+## 📁 Project Structure
 
-## 🎯 API 엔드포인트
-
-### Health Check
-
-```bash
-GET /health
+```text
+workers/billing-api/
+├── src/
+│   └── index.ts          # Main API implementation
+├── package.json          # Dependencies
+├── tsconfig.json         # TypeScript config
+├── wrangler.toml         # Cloudflare config
+└── README.md             # This file
 ```
 
-### Calculate Billing
+## 🔌 API Endpoints
 
-```bash
-POST /api/billing/admin/calculate
-Headers: uuid: test-uuid
-Body: {
-  "uuid": "test-uuid",
-  "billingGroupId": "bg-test",
-  "targetDate": "2025-10-08",
+### POST /api/billing/admin/calculate
+
+Calculate billing statement with usage, credits, and adjustments.
+
+**Request:**
+
+```json
+{
+  "uuid": "user-123",
+  "billingGroupId": "bg-456",
+  "targetDate": "2024-11-06",
   "usage": [...],
   "credits": [...],
   "adjustments": [...]
 }
 ```
 
-### Get Payment Statements
+**Response:**
 
-```bash
-GET /api/billing/payments/{month}/statements
-Headers: uuid: test-uuid
-```
-
-### Process Payment
-
-```bash
-POST /api/billing/payments/{month}
-Headers: uuid: test-uuid
-Body: {
-  "amount": 100000,
-  "paymentGroupId": "PG-test"
+```json
+{
+  "header": {
+    "isSuccessful": true,
+    "resultCode": 0,
+    "resultMessage": "SUCCESS"
+  },
+  "data": {
+    "statementId": "stmt-...",
+    "totalAmount": 162500,
+    "charge": 100000,
+    "vat": 10000,
+    ...
+  }
 }
 ```
 
-## 💰 비용
+### GET /api/billing/payments/:month/statements
 
-**완전 무료!**
+Get billing statements for a specific month.
 
-- 10만 요청/일 (= 300만 요청/월)
-- 10ms CPU 시간/요청
-- 무제한 대역폭
+### POST /api/billing/payments/:month
 
-## 🔧 환경 변수 설정
+Process payment for a billing statement.
 
-배포 후 Cloudflare Dashboard에서 설정:
+## 🎨 Design Decisions
 
-```text
-ALLOWED_ORIGINS=https://your-project.pages.dev,https://your-domain.com
+### Simplified Enums (YAGNI Principle)
+
+This API intentionally uses a **simplified subset** of billing features:
+
+| Enum | Values | Rationale |
+|------|--------|-----------|
+| **CreditType** | FREE, PAID, PROMOTIONAL | Core use cases only |
+| **PaymentStatus** | SUCCESS, FAILED, PENDING | Essential states |
+| **AdjustmentType** | DISCOUNT, SURCHARGE + method/level | Compositional design |
+
+**Why simplified?**
+
+- Easier to understand and maintain
+- Covers 95% of real-world scenarios
+- Demonstrates clean architecture principles
+- Portfolio-friendly (not over-engineered)
+
+### Compositional Adjustment Design
+
+Instead of flat enums (`FIXED_DISCOUNT`, `RATE_DISCOUNT`), we use composition:
+
+```typescript
+interface AdjustmentInput {
+  type: 'DISCOUNT' | 'SURCHARGE'
+  method: 'FIXED' | 'RATE'
+  level: 'BILLING_GROUP' | 'PROJECT'
+  value: number
+}
 ```
 
-## 📊 모니터링
+**Benefits:**
+
+- More flexible (easy to add new methods/levels)
+- Better type safety
+- Clearer business logic
+- Follows modern TypeScript patterns
+
+## 🔗 Integration
+
+**Frontend:** `/web` (Next.js app) calls this API  
+**Python Backend:** Not connected - independent systems
+
+## 📦 Dependencies
+
+```json
+{
+  "hono": "^4.0.0",
+  "chanfana": "^2.0.2"
+}
+```
+
+## 🚢 Deployment
+
+### Cloudflare Workers
 
 ```bash
-# 실시간 로그 확인
-npm run tail
+# First time: Login to Cloudflare
+npx wrangler login
+
+# Deploy to production
+npm run deploy
+
+# Deploy to specific environment
+npm run deploy -- --env production
 ```
 
-## 🌐 커스텀 도메인 연결
+### Environment Variables
 
-1. Cloudflare Dashboard → Workers → 프로젝트 선택
-2. Settings → Triggers → Custom Domains
-3. Add Custom Domain: `api.your-domain.com`
+Configure in `wrangler.toml`:
+
+```toml
+[vars]
+ENVIRONMENT = "production"
+```
+
+For secrets (API keys, etc.):
+
+```bash
+npx wrangler secret put SECRET_NAME
+```
+
+## 🧪 Testing
+
+Currently relies on manual testing and end-to-end tests from `/web`.
+
+**Future:** Add unit tests with Vitest
+
+## 📝 Code Style
+
+- **Formatter**: Prettier (inherited from workspace)
+- **Linter**: ESLint (TypeScript recommended rules)
+- **Type checking**: `tsc --noEmit`
+
+## 🔄 Comparison with Python Stack
+
+| Feature | Python Stack | This (TypeScript) |
+|---------|-------------|-------------------|
+| Purpose | API testing | Production demo |
+| CreditTypes | 7 types | 3 types |
+| PaymentStatus | 9 statuses | 3 statuses |
+| Adjustments | Flat enums | Compositional |
+| Complexity | Comprehensive | Minimal |
+
+Both are intentional design choices for different goals.
+
+## 🤝 Contributing
+
+1. Make changes in `src/index.ts`
+2. Test locally: `npm run dev`
+3. Check types: `npm run check` (if script exists)
+4. Deploy: `npm run deploy`
+
+## 📚 Resources
+
+- [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
+- [Hono Documentation](https://hono.dev/)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+
+## 📄 License
+
+MIT

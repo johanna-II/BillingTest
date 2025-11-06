@@ -1,0 +1,41 @@
+# Code Owners for BillingTest Repository
+# This file defines who owns specific parts of the codebase
+# and will be automatically requested for review when changes are made.
+
+# Default owner for everything in the repo
+* @johanna-II
+
+# Python Stack - API Test Suite
+/libs/               @johanna-II
+/tests/              @johanna-II
+/mock_server/        @johanna-II
+/src/                @johanna-II
+/config/             @johanna-II
+*.py                 @johanna-II
+pyproject.toml       @johanna-II
+poetry.lock          @johanna-II
+requirements*.txt    @johanna-II
+
+# TypeScript Stack - Full-Stack Demo
+/web/                @johanna-II
+/workers/            @johanna-II
+*.ts                 @johanna-II
+*.tsx                @johanna-II
+package.json         @johanna-II
+package-lock.json    @johanna-II
+tsconfig.json        @johanna-II
+
+# Documentation
+/docs/               @johanna-II
+*.md                 @johanna-II
+
+# CI/CD
+/.github/            @johanna-II
+docker-compose*.yml  @johanna-II
+Dockerfile*          @johanna-II
+Makefile             @johanna-II
+
+# Configuration files
+.gitignore           @johanna-II
+.editorconfig        @johanna-II
+renovate.json        @johanna-II

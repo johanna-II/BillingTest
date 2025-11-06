@@ -172,6 +172,8 @@ coverage.xml
 security_scan_report.json
 .benchmarks/
 performance-results.json
+report/
+junit.xml
 
 # Cache directories
 __pycache__/
@@ -179,5 +181,27 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
+# Build artifacts
+ci_billing_test
+examples/
+
+# Deployment configs (use environment-specific configs instead)
+Procfile
+railway.json
+railway.toml
+prometheus.yml
+
 # GitHub Actions
 .github/workflows/*.log
+
+# TypeScript/Node
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Wrangler (Cloudflare)
+.wrangler/
+.dev.vars

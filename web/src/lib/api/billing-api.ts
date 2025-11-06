@@ -376,7 +376,7 @@ export class BillingAPIClient {
       { [API_CONFIG.HEADERS.UUID_HEADER]: request.uuid }
     )
 
-    return this.extractStatementFromResponse(response, request)
+    return this.extractStatementFromResponse(response)
   }
 
   async getPaymentStatements(uuid: string, month: string): Promise<BillingStatement> {
@@ -454,8 +454,7 @@ export class BillingAPIClient {
   }
 
   private extractStatementFromResponse(
-    response: ApiResponse<BillingStatement>,
-    request: BillingInput
+    response: ApiResponse<BillingStatement>
   ): BillingStatement {
     const baseStatement = this.extractDataFromResponse(response)
 
@@ -468,19 +467,9 @@ export class BillingAPIClient {
       )
     }
 
-    // Apply client-side enhancements (unpaid amount and late fee)
-    const unpaidAmount = request.unpaidAmount ?? 0
-    const lateFee =
-      request.isOverdue === true && unpaidAmount > 0
-        ? Math.floor(unpaidAmount * API_CONFIG.LATE_FEE.RATE)
-        : 0
-
-    return {
-      ...baseStatement,
-      unpaidAmount,
-      lateFee,
-      totalAmount: baseStatement.totalAmount + unpaidAmount + lateFee,
-    }
+    // Backend already calculates unpaidAmount, lateFee, and totalAmount
+    // Return the statement as-is without recalculation to avoid double-counting
+    return baseStatement
   }
 
   private extractDataFromResponse<T>(response: ApiResponse<T>): T {

@@ -109,15 +109,103 @@ cd web && npm install && npm run dev
 
 ## Project Structure
 
+> **Important:** This repository contains **two independent projects** serving different purposes.
+
+### 🐍 Python Stack (Original - API Test Suite)
+
+**Purpose:** Production-grade test infrastructure for billing APIs  
+**Status:** ✅ Active - Comprehensive test automation
+
 ```text
 BillingTest/
-├── libs/              # Billing engine (Metering, Contracts, Credits, Payments)
-├── src/domain/        # DDD models (entities, services, repositories)
-├── mock_server/       # Flask mock server (500 req/s, OpenAPI 3.0)
-├── workers/           # Cloudflare Workers edge API
-├── web/               # Next.js frontend
-├── tests/             # 2,578 tests (unit, integration, contract, performance, security)
-└── .github/workflows/ # 4 CI/CD pipelines (< 5min execution)
+├── libs/              # Core billing engine
+│   ├── billing_calculator.py
+│   ├── payment_processor.py
+│   ├── credit_calculator.py
+│   └── constants.py   # Full feature set enums
+├── src/domain/        # DDD architecture
+│   ├── models/        # Domain entities
+│   └── services/      # Business logic
+├── mock_server/       # Flask test server (500 req/s)
+├── tests/             # 2,578 comprehensive tests
+│   ├── unit/          # 850 unit tests
+│   ├── integration/   # 1,200 integration tests
+│   ├── performance/   # k6 + pytest-benchmark
+│   ├── contracts/     # Pact consumer tests
+│   └── security/      # Security scans
+└── config/            # Environment configurations
+```
+
+**Features:** Full billing capabilities with extensive enum support (COMPENSATION, CAMPAIGN, REFUND credits; READY, REGISTERED payment statuses; comprehensive adjustment types)
+
+---
+
+### 💎 TypeScript Stack (Portfolio Demo - Full-Stack App)
+
+**Purpose:** Standalone billing calculator demo  
+**Status:** ✅ Active - Independent implementation  
+**Note:** Does NOT communicate with Python backend
+
+```text
+BillingTest/
+├── web/                    # Next.js 14 Frontend
+│   ├── src/
+│   │   ├── app/            # App Router pages
+│   │   ├── components/     # React components
+│   │   ├── lib/            # API client, utilities
+│   │   ├── types/          # TypeScript types
+│   │   │   └── billing.ts  # Simplified enums (YAGNI)
+│   │   └── stores/         # Zustand state management
+│   └── package.json
+│
+└── workers/
+    └── billing-api/        # Cloudflare Workers Backend
+        ├── src/
+        │   └── index.ts    # Serverless API endpoints
+        └── wrangler.toml   # Cloudflare config
+```
+
+**Features:** Core billing features only (FREE/PAID/PROMOTIONAL credits; SUCCESS/FAILED/PENDING payments; compositional adjustment design)
+
+---
+
+### Key Differences
+
+| Aspect | Python Stack | TypeScript Stack |
+|--------|-------------|------------------|
+| **Purpose** | API testing infrastructure | Portfolio demo app |
+| **Scope** | Full feature set | Simplified subset |
+| **Design** | Comprehensive (testing) | YAGNI (production) |
+| **Backend** | External APIs (tested) | Cloudflare Workers (self-contained) |
+| **Enum Values** | Extensive for coverage | Minimal for clarity |
+| **Integration** | None - independent projects | |
+
+---
+
+### 🚀 Future: TypeScript Migration
+
+**Status:** Under consideration  
+**Goal:** Migrate Python test suite to TypeScript for unified codebase
+
+**Benefits:**
+
+- Single language across frontend, backend, and tests
+- Better type safety end-to-end
+- Improved developer experience
+- Modern tooling (Vitest, Playwright)
+
+**Timeline:** TBD - Python stack remains active
+
+---
+
+### CI/CD Pipelines
+
+```text
+.github/workflows/
+├── ci.yml                  # Python tests (4.5 min)
+├── security.yml            # Security scans (weekly)
+├── performance-test.yml    # k6 load tests
+└── scheduled-tests.yml     # Daily regression
 ```
 
 ---
