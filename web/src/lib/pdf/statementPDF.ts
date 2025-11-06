@@ -162,9 +162,9 @@ function renderLineItemsTable(
     head: [[...PDF_CONFIG.TABLE_HEADERS.LINE_ITEMS]],
     body: statement.lineItems.map((item) => [
       item.counterName ?? item.resourceName ?? PDF_CONFIG.LABELS.NOT_AVAILABLE,
-      formatNumber(item.quantity, currency),
-      formatNumber(item.unitPrice, currency),
-      formatNumber(item.amount, currency),
+      formatNumber(item.quantity, currency), // Non-monetary: quantity
+      formatCurrency(item.unitPrice, currency), // Monetary: unit price
+      formatCurrency(item.amount, currency), // Monetary: total amount
     ]),
   })
 
@@ -222,8 +222,8 @@ function renderCreditsTable(
     head: [[...PDF_CONFIG.TABLE_HEADERS.CREDITS]],
     body: statement.appliedCredits.map((credit) => [
       credit.type ?? PDF_CONFIG.LABELS.NOT_AVAILABLE,
-      formatNumber(credit.amountApplied, currency),
-      formatNumber(credit.remainingBalance, currency),
+      formatCurrency(credit.amountApplied, currency), // Monetary: amount applied
+      formatCurrency(credit.remainingBalance, currency), // Monetary: remaining balance
       credit.campaignName ?? credit.campaignId ?? PDF_CONFIG.LABELS.NO_CAMPAIGN,
     ]),
   })

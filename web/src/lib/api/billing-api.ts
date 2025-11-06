@@ -150,6 +150,16 @@ export interface PaymentRequest {
 }
 
 /**
+ * Payment statements envelope response
+ * Wraps an array of billing statements with payment group metadata
+ */
+export interface PaymentStatementsEnvelope {
+  readonly paymentGroupId: string
+  readonly paymentStatus: string
+  readonly statements: ReadonlyArray<BillingStatement>
+}
+
+/**
  * API Response format supporting both:
  * - New format: { header, data: T }
  * - Legacy format: { header, ...T } (backwards compatibility)
@@ -385,22 +395,43 @@ export class BillingAPIClient {
     }
 
     const endpoint = `${API_CONFIG.ENDPOINTS.STATEMENTS}/${month}/statements`
-    const response = await this.httpClient.get<ApiResponse<BillingStatement>>(endpoint, {
+    const response = await this.httpClient.get<ApiResponse<PaymentStatementsEnvelope>>(endpoint, {
       [API_CONFIG.HEADERS.UUID_HEADER]: uuid,
     })
 
-    const data = this.extractDataFromResponse(response)
+    const envelope = this.extractDataFromResponse(response)
 
-    // Runtime validation for critical response type
-    if (!validateBillingStatement(data)) {
+    // Validate envelope has statements array
+    if (!envelope.statements || !Array.isArray(envelope.statements)) {
       throw new APIError(
-        'Invalid BillingStatement response: missing required fields',
+        'Invalid API response: missing or invalid statements array',
         500,
         ErrorCode.API_ERROR
       )
     }
 
-    return data
+    // Validate statements array is not empty
+    if (envelope.statements.length === 0) {
+      throw new APIError(
+        'Invalid API response: statements array is empty',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    // Extract the first statement from the envelope
+    const statement = envelope.statements[0]
+
+    // Runtime validation for critical response type
+    if (!validateBillingStatement(statement)) {
+      throw new APIError(
+        'Invalid BillingStatement in envelope: missing required fields',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    return statement
   }
 
   async processPayment(
