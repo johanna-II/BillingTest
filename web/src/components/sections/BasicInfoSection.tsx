@@ -47,8 +47,12 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
             type="date"
             value={format(targetDate, 'yyyy-MM-dd')}
             onChange={(e) => {
-              const date = new Date(e.target.value)
-              if (!Number.isNaN(date.getTime())) {
+              // Use valueAsDate for correct local timezone handling
+              // Prevents UTC parsing which causes off-by-one date shifts
+              const date = e.target.valueAsDate
+
+              // Validate: valueAsDate is null for empty/invalid input
+              if (date && !Number.isNaN(date.getTime())) {
                 setTargetDate(date)
               }
             }}
