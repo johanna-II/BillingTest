@@ -22,7 +22,7 @@ const SwaggerUI = dynamic(() => import('swagger-ui-react'), {
   ),
 })
 
-export default function APIReferencePage(): JSX.Element {
+export default function APIReferencePage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />

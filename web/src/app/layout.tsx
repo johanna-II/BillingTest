@@ -18,7 +18,7 @@ export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
-}): JSX.Element {
+) {
   return (
     <html lang="en" className="scroll-smooth">
       <body className="font-kinfolk bg-kinfolk-beige-50 text-kinfolk-gray-900 antialiased">

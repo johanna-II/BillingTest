@@ -15,7 +15,7 @@ import HistoryPanel from '@/components/HistoryPanel'
 import { useBilling } from '@/contexts/BillingContext'
 import { useHistoryStore } from '@/stores/historyStore'
 
-export default function HomePage(): JSX.Element {
+export default function HomePage() {
   const { state, actions } = useBilling()
   const { getEntry, addEntry } = useHistoryStore()
   const [activeSection, setActiveSection] = useState<'input' | 'statement' | 'payment'>('input')
@@ -152,7 +152,7 @@ function StepIndicator({
   completed,
   disabled = false,
   onClick
-}: StepIndicatorProps): JSX.Element {
+}: StepIndicatorProps) {
   // Calculate step circle styles based on state
   const getStepCircleStyles = (): string => {
     if (completed) {
