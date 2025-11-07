@@ -107,18 +107,50 @@ type APIConfigShape = {
 }
 
 /**
+ * Get API Base URL with environment-aware fallback
+ * - Production: Requires NEXT_PUBLIC_API_URL to be set (fails fast if missing)
+ * - Development: Falls back to localhost:5000 for local testing
+ */
+const getApiBaseUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+
+  // Production: Require environment variable
+  if (process.env.NODE_ENV === 'production') {
+    if (!envUrl) {
+      throw new Error(
+        'NEXT_PUBLIC_API_URL environment variable is required in production. ' +
+        'Please configure it in your deployment settings (GitHub Secrets, Vercel, etc.)'
+      )
+    }
+    return envUrl
+  }
+
+  // Development: Use env var or fallback to localhost
+  if (!envUrl) {
+    console.warn(
+      '⚠️ NEXT_PUBLIC_API_URL not set. Using fallback: http://localhost:5000\n' +
+      'For Cloudflare Workers, create web/.env.local with:\n' +
+      'NEXT_PUBLIC_API_URL=https://billing-api.janetheglory.workers.dev'
+    )
+    return 'http://localhost:5000'
+  }
+
+  return envUrl
+}
+
+/**
  * API Configuration
  * Uses 'as const satisfies' for literal types with shape validation
  */
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
+  BASE_URL: getApiBaseUrl(),
   ENDPOINTS: {
     CALCULATE: '/api/billing/admin/calculate',
     STATEMENTS: '/api/billing/payments',
     PAYMENT: '/api/billing/payments',
   },
   HEADERS: {
-    CONTENT_TYPE: 'application/json',
+    CONTENT_TYPE: 'Content-Type',
     UUID_HEADER: 'uuid',
   },
   LATE_FEE: {
