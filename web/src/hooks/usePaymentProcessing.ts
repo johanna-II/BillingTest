@@ -9,7 +9,7 @@ import type { UseMutateFunction, UseMutateAsyncFunction } from '@tanstack/react-
 import { processPayment, createCalculationError } from '@/lib/api/billing-api'
 import type { PaymentResult, CalculationError } from '@/types/billing'
 import type { PaymentRequest } from '@/lib/api/billing-api'
-import { PAYMENT_QUERY_CONFIG } from '@/constants/query'
+import { PAYMENT_QUERY_CONFIG, BILLING_QUERY_KEYS } from '@/constants/query'
 
 // ============================================================================
 // Types
@@ -61,13 +61,13 @@ export function usePaymentProcessing(): UsePaymentProcessingResult {
 
       // Invalidate only specific billing queries affected by this payment
       queryClient.invalidateQueries({
-        queryKey: ['billing', variables.statementId],
+        queryKey: BILLING_QUERY_KEYS.byStatement(variables.statementId),
       })
       queryClient.invalidateQueries({
-        queryKey: ['billing', 'statements', variables.statementId],
+        queryKey: BILLING_QUERY_KEYS.statements(variables.statementId),
       })
       queryClient.invalidateQueries({
-        queryKey: ['billing', 'groups', variables.billingGroupId],
+        queryKey: BILLING_QUERY_KEYS.groups(variables.billingGroupId),
       })
     },
 

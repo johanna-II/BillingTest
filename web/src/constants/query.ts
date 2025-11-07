@@ -110,3 +110,17 @@ export const QUERY_CLIENT_CONFIG = {
 } as const satisfies QueryClientConfigShape
 
 export type QueryClientConfigType = typeof QUERY_CLIENT_CONFIG
+
+// ============================================================================
+// Query Key Factories
+// ============================================================================
+
+/**
+ * Centralized query key patterns for cache invalidation
+ * Ensures consistency across hooks and prevents key mismatches
+ */
+export const BILLING_QUERY_KEYS = {
+  byStatement: (id: string) => ['billing', id] as const,
+  statements: (id: string) => ['billing', 'statements', id] as const,
+  groups: (id: string) => ['billing', 'groups', id] as const,
+} as const
