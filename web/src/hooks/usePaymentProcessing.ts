@@ -45,7 +45,7 @@ interface UsePaymentProcessingResult {
 export function usePaymentProcessing(): UsePaymentProcessingResult {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation({
+  const mutation = useMutation<PaymentResult, Error, PaymentProcessingInput>({
     mutationFn: async (input: PaymentProcessingInput) => {
       const request: PaymentRequest = {
         amount: input.amount,

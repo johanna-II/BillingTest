@@ -142,6 +142,7 @@ function validateBillingStatement(data: unknown): data is BillingStatement {
 
 /**
  * Validates critical fields of a PaymentResult response
+ * Note: transactionDate is validated separately for type conversion
  */
 function validatePaymentResult(data: unknown): data is PaymentResult {
   if (!data || typeof data !== 'object') return false
@@ -150,7 +151,8 @@ function validatePaymentResult(data: unknown): data is PaymentResult {
   return (
     typeof result.paymentId === 'string' &&
     typeof result.status === 'string' &&
-    typeof result.amount === 'number'
+    typeof result.amount === 'number' &&
+    typeof result.transactionDate === 'string' // transactionDate from backend
   )
 }
 
@@ -371,7 +373,30 @@ export class BillingAPIClient {
       )
     }
 
-    return data
+    // Validate transactionDate is not empty
+    if (!data.transactionDate) {
+      throw new APIError(
+        'Invalid PaymentResult response: transactionDate cannot be empty',
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    // Convert and validate transactionDate from string to Date object
+    const transactionDate = new Date(data.transactionDate)
+    if (Number.isNaN(transactionDate.getTime())) {
+      throw new APIError(
+        `Invalid PaymentResult response: transactionDate "${data.transactionDate}" is not a valid date`,
+        500,
+        ErrorCode.API_ERROR
+      )
+    }
+
+    // Return with properly converted Date object
+    return {
+      ...data,
+      transactionDate,
+    }
   }
 
   // ============================================================================

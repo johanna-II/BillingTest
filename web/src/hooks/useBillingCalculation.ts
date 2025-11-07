@@ -3,7 +3,7 @@
  * React Query integration with type-safe error handling and retry logic
  */
 
-import React from 'react'
+import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UseMutateFunction, UseMutateAsyncFunction } from '@tanstack/react-query'
 import { calculateBilling, createCalculationError } from '@/lib/api/billing-api'
@@ -36,7 +36,7 @@ interface UseBillingCalculationResult {
 export function useBillingCalculation(): UseBillingCalculationResult {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation({
+  const mutation = useMutation<BillingStatement, Error, BillingInput>({
     mutationFn: (input: BillingInput) => calculateBilling(input),
 
     onSuccess: (data: BillingStatement) => {
@@ -56,7 +56,7 @@ export function useBillingCalculation(): UseBillingCalculationResult {
 
   // Memoize error to maintain referential equality
   // Prevents unnecessary re-renders in consumer components
-  const memoizedError = React.useMemo(
+  const memoizedError = useMemo(
     () => (mutation.error ? createCalculationError(mutation.error) : null),
     [mutation.error]
   )

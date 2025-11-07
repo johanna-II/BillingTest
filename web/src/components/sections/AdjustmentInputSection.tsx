@@ -4,21 +4,21 @@
 
 'use client'
 
-import React from 'react'
+import React, { useCallback, type Dispatch, type SetStateAction } from 'react'
 import { AdjustmentType, AdjustmentLevel, AdjustmentMethod } from '@/types/billing'
 import type { AdjustmentInput } from '@/types/billing'
 import { generateAdjustmentId } from '@/lib/utils/id'
 
 interface AdjustmentInputSectionProps {
   adjustments: AdjustmentInput[]
-  setAdjustments: (adjustments: AdjustmentInput[]) => void
+  setAdjustments: Dispatch<SetStateAction<AdjustmentInput[]>>
 }
 
 const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
   adjustments,
   setAdjustments,
 }) => {
-  const addAdjustment = (): void => {
+  const addAdjustment = useCallback((): void => {
     const newAdjustment: AdjustmentInput = {
       id: generateAdjustmentId(),
       type: AdjustmentType.DISCOUNT,
@@ -28,22 +28,22 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
       description: '',
       targetProjectId: '',
     }
-    setAdjustments([...adjustments, newAdjustment])
-  }
+    setAdjustments(prev => [...prev, newAdjustment])
+  }, [setAdjustments])
 
-  const removeAdjustment = (id: string): void => {
-    setAdjustments(adjustments.filter((a) => a.id !== id))
-  }
+  const removeAdjustment = useCallback((id: string): void => {
+    setAdjustments(prev => prev.filter((a) => a.id !== id))
+  }, [setAdjustments])
 
-  const updateAdjustment = <K extends keyof AdjustmentInput>(
+  const updateAdjustment = useCallback(<K extends keyof AdjustmentInput>(
     id: string,
     field: K,
     value: AdjustmentInput[K]
   ): void => {
-    setAdjustments(
-      adjustments.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+    setAdjustments(prev =>
+      prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
     )
-  }
+  }, [setAdjustments])
 
   return (
     <div>
@@ -142,9 +142,10 @@ const AdjustmentInputSection: React.FC<AdjustmentInputSectionProps> = ({
                         // RATE: enforce 0-100 range
                         const clampedValue = Math.min(100, Math.max(0, value))
                         updateAdjustment(adjustment.id, 'value', clampedValue)
-                      } else if (value >= 0) {
-                        // FIXED: only enforce >= 0
-                        updateAdjustment(adjustment.id, 'value', value)
+                      } else {
+                        // FIXED: enforce >= 0 (clamp negative values to 0)
+                        const clampedValue = Math.max(0, value)
+                        updateAdjustment(adjustment.id, 'value', clampedValue)
                       }
                     }}
                     className="kinfolk-input"

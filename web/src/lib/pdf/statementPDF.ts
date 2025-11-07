@@ -6,7 +6,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { BillingStatement, Currency } from '@/types/billing'
-import { PDF_CONFIG } from '@/constants/pdf'
+import { PDF_CONFIG, getVATLabel } from '@/constants/pdf'
 import {
   formatNumber,
   formatCurrency,
@@ -255,7 +255,7 @@ function renderSummaryItems(
     },
     {
       value: statement.vat,
-      label: PDF_CONFIG.LABELS.VAT,
+      label: getVATLabel(),
     },
     {
       value: statement.unpaidAmount,

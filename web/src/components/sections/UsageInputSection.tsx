@@ -4,7 +4,7 @@
 
 'use client'
 
-import React from 'react'
+import { useMemo, useCallback, memo, type Dispatch, type SetStateAction } from 'react'
 import { CounterType } from '@/types/billing'
 import type { UsageInput } from '@/types/billing'
 import { generateUsageId, generateResourceId } from '@/lib/utils/id'
@@ -13,14 +13,14 @@ import { getCurrentLocale } from '@/lib/i18n/locale'
 
 interface UsageInputSectionProps {
   usage: UsageInput[]
-  setUsage: (usage: UsageInput[]) => void
+  setUsage: Dispatch<SetStateAction<UsageInput[]>>
 }
 
 function UsageInputSection({ usage, setUsage }: Readonly<UsageInputSectionProps>) {
   // Get locale once to avoid repeated calls during render
-  const currentLocale = getCurrentLocale()
+  const currentLocale = useMemo(() => getCurrentLocale(), [])
 
-  const addUsage = (): void => {
+  const addUsage = useCallback((): void => {
     const defaultInstance = INSTANCE_TYPES[0]
     const newUsage: UsageInput = {
       id: generateUsageId(),
@@ -33,31 +33,31 @@ function UsageInputSection({ usage, setUsage }: Readonly<UsageInputSectionProps>
       appKey: '',
       projectId: '',
     }
-    setUsage([...usage, newUsage])
-  }
+    setUsage(prev => [...prev, newUsage])
+  }, [setUsage])
 
-  const removeUsage = (id: string): void => {
-    setUsage(usage.filter((u) => u.id !== id))
-  }
+  const removeUsage = useCallback((id: string): void => {
+    setUsage(prev => prev.filter((u) => u.id !== id))
+  }, [setUsage])
 
-  const updateUsage = (id: string, field: keyof UsageInput, value: string | number): void => {
-    setUsage(
-      usage.map((u) =>
+  const updateUsage = useCallback((id: string, field: keyof UsageInput, value: string | number): void => {
+    setUsage(prev =>
+      prev.map((u) =>
         u.id === id ? { ...u, [field]: value } : u
       )
     )
-  }
+  }, [setUsage])
 
-  const updateInstanceType = (id: string, counterName: string): void => {
+  const updateInstanceType = useCallback((id: string, counterName: string): void => {
     const instance = INSTANCE_TYPES.find(i => i.value === counterName)
     if (instance) {
-      setUsage(
-        usage.map((u) =>
+      setUsage(prev =>
+        prev.map((u) =>
           u.id === id ? { ...u, counterName: instance.value, counterUnit: instance.unit } : u
         )
       )
     }
-  }
+  }, [setUsage])
 
   return (
     <div>
@@ -190,4 +190,4 @@ function UsageInputSection({ usage, setUsage }: Readonly<UsageInputSectionProps>
   )
 }
 
-export default React.memo(UsageInputSection)
+export default memo(UsageInputSection)

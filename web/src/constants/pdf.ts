@@ -53,14 +53,21 @@ type PDFConfigShape = {
     readonly CURRENCY: Currency
     readonly MONTH: string
     readonly ZERO: number
+    readonly VAT_PERCENTAGE: number
   }
   readonly FORMAT: {
     readonly LOCALE_MAP: {
-      readonly [key: string]: string
+      readonly KRW: string
+      readonly USD: string
+      readonly EUR: string
+      readonly JPY: string
     }
     readonly DEFAULT_LOCALE: string
     readonly FRACTION_DIGITS: {
-      readonly [key: string]: number
+      readonly KRW: number
+      readonly JPY: number
+      readonly USD: number
+      readonly EUR: number
     }
   }
 }
@@ -113,7 +120,6 @@ export const PDF_CONFIG = {
     ADJUSTMENTS_TOTAL: 'Adjustments Total',
     CREDIT_APPLIED: 'Credit Applied',
     CHARGE_BEFORE_VAT: 'Charge (before VAT)',
-    VAT: 'VAT (10%)',
     UNPAID_AMOUNT_PREVIOUS: 'Unpaid Amount (Previous)',
     LATE_FEE: 'Late Fee',
     TOTAL_AMOUNT: 'Total Amount',
@@ -129,6 +135,7 @@ export const PDF_CONFIG = {
     CURRENCY: 'KRW' as Currency,
     MONTH: 'unknown',
     ZERO: 0,
+    VAT_PERCENTAGE: 10, // 10% VAT rate - configurable by jurisdiction
   },
   FORMAT: {
     LOCALE_MAP: {
@@ -139,8 +146,10 @@ export const PDF_CONFIG = {
     },
     DEFAULT_LOCALE: 'en-US',
     FRACTION_DIGITS: {
-      KRW: 0,
-      JPY: 0,
+      KRW: 0,  // Korean Won - no decimals
+      JPY: 0,  // Japanese Yen - no decimals
+      USD: 2,  // US Dollar - 2 decimals
+      EUR: 2,  // Euro - 2 decimals
     },
   },
 } as const satisfies PDFConfigShape
@@ -149,3 +158,15 @@ export const PDF_CONFIG = {
  * Derive type from constant for perfect type safety
  */
 export type PDFConfigType = typeof PDF_CONFIG
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Generate VAT label with current VAT percentage
+ * Avoids circular reference and recomputation on every access
+ */
+export function getVATLabel(): string {
+  return `VAT (${PDF_CONFIG.DEFAULT.VAT_PERCENTAGE}%)`
+}

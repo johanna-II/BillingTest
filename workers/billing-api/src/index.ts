@@ -314,7 +314,11 @@ const assertValidEnum = <T extends Record<string, string>>(
   }
 }
 
-const assertPositiveNumber = (
+/**
+ * Assert value is a non-negative number (>= 0)
+ * Allows 0 for valid use cases like 0% discount or 0 fixed amount
+ */
+const assertNonNegativeNumber = (
   value: unknown,
   fieldName: string
 ): asserts value is number => {
@@ -329,9 +333,9 @@ const assertPositiveNumber = (
     )
   }
 
-  if (value <= 0) {
+  if (value < 0) {
     throw new ValidationError(
-      `Invalid ${fieldName}: ${value}. Must be a positive number greater than 0.`
+      `Invalid ${fieldName}: ${value}. Must be a non-negative number (>= 0).`
     )
   }
 }
@@ -486,7 +490,7 @@ class AdjustmentService {
   private static normalizeLegacyFormat(item: LegacyAdjustmentItem): AdjustmentItem {
     assertValidEnum(AdjustmentType, item.adjustmentType, 'adjustmentType')
     assertValidEnum(AdjustmentMethod, item.method, 'method')
-    assertPositiveNumber(item.adjustmentValue, 'adjustmentValue')
+    assertNonNegativeNumber(item.adjustmentValue, 'adjustmentValue')
 
     return {
       type: item.adjustmentType,
@@ -502,7 +506,7 @@ class AdjustmentService {
   private static validateModernFormat(item: AdjustmentItem): AdjustmentItem {
     assertValidEnum(AdjustmentType, item.type, 'type')
     assertValidEnum(AdjustmentMethod, item.method, 'method')
-    assertPositiveNumber(item.value, 'value')
+    assertNonNegativeNumber(item.value, 'value')
     return item
   }
 

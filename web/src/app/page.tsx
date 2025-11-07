@@ -27,6 +27,12 @@ export default function HomePage() {
   const handleLoadHistoryEntry = (entryId: string): void => {
     const entry = getEntry(entryId)
     if (entry) {
+      // Reset refs to match loaded entry
+      // This prevents duplicate entries and ensures payment updates go to the correct entry
+      const entryKey = `${entry.input.uuid}-${entry.input.billingGroupId}-${entry.input.targetDate.toISOString()}-${entry.statement?.statementId || 'none'}`
+      lastSavedRef.current = entryKey
+      savedEntryIdRef.current = entryId
+
       actions.setBillingInput(entry.input)
       if (entry.statement) {
         actions.setCalculatedStatement(entry.statement)
@@ -44,11 +50,8 @@ export default function HomePage() {
       return
     }
 
-    // Create unique key for deduplication (input + statement only)
-    const entryKey = JSON.stringify({
-      input: state.billingInput,
-      statement: state.calculatedStatement,
-    })
+    // Create unique key for deduplication based on key fields
+    const entryKey = `${state.billingInput.uuid}-${state.billingInput.billingGroupId}-${state.billingInput.targetDate.toISOString()}-${state.calculatedStatement.statementId || 'none'}`
 
     // Check if this is the same calculation
     if (lastSavedRef.current === entryKey) {
