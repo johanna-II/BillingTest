@@ -46,7 +46,16 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
             id="targetDate"
             type="date"
             value={format(targetDate, 'yyyy-MM-dd')}
-            onChange={(e) => setTargetDate(new Date(e.target.value))}
+            onChange={(e) => {
+              // Use valueAsDate for correct local timezone handling
+              // Prevents UTC parsing which causes off-by-one date shifts
+              const date = e.target.valueAsDate
+
+              // Validate: valueAsDate is null for empty/invalid input
+              if (date && !Number.isNaN(date.getTime())) {
+                setTargetDate(date)
+              }
+            }}
             className="kinfolk-input"
           />
         </div>
@@ -90,7 +99,21 @@ const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
             id="unpaidAmount"
             type="number"
             value={unpaidAmount}
-            onChange={(e) => setUnpaidAmount(Number(e.target.value))}
+            onChange={(e) => {
+              const inputValue = e.target.value
+
+              // Explicit handling of empty input
+              if (inputValue === '') {
+                setUnpaidAmount(0)
+                return
+              }
+
+              // Validate numeric input
+              const value = Number(inputValue)
+              if (!Number.isNaN(value) && value >= 0) {
+                setUnpaidAmount(value)
+              }
+            }}
             min="0"
             step="1000"
             className="kinfolk-input"

@@ -2,486 +2,830 @@ import { Hono, Context } from 'hono'
 import { cors } from 'hono/cors'
 
 // ============================================================================
-// Type Definitions - 타입 안전성 향상
+// Type Definitions & Enums
+// ============================================================================
+
+enum CreditType {
+  PROMOTIONAL = 'PROMOTIONAL',
+  FREE = 'FREE',
+  PAID = 'PAID',
+}
+
+enum AdjustmentType {
+  DISCOUNT = 'DISCOUNT',
+  SURCHARGE = 'SURCHARGE',
+}
+
+enum AdjustmentMethod {
+  FIXED = 'FIXED',
+  RATE = 'RATE',
+}
+
+enum AdjustmentLevel {
+  BILLING_GROUP = 'BILLING_GROUP',
+  PROJECT = 'PROJECT',
+}
+
+enum BillingStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  CANCELLED = 'CANCELLED',
+}
+
+enum PaymentStatus {
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  PENDING = 'PENDING',
+}
+
+enum PaymentMethod {
+  CREDIT_CARD = 'CREDIT_CARD',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  DEBIT_CARD = 'DEBIT_CARD',
+  WIRE_TRANSFER = 'WIRE_TRANSFER',
+  MOCK = 'MOCK',
+}
+
+enum CounterType {
+  DELTA = 'DELTA',
+  GAUGE = 'GAUGE',
+  CUMULATIVE = 'CUMULATIVE',
+}
+
+enum Currency {
+  KRW = 'KRW',
+  USD = 'USD',
+  EUR = 'EUR',
+  JPY = 'JPY',
+}
+
+// ============================================================================
+// Domain Types - Fully Type Safe
 // ============================================================================
 
 interface UsageItem {
-  // Required fields for type safety
-  counterVolume: number
-  counterName: string
-  counterUnit: string
-  // Optional fields
-  counterType?: string
-  resourceId?: string
-  resourceName?: string
-  projectId?: string
-  appKey?: string
-  uuid?: string
+  readonly counterVolume: number
+  readonly counterName: string
+  readonly counterUnit: string
+  readonly counterType?: CounterType
+  readonly resourceId?: string
+  readonly resourceName?: string
+  readonly projectId?: string
+  readonly appKey?: string
+  readonly uuid?: string
 }
 
 interface CreditItem {
-  // Required fields for type safety
-  amount: number
-  type: string  // PROMOTIONAL, FREE, PAID
-  // Optional fields
-  campaignId?: string
-  name?: string
-  creditCode?: string
-  uuid?: string
-  expireDate?: string
-  restAmount?: number
+  readonly amount: number
+  readonly type: CreditType
+  readonly campaignId?: string
+  readonly name?: string
+  readonly creditCode?: string
+  readonly uuid?: string
+  readonly expireDate?: string
+  readonly restAmount?: number
 }
 
 interface AdjustmentItem {
-  // Required fields for type safety
-  type: 'DISCOUNT' | 'SURCHARGE'
-  method: 'FIXED' | 'RATE'
-  value: number
-  // Optional fields
-  description?: string
-  level?: string
-  targetProjectId?: string
-  month?: string
+  readonly type: AdjustmentType
+  readonly method: AdjustmentMethod
+  readonly value: number
+  readonly description?: string
+  readonly level?: string
+  readonly targetProjectId?: string
+  readonly month?: string
 }
 
-// Legacy adjustment format for backward compatibility
 interface LegacyAdjustmentItem {
-  adjustmentType: string
-  method: 'FIXED' | 'RATE'
-  adjustmentValue: number
-  description?: string
-  level?: string
-  targetProjectId?: string
-  month?: string
+  readonly adjustmentType: string
+  readonly method: string
+  readonly adjustmentValue: number
+  readonly description?: string
+  readonly level?: string
+  readonly targetProjectId?: string
+  readonly month?: string
 }
 
-// Union type to accept either modern or legacy format
 type AdjustmentItemInput = AdjustmentItem | LegacyAdjustmentItem
 
 interface BillingRequest {
-  uuid?: string
-  billingGroupId?: string
-  targetDate?: string
-  unpaidAmount?: number
-  isOverdue?: boolean
-  usage?: UsageItem[]
-  credits?: CreditItem[]
-  adjustments?: AdjustmentItemInput[]
+  readonly uuid?: string
+  readonly billingGroupId?: string
+  readonly targetDate?: string
+  readonly unpaidAmount?: number
+  readonly isOverdue?: boolean
+  readonly usage?: ReadonlyArray<UsageItem>
+  readonly credits?: ReadonlyArray<CreditItem>
+  readonly adjustments?: ReadonlyArray<AdjustmentItemInput>
 }
 
 interface PaymentRequest {
-  paymentGroupId?: string
-  amount?: number
+  readonly paymentGroupId?: string
+  readonly amount?: number
 }
-
-// ============================================================================
-// Environment bindings
-// ============================================================================
 
 interface Env {
-  VAT_RATE?: string  // Configurable VAT rate (default: 0.1 for 10%)
+  readonly VAT_RATE?: string
 }
 
 // ============================================================================
-// Constants
+// Response Types - Fully Type Safe
 // ============================================================================
 
-const DEFAULT_VAT_RATE = 0.1
+interface ApiResponseHeader {
+  readonly isSuccessful: boolean
+  readonly resultCode: number
+  readonly resultMessage: string
+}
 
-const app = new Hono<{ Bindings: Env }>()
+interface SuccessResponse<T> {
+  readonly header: ApiResponseHeader
+  readonly data: T
+}
 
-// CORS 설정 - 모든 도메인 허용 또는 특정 도메인만
-app.use('/*', cors({
-  origin: (origin: string | undefined) => {
-    // 로컬 개발 또는 Cloudflare Pages/Workers 도메인 허용
-    const allowedOrigins = [
+interface ErrorResponse {
+  readonly header: ApiResponseHeader
+}
+
+interface LineItem {
+  readonly id: string
+  readonly counterName: string
+  readonly counterType: CounterType
+  readonly unit: string
+  readonly quantity: number
+  readonly unitPrice: number
+  readonly amount: number
+  readonly resourceId?: string
+  readonly resourceName?: string
+  readonly projectId?: string
+  readonly appKey?: string
+}
+
+interface AppliedCredit {
+  readonly creditId: string
+  readonly type: CreditType
+  readonly amountApplied: number
+  readonly remainingBalance: number
+  readonly campaignId?: string
+  readonly campaignName?: string
+}
+
+interface AppliedAdjustment {
+  readonly adjustmentId: string
+  readonly type: AdjustmentType
+  readonly description: string
+  readonly amount: number
+  readonly level: AdjustmentLevel
+  readonly targetId?: string
+}
+
+interface BillingCalculationResult {
+  readonly statementId: string
+  readonly uuid?: string
+  readonly billingGroupId?: string
+  readonly month: string
+  readonly currency: Currency
+  readonly subtotal: number
+  readonly billingGroupDiscount: number
+  readonly adjustmentTotal: number
+  readonly creditApplied: number
+  readonly vat: number
+  readonly unpaidAmount: number
+  readonly lateFee: number
+  readonly charge: number
+  readonly amount: number
+  readonly totalAmount: number
+  readonly status: BillingStatus
+  readonly lineItems: ReadonlyArray<LineItem>
+  readonly appliedCredits: ReadonlyArray<AppliedCredit>
+  readonly appliedAdjustments: ReadonlyArray<AppliedAdjustment>
+}
+
+interface CreditApplicationResult {
+  readonly charge: number
+  readonly appliedCredits: ReadonlyArray<AppliedCredit>
+  readonly totalCreditsApplied: number
+}
+
+// ============================================================================
+// Custom Error Classes
+// ============================================================================
+
+class ValidationError extends Error {
+  public readonly name = 'ValidationError' as const
+
+  constructor(message: string) {
+    super(message)
+    Object.setPrototypeOf(this, ValidationError.prototype)
+  }
+}
+
+// ============================================================================
+// Configuration & Constants - Type Safe
+// ============================================================================
+
+type PricingKey =
+  | 'compute.c2.c8m8'
+  | 'compute.g2.t4.c8m64'
+  | 'storage.volume.ssd'
+  | 'network.floating_ip'
+
+/**
+ * Pricing Table
+ *
+ * Price Storage Strategy:
+ * - Prices stored as integers (multiplied by 100) to avoid floating-point errors
+ * - Example: ₩397/hour → 39700, ₩166.67/hour → 16667
+ * - This preserves 2 decimal places of precision
+ * - Use integer prices for all calculations, convert for display only
+ */
+const PRICING_TABLE: Record<PricingKey, number> = {
+  'compute.c2.c8m8': 39700,     // ₩397/hour * 100
+  'compute.g2.t4.c8m64': 16667, // ₩166.67/hour * 100
+  'storage.volume.ssd': 10000,  // ₩100/GB/month * 100
+  'network.floating_ip': 2500,  // ₩25/hour * 100
+} as const
+
+const CONFIG = {
+  VAT: {
+    DEFAULT_RATE: 0.1,
+  },
+  LATE_FEE: {
+    RATE: 0.05,
+  },
+  PRICING: PRICING_TABLE,
+  DEFAULT_PRICE: 10000, // ₩100 in hundredths
+  CORS: {
+    ALLOWED_ORIGINS: [
       'http://localhost:3000',
       'http://localhost:5173',
       'https://billingtest.pages.dev',
-      /^https:\/\/.*\.pages\.dev$/,  // 모든 .pages.dev 서브도메인
-      /^https:\/\/.*\.workers\.dev$/  // 모든 .workers.dev 서브도메인
-    ]
-
-    if (!origin) return '*' // non-browser requests
-
-    // 정규식 또는 문자열 매칭
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (typeof allowed === 'string') return allowed === origin
-      return allowed.test(origin)
-    })
-
-    return isAllowed ? origin : 'https://billingtest.pages.dev'
+    ] as const,
+    ALLOWED_PATTERNS: [
+      /^https:\/\/.*\.pages\.dev$/,
+      /^https:\/\/.*\.workers\.dev$/,
+    ] as const,
+    DEFAULT_ORIGIN: 'https://billingtest.pages.dev' as const,
+    MAX_AGE: 86400,
   },
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'uuid', 'Authorization'],
-  exposeHeaders: ['Content-Length', 'X-Request-Id'],
-  credentials: true,
-  maxAge: 86400, // 24시간 캐시
-}))
+  CURRENCY: {
+    DEFAULT: Currency.KRW,
+  },
+  COUNTER: {
+    DEFAULT_TYPE: CounterType.DELTA,
+  },
+  BILLING: {
+    DEFAULT_DISCOUNT: 0,
+  },
+  ADJUSTMENT: {
+    PERCENTAGE_DIVISOR: 100, // Convert percentage (5) to decimal (0.05)
+  },
+  ID_PREFIX: {
+    STATEMENT: 'stmt-',
+    PAYMENT: 'PAY-',
+    PAYMENT_GROUP: 'PG-',
+    BILLING_GROUP: 'BG-',
+    LINE_ITEM: 'line-',
+    ADJUSTMENT: 'adj-',
+    CREDIT: 'credit-',
+  },
+  UUID: {
+    SLICE_LENGTH: 8,
+  },
+} as const
 
-// Health check
-app.get('/health', (c: Context<{ Bindings: Env }>) => {
-  return c.json({
-    header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
-    status: 'healthy',
-    timestamp: new Date().toISOString()
-  })
-})
+// ============================================================================
+// Utility Functions - Type Guards & Validators
+// ============================================================================
 
-// Calculate billing endpoint
-app.post('/api/billing/admin/calculate', async (c: Context<{ Bindings: Env }>) => {
-  try {
-    const uuid = c.req.header('uuid')
-
-    // Get configurable VAT rate from environment or use default
-    const vatRate = c.env.VAT_RATE ? Number.parseFloat(c.env.VAT_RATE) : DEFAULT_VAT_RATE
-
-    // Parse request body - don't hide JSON errors
-    let body: BillingRequest
-    try {
-      body = await c.req.json<BillingRequest>()
-    } catch (err) {
-      return c.json({
-        header: {
-          isSuccessful: false,
-          resultCode: -1,
-          resultMessage: `Invalid JSON request body: ${err instanceof Error ? err.message : 'Unknown error'}`
-        }
-      }, 400)
-    }
-
-    const { usage = [], credits = [], adjustments = [] } = body
-
-    // Normalize adjustments (convert legacy format and validate)
-    let normalizedAdjustments: AdjustmentItem[]
-    try {
-      normalizedAdjustments = adjustments.map(normalizeAdjustmentItem)
-    } catch (err) {
-      return c.json({
-        header: {
-          isSuccessful: false,
-          resultCode: -1,
-          resultMessage: err instanceof Error ? err.message : 'Invalid adjustment data'
-        }
-      }, 400)
-    }
-
-    // 사용량 계산
-    const subtotal = usage.reduce((sum: number, item: UsageItem) => {
-      const amount = calculateAmount(item.counterName, item.counterVolume)
-      return sum + amount
-    }, 0)
-
-    // 조정 적용
-    const adjustmentTotal = calculateAdjustmentTotal(normalizedAdjustments, subtotal)
-
-    // 크레딧 적용 전 금액
-    const chargeBeforeCredit = Math.max(0, subtotal + adjustmentTotal)
-
-    // 크레딧 순차 적용 (PROMOTIONAL → FREE → PAID 우선순위)
-    let remainingCharge = chargeBeforeCredit
-    const appliedCreditsList: Array<{
-      creditId: string
-      type: string
-      amountApplied: number
-      remainingBalance: number
-      campaignId?: string
-      campaignName?: string
-    }> = []
-
-    for (let idx = 0; idx < credits.length; idx++) {
-      const credit = credits[idx]
-      const amountApplied = Math.min(credit.amount, remainingCharge)
-
-      remainingCharge -= amountApplied
-
-      appliedCreditsList.push({
-        creditId: credit.creditCode || credit.uuid || `credit-${idx}`,
-        type: credit.type,
-        amountApplied,
-        remainingBalance: credit.amount - amountApplied,
-        campaignId: credit.campaignId,
-        campaignName: credit.name
-      })
-
-      // No more charge to apply credits to
-      if (remainingCharge <= 0) break
-    }
-
-    // 최종 금액 계산
-    const charge = remainingCharge
-    const totalCreditsApplied = chargeBeforeCredit - charge
-    const vat = Math.floor(charge * vatRate)
-    const totalAmount = charge + vat
-
-  return c.json({
-    header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
-    statementId: `stmt-${Date.now()}`,
-    uuid: uuid || body.uuid,
-    billingGroupId: body.billingGroupId,
-    month: body.targetDate?.slice(0, 7) || new Date().toISOString().slice(0, 7),
-    currency: 'KRW',
-    subtotal,
-    billingGroupDiscount: 0,
-    adjustmentTotal,
-    creditApplied: totalCreditsApplied,
-    vat,
-    unpaidAmount: body.unpaidAmount || 0,
-    lateFee: body.isOverdue ? (body.unpaidAmount || 0) * 0.05 : 0,
-    charge,
-    amount: totalAmount,
-    totalAmount,
-    status: 'PENDING',
-    lineItems: usage.map((item: UsageItem, idx: number) => ({
-        id: `line-${idx}`,
-        counterName: item.counterName,
-        counterType: item.counterType || 'DELTA',
-        unit: item.counterUnit,
-        quantity: item.counterVolume,
-        unitPrice: getUnitPrice(item.counterName),
-        amount: calculateAmount(item.counterName, item.counterVolume),
-        resourceId: item.resourceId,
-        resourceName: item.resourceName,
-        projectId: item.projectId,
-        appKey: item.appKey
-      })),
-    appliedCredits: appliedCreditsList,
-    appliedAdjustments: normalizedAdjustments.map((adj: AdjustmentItem, idx: number) => ({
-      adjustmentId: `adj-${idx}`,
-      type: adj.type,
-      description: adj.description,
-      amount: calculateAdjustmentAmount(adj, subtotal),
-      level: adj.level,
-      targetId: adj.targetProjectId
-    }))
-  })
-  } catch (error) {
-    return c.json({
-      header: {
-        isSuccessful: false,
-        resultCode: -1,
-        resultMessage: error instanceof Error ? error.message : 'Calculation failed'
-      }
-    }, 500)
-  }
-})
-
-// Get payment statements
-app.get('/api/billing/payments/:month/statements', async (c: Context<{ Bindings: Env }>) => {
-  try {
-    const uuid = c.req.header('uuid')
-    const month = c.req.param('month')
-
-    // 간단한 mock 데이터
-    return c.json({
-      header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
-      paymentGroupId: `PG-${uuid?.slice(0, 8) || 'default'}`,
-      paymentStatus: 'READY',
-      statements: [{
-        statementId: `stmt-${month}`,
-        uuid: uuid || 'default',
-        month,
-        currency: 'KRW',
-        amount: 0,
-        subtotal: 0,
-        billingGroupDiscount: 0,
-        adjustmentTotal: 0,
-        creditApplied: 0,
-        vat: 0,
-        unpaidAmount: 0,
-        lateFee: 0,
-        totalAmount: 0,
-        status: 'READY',
-        lineItems: [],
-        appliedCredits: [],
-        appliedAdjustments: []
-      }]
-    })
-  } catch (error) {
-    return c.json({
-      header: {
-        isSuccessful: false,
-        resultCode: -1,
-        resultMessage: error instanceof Error ? error.message : 'Failed to get statements'
-      }
-    }, 500)
-  }
-})
-
-// Process payment
-app.post('/api/billing/payments/:month', async (c: Context<{ Bindings: Env }>) => {
-  try {
-    const uuid = c.req.header('uuid')
-
-    // Parse request body - don't hide JSON errors
-    let body: PaymentRequest
-    try {
-      body = await c.req.json<PaymentRequest>()
-    } catch (err) {
-      return c.json({
-        header: {
-          isSuccessful: false,
-          resultCode: -1,
-          resultMessage: `Invalid JSON request body: ${err instanceof Error ? err.message : 'Unknown error'}`
-        }
-      }, 400)
-    }
-
-    return c.json({
-      header: { isSuccessful: true, resultCode: 0, resultMessage: 'SUCCESS' },
-      paymentId: `PAY-${Date.now()}`,
-      paymentGroupId: body.paymentGroupId || `PG-${uuid?.slice(0, 8) || 'default'}`,
-      status: 'SUCCESS',
-      amount: body.amount || 0,
-      method: 'MOCK',
-      transactionDate: new Date().toISOString(),
-      receiptUrl: `https://receipt.example.com/${Date.now()}`
-    })
-  } catch (error) {
-    return c.json({
-      header: {
-        isSuccessful: false,
-        resultCode: -1,
-        resultMessage: error instanceof Error ? error.message : 'Payment processing failed'
-      }
-    }, 500)
-  }
-})
-
-// Helper: 단가 계산 (단위당 가격)
-function getUnitPrice(counterName: string): number {
-  const prices: Record<string, number> = {
-    'compute.c2.c8m8': 397,          // 397원/시간
-    'compute.g2.t4.c8m64': 166.67,   // 166.67원/시간
-    'storage.volume.ssd': 100,        // 100원/GB/월
-    'network.floating_ip': 25         // 25원/시간
-  }
-  return prices[counterName] || 100
+const isValidEnum = <T extends Record<string, string>>(
+  enumObj: T,
+  value: unknown
+): value is T[keyof T] => {
+  return typeof value === 'string' && Object.values(enumObj).includes(value)
 }
 
-// Helper: Validate adjustment type with assertion signature
-function validateAdjustmentType(value: string): asserts value is 'DISCOUNT' | 'SURCHARGE' {
-  if (value !== 'DISCOUNT' && value !== 'SURCHARGE') {
-    throw new Error(
-      `Invalid adjustment type: "${value}". Must be "DISCOUNT" or "SURCHARGE".`
+const assertValidEnum = <T extends Record<string, string>>(
+  enumObj: T,
+  value: unknown,
+  fieldName: string
+): asserts value is T[keyof T] => {
+  if (!isValidEnum(enumObj, value)) {
+    const validValues = Object.values(enumObj).join(', ')
+    throw new ValidationError(
+      `Invalid ${fieldName}: "${String(value)}". Must be one of: ${validValues}.`
     )
   }
 }
 
-// Helper: Validate adjustment method with assertion signature
-function validateAdjustmentMethod(value: string): asserts value is 'FIXED' | 'RATE' {
-  if (value !== 'FIXED' && value !== 'RATE') {
-    throw new Error(
-      `Invalid adjustment method: "${value}". Must be "FIXED" or "RATE".`
-    )
-  }
-}
-
-// Helper: Validate adjustment value (presence, type, and positivity)
-function validateAdjustmentValue(value: unknown, fieldName: string): asserts value is number {
-  // Check presence
+/**
+ * Assert value is a non-negative number (>= 0)
+ * Allows 0 for valid use cases like 0% discount or 0 fixed amount
+ */
+const assertNonNegativeNumber = (
+  value: unknown,
+  fieldName: string
+): asserts value is number => {
   if (value === undefined || value === null) {
-    throw new Error(
-      `Missing required field: ${fieldName} must be provided.`
-    )
+    throw new ValidationError(`Missing required field: ${fieldName} must be provided.`)
   }
 
-  // Check type and finiteness
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    let valueStr: string
-    if (typeof value === 'object' && value !== null) {
-      valueStr = JSON.stringify(value)
-    } else if (value === null) {
-      valueStr = 'null'
-    } else {
-      valueStr = String(value)
-    }
-    throw new TypeError(
+    const valueStr = formatValue(value)
+    throw new ValidationError(
       `Invalid ${fieldName}: ${valueStr}. Must be a finite number (not NaN or Infinity).`
     )
   }
 
-  // Check positivity
-  if (value <= 0) {
-    throw new Error(
-      `Invalid ${fieldName}: "${value}". Must be a positive number greater than 0.`
+  if (value < 0) {
+    throw new ValidationError(
+      `Invalid ${fieldName}: ${value}. Must be a non-negative number (>= 0).`
     )
   }
 }
 
-// Helper: Normalize adjustment item with runtime validation
-function normalizeAdjustmentItem(item: AdjustmentItemInput): AdjustmentItem {
-  // Check if this is a legacy format (has adjustmentType)
-  if ('adjustmentType' in item) {
-    // Validate adjustmentType using helper with assertion signature
-    validateAdjustmentType(item.adjustmentType)
+/**
+ * Safely converts any value to a string representation
+ * Handles all JavaScript types with appropriate formatting
+ */
+const formatValue = (value: unknown): string => {
+  // Handle null and undefined first
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
 
-    // Validate method using helper with assertion signature
-    validateAdjustmentMethod(item.method)
+  // Type guard for string
+  // Quote strings for clarity in error messages (e.g., "" vs empty, "hello world" vs multiple values)
+  if (typeof value === 'string') {
+    return `"${value}"`
+  }
 
-    // Validate adjustmentValue (presence, type, positivity)
-    validateAdjustmentValue(item.adjustmentValue, 'adjustmentValue')
+  // Type guard for number
+  if (typeof value === 'number') {
+    return String(value)
+  }
 
-    const normalized: AdjustmentItem = {
+  // Type guard for boolean
+  if (typeof value === 'boolean') {
+    return String(value)
+  }
+
+  // Type guard for bigint
+  if (typeof value === 'bigint') {
+    return `${value}n`
+  }
+
+  // Type guard for function
+  if (typeof value === 'function') {
+    return '[function]'
+  }
+
+  // Type guard for symbol
+  if (typeof value === 'symbol') {
+    return value.toString()
+  }
+
+  // Type guard for object (includes arrays and null, but null already handled)
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      // Fallback for circular references or non-serializable objects
+      return '[object Object]'
+    }
+  }
+
+  // Exhaustive fallback - should never reach here
+  return '[unknown type]'
+}
+
+// ============================================================================
+// Response Helpers - Type Safe
+// ============================================================================
+
+const createSuccessResponse = <T extends Record<string, unknown>>(
+  data: T
+): SuccessResponse<T> => ({
+  header: {
+    isSuccessful: true,
+    resultCode: 0,
+    resultMessage: 'SUCCESS',
+  } as const,
+  data,
+})
+
+const createErrorResponse = (message: string): ErrorResponse => ({
+  header: {
+    isSuccessful: false,
+    resultCode: -1,
+    resultMessage: message,
+  },
+})
+
+// ============================================================================
+// Business Logic - Service Classes (Stateless & Pure)
+// ============================================================================
+
+class PricingService {
+  private constructor() {}
+
+  /**
+   * Get stored unit price for calculations
+   *
+   * ✅ FOR CALCULATIONS - Returns integer in hundredths for precision
+   *
+   * @param counterName - Resource counter name
+   * @returns Integer price in hundredths (e.g., 39700 for ₩397)
+   */
+  private static getStoredUnitPrice(counterName: string): number {
+    return CONFIG.PRICING[counterName as PricingKey] ?? CONFIG.DEFAULT_PRICE
+  }
+
+  /**
+   * Get unit price for display
+   *
+   * ⚠️ FOR DISPLAY ONLY - May have floating-point imprecision
+   *
+   * @param counterName - Resource counter name
+   * @returns Unit price in Won (e.g., 397 for ₩397)
+   */
+  static getUnitPrice(counterName: string): number {
+    const priceInHundredths = PricingService.getStoredUnitPrice(counterName)
+    // Convert from hundredths to display value
+    // Note: This may introduce floating-point imprecision, acceptable for display
+    return priceInHundredths / 100
+  }
+
+  /**
+   * Calculate amount for usage
+   *
+   * ✅ Uses integer arithmetic throughout to maintain precision
+   * Converts to Won at the end (hundredths → Won)
+   *
+   * @param counterName - Resource counter name
+   * @param volume - Usage volume
+   * @returns Amount in Won (e.g., 39,700 for 100 hours at ₩397/hour)
+   */
+  static calculateAmount(counterName: string, volume: number): number {
+    const priceInHundredths = PricingService.getStoredUnitPrice(counterName)
+    // Calculate in hundredths: volume * price (in hundredths)
+    const amountInHundredths = volume * priceInHundredths
+    // Convert to Won by dividing by 100 and flooring
+    return Math.floor(amountInHundredths / 100)
+  }
+
+  static calculateSubtotal(usageItems: ReadonlyArray<UsageItem>): number {
+    return usageItems.reduce(
+      (sum, item) => sum + PricingService.calculateAmount(item.counterName, item.counterVolume),
+      0
+    )
+  }
+}
+
+class AdjustmentService {
+  private constructor() {}
+
+  static normalize(item: AdjustmentItemInput): AdjustmentItem {
+    if ('adjustmentType' in item) {
+      return AdjustmentService.normalizeLegacyFormat(item)
+    }
+    return AdjustmentService.validateModernFormat(item)
+  }
+
+  private static normalizeLegacyFormat(item: LegacyAdjustmentItem): AdjustmentItem {
+    assertValidEnum(AdjustmentType, item.adjustmentType, 'adjustmentType')
+    assertValidEnum(AdjustmentMethod, item.method, 'method')
+    assertNonNegativeNumber(item.adjustmentValue, 'adjustmentValue')
+
+    return {
       type: item.adjustmentType,
       method: item.method,
       value: item.adjustmentValue,
-    }
-
-    // Copy optional fields
-    if (item.description) normalized.description = item.description
-    if (item.level) normalized.level = item.level
-    if (item.targetProjectId) normalized.targetProjectId = item.targetProjectId
-    if (item.month) normalized.month = item.month
-
-    return normalized
-  }
-
-  // Already modern format - validate type and method fields
-  validateAdjustmentType(item.type)
-  validateAdjustmentMethod(item.method)
-
-  // Validate value (presence, type, positivity)
-  validateAdjustmentValue(item.value, 'value')
-
-  return item
-}
-
-// Helper: 조정 금액 계산
-function calculateAdjustmentAmount(adj: AdjustmentItem, subtotal: number): number {
-  if (adj.method === 'FIXED') {
-    return adj.value
-  }
-  // RATE
-  return Math.floor(subtotal * (adj.value / 100))
-}
-
-// Helper: 조정 합계 계산
-function calculateAdjustmentTotal(adjustments: AdjustmentItem[], subtotal: number): number {
-  let total = 0
-
-  for (const adj of adjustments) {
-    const amount = calculateAdjustmentAmount(adj, subtotal)
-
-    if (adj.type === 'DISCOUNT') {
-      total -= amount
-    } else {  // SURCHARGE
-      total += amount
+      description: item.description,
+      level: item.level,
+      targetProjectId: item.targetProjectId,
+      month: item.month,
     }
   }
 
-  return total
+  private static validateModernFormat(item: AdjustmentItem): AdjustmentItem {
+    assertValidEnum(AdjustmentType, item.type, 'type')
+    assertValidEnum(AdjustmentMethod, item.method, 'method')
+    assertNonNegativeNumber(item.value, 'value')
+    return item
+  }
+
+  static calculateAmount(adjustment: AdjustmentItem, subtotal: number): number {
+    if (adjustment.method === AdjustmentMethod.FIXED) {
+      return adjustment.value
+    }
+    // Convert percentage (e.g., 5) to decimal (0.05) and apply to subtotal
+    return Math.floor(subtotal * (adjustment.value / CONFIG.ADJUSTMENT.PERCENTAGE_DIVISOR))
+  }
+
+  static calculateTotal(
+    adjustments: ReadonlyArray<AdjustmentItem>,
+    subtotal: number
+  ): number {
+    return adjustments.reduce((total, adj) => {
+      const amount = AdjustmentService.calculateAmount(adj, subtotal)
+      return adj.type === AdjustmentType.DISCOUNT ? total - amount : total + amount
+    }, 0)
+  }
 }
 
-// Helper: 실제 금액 계산
-function calculateAmount(counterName: string, volume: number): number {
-  const unitPrice = getUnitPrice(counterName)
+class CreditService {
+  private constructor() {}
 
-  // All volumes are in their standard units:
-  // - Compute: hours
-  // - Storage: GB (already converted)
-  // - Network: hours
-  return Math.floor(volume * unitPrice)
+  static applyCredits(
+    credits: ReadonlyArray<CreditItem>,
+    chargeBeforeCredit: number
+  ): CreditApplicationResult {
+    const appliedCredits: AppliedCredit[] = []
+    let remainingCharge = chargeBeforeCredit
+
+    for (let idx = 0; idx < credits.length; idx++) {
+      if (remainingCharge <= 0) break
+
+      const credit = credits[idx]
+      const amountApplied = Math.min(credit.amount, remainingCharge)
+
+      appliedCredits.push({
+        creditId: credit.creditCode ?? credit.uuid ?? `${CONFIG.ID_PREFIX.CREDIT}${idx}`,
+        type: credit.type,
+        amountApplied,
+        remainingBalance: credit.amount - amountApplied,
+        campaignId: credit.campaignId,
+        campaignName: credit.name,
+      })
+
+      remainingCharge -= amountApplied
+    }
+
+    return {
+      charge: remainingCharge,
+      appliedCredits,
+      totalCreditsApplied: chargeBeforeCredit - remainingCharge,
+    }
+  }
 }
+
+class BillingCalculator {
+  constructor(private readonly vatRate: number) {}
+
+  calculate(request: BillingRequest, uuid?: string): BillingCalculationResult {
+    const usage = request.usage ?? []
+    const credits = request.credits ?? []
+    const adjustments = request.adjustments ?? []
+
+    const normalizedAdjustments = adjustments.map(AdjustmentService.normalize)
+    const subtotal = PricingService.calculateSubtotal(usage)
+    const adjustmentTotal = AdjustmentService.calculateTotal(normalizedAdjustments, subtotal)
+    const chargeBeforeCredit = Math.max(0, subtotal + adjustmentTotal)
+    const creditResult = CreditService.applyCredits(credits, chargeBeforeCredit)
+
+    const charge = creditResult.charge
+    const vat = Math.floor(charge * this.vatRate)
+    const unpaidAmount = request.unpaidAmount ?? 0
+    const lateFee = request.isOverdue === true && unpaidAmount > 0
+      ? Math.floor(unpaidAmount * CONFIG.LATE_FEE.RATE)
+      : 0
+    const totalAmount = charge + vat + unpaidAmount + lateFee
+
+    return {
+      statementId: `${CONFIG.ID_PREFIX.STATEMENT}${Date.now()}`,
+      uuid: uuid ?? request.uuid,
+      billingGroupId: request.billingGroupId,
+      month: this.extractMonth(request.targetDate),
+      currency: CONFIG.CURRENCY.DEFAULT,
+      subtotal,
+      billingGroupDiscount: CONFIG.BILLING.DEFAULT_DISCOUNT,
+      adjustmentTotal,
+      creditApplied: creditResult.totalCreditsApplied,
+      vat,
+      unpaidAmount,
+      lateFee,
+      charge,
+      amount: totalAmount,
+      totalAmount,
+      status: BillingStatus.PENDING,
+      lineItems: this.buildLineItems(usage),
+      appliedCredits: creditResult.appliedCredits,
+      appliedAdjustments: this.buildAdjustmentItems(normalizedAdjustments, subtotal),
+    }
+  }
+
+  private extractMonth(targetDate?: string): string {
+    const date = targetDate ? new Date(targetDate) : new Date()
+
+    // Validate date
+    if (Number.isNaN(date.getTime())) {
+      throw new ValidationError(`Invalid date format: "${targetDate}"`)
+    }
+
+    // Use UTC methods to avoid timezone-related month boundary errors
+    // Example: "2024-02-01" in PST (UTC-8) would become 2024-01-31 16:00 local time
+    // Using UTC ensures we always get February, not January
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+
+    return `${year}-${month}`
+  }
+
+  private buildLineItems(usage: ReadonlyArray<UsageItem>): ReadonlyArray<LineItem> {
+    return usage.map((item, idx) => ({
+      id: `${CONFIG.ID_PREFIX.LINE_ITEM}${idx}`,
+      counterName: item.counterName,
+      counterType: item.counterType ?? CONFIG.COUNTER.DEFAULT_TYPE,
+      unit: item.counterUnit,
+      quantity: item.counterVolume,
+      unitPrice: PricingService.getUnitPrice(item.counterName),
+      amount: PricingService.calculateAmount(item.counterName, item.counterVolume),
+      resourceId: item.resourceId,
+      resourceName: item.resourceName,
+      projectId: item.projectId,
+      appKey: item.appKey,
+    }))
+  }
+
+  private buildAdjustmentItems(
+    adjustments: ReadonlyArray<AdjustmentItem>,
+    subtotal: number
+  ): ReadonlyArray<AppliedAdjustment> {
+    return adjustments.map((adj, idx) => {
+      // Provide default values for required fields
+      const description = adj.description ||
+        (adj.type === AdjustmentType.DISCOUNT ? 'Discount Applied' : 'Surcharge Applied')
+
+      // Validate and default level
+      let level: AdjustmentLevel = AdjustmentLevel.BILLING_GROUP
+      if (adj.level !== undefined) {
+        if (isValidEnum(AdjustmentLevel, adj.level)) {
+          level = adj.level as AdjustmentLevel
+        }
+        // Silently default to BILLING_GROUP for invalid values
+      }
+
+      return {
+        adjustmentId: `${CONFIG.ID_PREFIX.ADJUSTMENT}${idx}`,
+        type: adj.type,
+        description,
+        amount: AdjustmentService.calculateAmount(adj, subtotal),
+        level,
+        targetId: adj.targetProjectId,
+      }
+    })
+  }
+}
+
+// ============================================================================
+// Middleware & CORS Configuration
+// ============================================================================
+
+const configureCors = () => {
+  const isOriginAllowed = (origin: string): boolean => {
+    return (
+      (CONFIG.CORS.ALLOWED_ORIGINS as readonly string[]).includes(origin) ||
+      CONFIG.CORS.ALLOWED_PATTERNS.some((pattern) => pattern.test(origin))
+    )
+  }
+
+  return cors({
+    origin: (origin) => {
+      if (!origin) return '*'
+      return isOriginAllowed(origin) ? origin : CONFIG.CORS.DEFAULT_ORIGIN
+    },
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'uuid', 'Authorization'],
+    exposeHeaders: ['Content-Length', 'X-Request-Id'],
+    credentials: true,
+    maxAge: CONFIG.CORS.MAX_AGE,
+  })
+}
+
+// ============================================================================
+// Request Handlers - Type Safe
+// ============================================================================
+
+const parseJsonBody = async <T>(c: Context): Promise<T> => {
+  try {
+    return await c.req.json<T>()
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    throw new ValidationError(`Invalid JSON request body: ${errorMessage}`)
+  }
+}
+
+const getVatRate = (env: Env): number => {
+  if (!env.VAT_RATE) {
+    return CONFIG.VAT.DEFAULT_RATE
+  }
+  const rate = Number.parseFloat(env.VAT_RATE)
+  return Number.isFinite(rate) && rate >= 0 ? rate : CONFIG.VAT.DEFAULT_RATE
+}
+
+const extractUuidPrefix = (uuid: string): string => {
+  return uuid.slice(0, CONFIG.UUID.SLICE_LENGTH)
+}
+
+// ============================================================================
+// Application Setup
+// ============================================================================
+
+const app = new Hono<{ Bindings: Env }>()
+
+app.use('/*', configureCors())
+
+// ============================================================================
+// Route Handlers
+// ============================================================================
+
+app.get('/health', (c) => {
+  return c.json(
+    createSuccessResponse({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+    })
+  )
+})
+
+app.post('/api/billing/admin/calculate', async (c) => {
+  try {
+    const uuid = c.req.header('uuid')
+    const vatRate = getVatRate(c.env)
+    const body = await parseJsonBody<BillingRequest>(c)
+
+    const calculator = new BillingCalculator(vatRate)
+    const result = calculator.calculate(body, uuid)
+
+    return c.json(createSuccessResponse(result))
+  } catch (error) {
+    const statusCode = error instanceof ValidationError ? 400 : 500
+    const message = error instanceof Error ? error.message : 'Billing calculation failed'
+    return c.json(createErrorResponse(message), statusCode)
+  }
+})
+
+app.get('/api/billing/payments/:month/statements', async (c) => {
+  try {
+    const uuid = c.req.header('uuid') ?? 'default'
+    const month = c.req.param('month')
+
+    const response = createSuccessResponse({
+      paymentGroupId: `${CONFIG.ID_PREFIX.PAYMENT_GROUP}${extractUuidPrefix(uuid)}`,
+      paymentStatus: PaymentStatus.PENDING,
+      statements: [
+        {
+          statementId: `${CONFIG.ID_PREFIX.STATEMENT}${month}`,
+          uuid,
+          billingGroupId: `${CONFIG.ID_PREFIX.BILLING_GROUP}${extractUuidPrefix(uuid)}`,
+          month,
+          currency: CONFIG.CURRENCY.DEFAULT,
+          amount: 0,
+          subtotal: 0,
+          billingGroupDiscount: 0,
+          adjustmentTotal: 0,
+          creditApplied: 0,
+          charge: 0,
+          vat: 0,
+          unpaidAmount: 0,
+          lateFee: 0,
+          totalAmount: 0,
+          status: BillingStatus.PENDING,
+          lineItems: [],
+          appliedCredits: [],
+          appliedAdjustments: [],
+        },
+      ],
+    })
+
+    return c.json(response)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to retrieve statements'
+    return c.json(createErrorResponse(message), 500)
+  }
+})
+
+app.post('/api/billing/payments/:month', async (c) => {
+  try {
+    const uuid = c.req.header('uuid') ?? 'default'
+    const body = await parseJsonBody<PaymentRequest>(c)
+
+    const response = createSuccessResponse({
+      paymentId: `${CONFIG.ID_PREFIX.PAYMENT}${Date.now()}`,
+      paymentGroupId: body.paymentGroupId ?? `${CONFIG.ID_PREFIX.PAYMENT_GROUP}${extractUuidPrefix(uuid)}`,
+      status: PaymentStatus.SUCCESS,
+      amount: body.amount ?? 0,
+      method: PaymentMethod.MOCK,
+      transactionDate: new Date().toISOString(),
+      receiptUrl: `https://receipt.example.com/${Date.now()}`,
+    })
+
+    return c.json(response)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Payment processing failed'
+    return c.json(createErrorResponse(message), 500)
+  }
+})
 
 export default app

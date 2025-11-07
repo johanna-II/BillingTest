@@ -1,22 +1,74 @@
 /**
- * Custom hook for billing calculation with React Query
- * Provides caching, automatic retries, and optimistic updates
+ * Custom Hook: Billing Calculation
+ * React Query integration with type-safe error handling and retry logic
  */
 
+import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { calculateBilling } from '@/lib/api/billing-api'
-import type { BillingInput, BillingStatement } from '@/types/billing'
+import type { UseMutateFunction, UseMutateAsyncFunction } from '@tanstack/react-query'
+import { calculateBilling, createCalculationError } from '@/lib/api/billing-api'
+import type { BillingInput, BillingStatement, CalculationError } from '@/types/billing'
+import { BILLING_QUERY_CONFIG } from '@/constants/query'
 
-export function useBillingCalculation() {
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Result type for useBillingCalculation hook
+ * Uses React Query's native types to preserve MutateOptions support
+ */
+interface UseBillingCalculationResult {
+  readonly mutate: UseMutateFunction<BillingStatement, Error, BillingInput, unknown>
+  readonly mutateAsync: UseMutateAsyncFunction<BillingStatement, Error, BillingInput, unknown>
+  readonly data: BillingStatement | undefined
+  readonly error: CalculationError | null
+  readonly isLoading: boolean
+  readonly isSuccess: boolean
+  readonly isError: boolean
+  readonly reset: () => void
+}
+
+// ============================================================================
+// Hook Implementation
+// ============================================================================
+
+export function useBillingCalculation(): UseBillingCalculationResult {
   const queryClient = useQueryClient()
 
-  return useMutation({
+  const mutation = useMutation<BillingStatement, Error, BillingInput>({
     mutationFn: (input: BillingInput) => calculateBilling(input),
+
     onSuccess: (data: BillingStatement) => {
-      // Cache the result
-      queryClient.setQueryData(['billing', data.statementId], data)
+      // Cache the successful result
+      queryClient.setQueryData([BILLING_QUERY_CONFIG.CACHE_KEY.PREFIX, data.statementId], data)
     },
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+
+    retry: BILLING_QUERY_CONFIG.RETRY.MAX_RETRIES,
+
+    retryDelay: (attemptIndex: number) => {
+      const delay =
+        BILLING_QUERY_CONFIG.RETRY.INITIAL_DELAY_MS *
+        Math.pow(BILLING_QUERY_CONFIG.RETRY.BACKOFF_MULTIPLIER, attemptIndex)
+      return Math.min(delay, BILLING_QUERY_CONFIG.RETRY.MAX_DELAY_MS)
+    },
   })
+
+  // Memoize error to maintain referential equality
+  // Prevents unnecessary re-renders in consumer components
+  const memoizedError = useMemo(
+    () => (mutation.error ? createCalculationError(mutation.error) : null),
+    [mutation.error]
+  )
+
+  return {
+    mutate: mutation.mutate,
+    mutateAsync: mutation.mutateAsync,
+    data: mutation.data,
+    error: memoizedError,
+    isLoading: mutation.isPending,
+    isSuccess: mutation.isSuccess,
+    isError: mutation.isError,
+    reset: mutation.reset,
+  }
 }

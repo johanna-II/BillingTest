@@ -8,7 +8,7 @@ import React from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
-export default function LicensePage(): JSX.Element {
+export default function LicensePage() {
   const currentYear = new Date().getFullYear()
 
   return (

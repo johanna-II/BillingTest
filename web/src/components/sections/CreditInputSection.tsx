@@ -5,34 +5,37 @@
 'use client'
 
 import React from 'react'
+import { CreditType } from '@/types/billing'
 import type { CreditInput } from '@/types/billing'
+import { generateCreditId } from '@/lib/utils/id'
 
 interface CreditInputSectionProps {
   credits: CreditInput[]
   setCredits: (credits: CreditInput[]) => void
 }
 
-const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCredits }) => {
+function CreditInputSection({ credits, setCredits }: Readonly<CreditInputSectionProps>) {
   const addCredit = (): void => {
     const newCredit: CreditInput = {
-      type: 'FREE',
-      amount: 10000,
-      name: 'Test Credit',
+      id: generateCreditId(),
+      type: CreditType.FREE,
+      amount: 0,
+      name: '',
     }
     setCredits([...credits, newCredit])
   }
 
-  const removeCredit = (index: number): void => {
-    setCredits(credits.filter((_, i) => i !== index))
+  const removeCredit = (id: string): void => {
+    setCredits(credits.filter((c) => c.id !== id))
   }
 
   const updateCredit = <K extends keyof CreditInput>(
-    index: number,
+    id: string,
     field: K,
     value: CreditInput[K]
   ): void => {
     setCredits(
-      credits.map((c, i) => (i === index ? { ...c, [field]: value } : c))
+      credits.map((c) => (c.id === id ? { ...c, [field]: value } : c))
     )
   }
 
@@ -51,15 +54,18 @@ const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCre
         </p>
       ) : (
         <div className="space-y-4">
-          {credits.map((credit, index) => (
-            <div key={index} className="p-6 border border-kinfolk-gray-200 bg-white">
+          {credits.map((credit) => (
+            <div key={credit.id} className="p-6 border border-kinfolk-gray-200 bg-white">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="kinfolk-label">Type</label>
+                  <label htmlFor={`credit-type-${credit.id}`} className="kinfolk-label">
+                    Type
+                  </label>
                   <select
+                    id={`credit-type-${credit.id}`}
                     value={credit.type}
                     onChange={(e) =>
-                      updateCredit(index, 'type', e.target.value as CreditInput['type'])
+                      updateCredit(credit.id, 'type', e.target.value as CreditInput['type'])
                     }
                     className="kinfolk-input"
                   >
@@ -70,28 +76,50 @@ const CreditInputSection: React.FC<CreditInputSectionProps> = ({ credits, setCre
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Amount (₩)</label>
+                  <label htmlFor={`credit-amount-${credit.id}`} className="kinfolk-label">
+                    Amount (₩)
+                  </label>
                   <input
+                    id={`credit-amount-${credit.id}`}
                     type="number"
                     value={credit.amount}
-                    onChange={(e) => updateCredit(index, 'amount', Number(e.target.value))}
+                    onChange={(e) => {
+                      const inputValue = e.target.value
+
+                      // Explicit handling of empty input
+                      if (inputValue === '') {
+                        updateCredit(credit.id, 'amount', 0)
+                        return
+                      }
+
+                      // Validate numeric input
+                      const value = Number(inputValue)
+                      if (!Number.isNaN(value) && value >= 0) {
+                        updateCredit(credit.id, 'amount', value)
+                      }
+                    }}
                     className="kinfolk-input"
+                    min={0}
+                    step={1}
                   />
                 </div>
 
                 <div>
-                  <label className="kinfolk-label">Name</label>
+                  <label htmlFor={`credit-name-${credit.id}`} className="kinfolk-label">
+                    Name
+                  </label>
                   <input
+                    id={`credit-name-${credit.id}`}
                     type="text"
                     value={credit.name}
-                    onChange={(e) => updateCredit(index, 'name', e.target.value)}
+                    onChange={(e) => updateCredit(credit.id, 'name', e.target.value)}
                     className="kinfolk-input"
                   />
                 </div>
 
                 <div className="md:col-span-3 flex justify-end">
                   <button
-                    onClick={() => removeCredit(index)}
+                    onClick={() => removeCredit(credit.id)}
                     className="text-sm text-red-600 hover:text-red-800 uppercase tracking-widest"
                   >
                     Remove
