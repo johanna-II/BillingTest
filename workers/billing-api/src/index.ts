@@ -265,6 +265,7 @@ const CONFIG = {
     ALLOWED_PATTERNS: [
       /^https:\/\/.*\.pages\.dev$/,
       /^https:\/\/.*\.workers\.dev$/,
+      /^https:\/\/.*\.vercel\.app$/,
     ] as const,
     DEFAULT_ORIGIN: 'https://billingtest.pages.dev' as const,
     MAX_AGE: 86400,

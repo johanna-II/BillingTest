@@ -117,10 +117,14 @@ const getApiBaseUrl = (): string => {
   // Production: Require environment variable
   if (process.env.NODE_ENV === 'production') {
     if (!envUrl) {
-      throw new Error(
+      const errorMessage =
         'NEXT_PUBLIC_API_URL environment variable is required in production. ' +
         'Please configure it in your deployment settings (GitHub Secrets, Vercel, etc.)'
-      )
+
+      // Log to console for easier debugging
+      console.error('❌ Configuration Error:', errorMessage)
+
+      throw new Error(errorMessage)
     }
     return envUrl
   }
@@ -139,11 +143,27 @@ const getApiBaseUrl = (): string => {
 }
 
 /**
+ * API Base URL - Computed lazily to avoid build-time errors
+ * Use API_CONFIG.BASE_URL to access
+ */
+let cachedBaseUrl: string | undefined
+
+const getBaseUrl = (): string => {
+  if (cachedBaseUrl) return cachedBaseUrl
+  cachedBaseUrl = getApiBaseUrl()
+  return cachedBaseUrl
+}
+
+/**
  * API Configuration
  * Uses 'as const satisfies' for literal types with shape validation
+ *
+ * Note: BASE_URL is a getter to defer environment check until runtime
  */
 export const API_CONFIG = {
-  BASE_URL: getApiBaseUrl(),
+  get BASE_URL(): string {
+    return getBaseUrl()
+  },
   ENDPOINTS: {
     CALCULATE: '/api/billing/admin/calculate',
     STATEMENTS: '/api/billing/payments',
