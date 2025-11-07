@@ -59,15 +59,10 @@ export function usePaymentProcessing(): UsePaymentProcessingResult {
       // Cache the payment result
       queryClient.setQueryData([PAYMENT_QUERY_CONFIG.CACHE_KEY.PREFIX, data.paymentId], data)
 
-      // Invalidate only specific billing queries affected by this payment
+      // Invalidate billing query for this statement
+      // Note: Only invalidates the actual cached key ['billing', statementId]
       queryClient.invalidateQueries({
         queryKey: BILLING_QUERY_KEYS.byStatement(variables.statementId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: BILLING_QUERY_KEYS.statements(variables.statementId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: BILLING_QUERY_KEYS.groups(variables.billingGroupId),
       })
     },
 
