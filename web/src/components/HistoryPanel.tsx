@@ -46,14 +46,16 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ onLoadEntry }) => {
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed right-6 bottom-6 z-50 kinfolk-button rounded-full w-14 h-14 flex items-center justify-center shadow-lg"
+        className="fixed right-6 bottom-6 z-50 rounded-full w-14 h-14 flex items-center justify-center shadow-lg bg-kinfolk-gray-900 text-white hover:bg-kinfolk-gray-700 transition-all duration-300 border-2 border-kinfolk-gray-900 hover:border-kinfolk-gray-700"
         title="History"
+        aria-label="Toggle History Panel"
       >
         <svg
           className="w-6 h-6"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
