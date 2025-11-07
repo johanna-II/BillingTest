@@ -40,14 +40,17 @@ export default function HomePage() {
       if (entry.statement) {
         actions.setCalculatedStatement(entry.statement)
 
-        // Restore payment result if it exists
+        // Restore payment result if it exists, otherwise clear stale payment
         if (entry.payment) {
           actions.setPaymentResult(entry.payment)
           setActiveSection('payment')
         } else {
+          actions.setPaymentResult(null) // Clear stale payment state
           setActiveSection('statement')
         }
       } else {
+        actions.setCalculatedStatement(null) // Clear stale statement
+        actions.setPaymentResult(null) // Clear stale payment
         setActiveSection('input')
       }
     }
@@ -63,12 +66,14 @@ export default function HomePage() {
     // Create unique key for deduplication based on key fields
     const entryKey = `${state.billingInput.uuid}-${state.billingInput.billingGroupId}-${state.billingInput.targetDate.toISOString()}-${state.calculatedStatement.statementId || 'none'}`
 
-    // Check if this is the same calculation
+    // Check if this is the same calculation (same dedup key)
     if (lastSavedRef.current === entryKey) {
-      // Already saved - check if we need to update payment
-      if (savedEntryIdRef.current && state.paymentResult) {
-        // Payment completed - update existing entry
+      // Same key - update existing entry with latest data
+      // This handles both recalculations (updated input/statement) and payments
+      if (savedEntryIdRef.current) {
         updateEntry(savedEntryIdRef.current, {
+          input: state.billingInput,
+          statement: state.calculatedStatement,
           payment: state.paymentResult,
         })
       }
