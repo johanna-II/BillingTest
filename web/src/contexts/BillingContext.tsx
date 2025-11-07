@@ -27,8 +27,8 @@ interface BillingState {
 
 type BillingAction =
   | { readonly type: 'SET_BILLING_INPUT'; readonly payload: BillingInput }
-  | { readonly type: 'SET_CALCULATED_STATEMENT'; readonly payload: BillingStatement }
-  | { readonly type: 'SET_PAYMENT_RESULT'; readonly payload: PaymentResult }
+  | { readonly type: 'SET_CALCULATED_STATEMENT'; readonly payload: BillingStatement | null }
+  | { readonly type: 'SET_PAYMENT_RESULT'; readonly payload: PaymentResult | null }
   | { readonly type: 'SET_CALCULATING'; readonly payload: boolean }
   | { readonly type: 'SET_PROCESSING_PAYMENT'; readonly payload: boolean }
   | { readonly type: 'SET_ERROR'; readonly payload: CalculationError | null }
@@ -40,8 +40,8 @@ type BillingAction =
 
 interface BillingActions {
   readonly setBillingInput: (input: BillingInput) => void
-  readonly setCalculatedStatement: (statement: BillingStatement) => void
-  readonly setPaymentResult: (result: PaymentResult) => void
+  readonly setCalculatedStatement: (statement: BillingStatement | null) => void
+  readonly setPaymentResult: (result: PaymentResult | null) => void
   readonly setCalculating: (isCalculating: boolean) => void
   readonly setProcessingPayment: (isProcessing: boolean) => void
   readonly setError: (error: CalculationError | null) => void
@@ -145,11 +145,11 @@ export const BillingProvider: React.FC<BillingProviderProps> = ({ children }) =>
         dispatch({ type: 'SET_BILLING_INPUT', payload: input })
       },
 
-      setCalculatedStatement: (statement: BillingStatement) => {
+      setCalculatedStatement: (statement: BillingStatement | null) => {
         dispatch({ type: 'SET_CALCULATED_STATEMENT', payload: statement })
       },
 
-      setPaymentResult: (result: PaymentResult) => {
+      setPaymentResult: (result: PaymentResult | null) => {
         dispatch({ type: 'SET_PAYMENT_RESULT', payload: result })
       },
 
