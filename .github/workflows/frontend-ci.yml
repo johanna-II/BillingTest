@@ -33,6 +33,19 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
+      - name: Verify package-lock is up to date
+        run: |
+          echo "📦 Checking if package-lock.json is synchronized with package.json..."
+          npm install --package-lock-only --ignore-scripts
+          if git diff --exit-code package-lock.json; then
+            echo "✅ package-lock.json is up to date"
+          else
+            echo "❌ package-lock.json is out of sync with package.json"
+            echo "Run 'npm install' locally and commit the updated package-lock.json"
+            git diff package-lock.json
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
 
@@ -58,6 +71,19 @@ jobs:
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
+
+      - name: Verify package-lock is up to date
+        run: |
+          echo "📦 Checking if package-lock.json is synchronized with package.json..."
+          npm install --package-lock-only --ignore-scripts
+          if git diff --exit-code package-lock.json; then
+            echo "✅ package-lock.json is up to date"
+          else
+            echo "❌ package-lock.json is out of sync with package.json"
+            echo "Run 'npm install' locally and commit the updated package-lock.json"
+            git diff package-lock.json
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci
