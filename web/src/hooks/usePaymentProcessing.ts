@@ -3,7 +3,7 @@
  * React Query integration for payment operations with type safety
  */
 
-import React from 'react'
+import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UseMutateFunction, UseMutateAsyncFunction } from '@tanstack/react-query'
 import { processPayment, createCalculationError } from '@/lib/api/billing-api'
@@ -76,7 +76,7 @@ export function usePaymentProcessing(): UsePaymentProcessingResult {
 
   // Memoize error to maintain referential equality
   // Prevents unnecessary re-renders in consumer components
-  const memoizedError = React.useMemo(
+  const memoizedError = useMemo(
     () => (mutation.error ? createCalculationError(mutation.error) : null),
     [mutation.error]
   )

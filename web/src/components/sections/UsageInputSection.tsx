@@ -115,11 +115,13 @@ function UsageInputSection({ usage, setUsage }: Readonly<UsageInputSectionProps>
                         return
                       }
 
-                      // Validate numeric input
+                      // Validate numeric input and clamp to non-negative values
                       const value = Number(inputValue)
-                      if (!Number.isNaN(value) && value >= 0) {
-                        updateUsage(item.id, 'counterVolume', value)
+                      if (Number.isNaN(value)) {
+                        return
                       }
+                      const clampedValue = Math.max(0, value)
+                      updateUsage(item.id, 'counterVolume', clampedValue)
                     }}
                     className="kinfolk-input"
                     min="0"
