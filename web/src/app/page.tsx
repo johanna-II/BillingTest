@@ -33,10 +33,20 @@ export default function HomePage() {
       lastSavedRef.current = entryKey
       savedEntryIdRef.current = entryId
 
+      // Restore billing input
       actions.setBillingInput(entry.input)
+
+      // Restore calculated statement and navigate to appropriate section
       if (entry.statement) {
         actions.setCalculatedStatement(entry.statement)
-        setActiveSection('statement')
+
+        // Restore payment result if it exists
+        if (entry.payment) {
+          actions.setPaymentResult(entry.payment)
+          setActiveSection('payment')
+        } else {
+          setActiveSection('statement')
+        }
       } else {
         setActiveSection('input')
       }

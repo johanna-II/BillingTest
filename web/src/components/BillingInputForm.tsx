@@ -56,14 +56,14 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
 
       // Update form state to match loaded history entry
       // Note: Data comes from trusted sources (BillingContext/HistoryStore)
-      // and is already type-validated. Array.isArray checks are defensive fallbacks.
+      // Type assertions are safe because data is validated before entering context
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTargetDate(new Date(billingInput.targetDate))
+      setTargetDate(billingInput.targetDate) // Already a Date object
       setUuid(billingInput.uuid ?? BILLING_FORM_DEFAULTS.UUID)
       setBillingGroupId(billingInput.billingGroupId ?? BILLING_FORM_DEFAULTS.BILLING_GROUP_ID)
-      setUsage(Array.isArray(billingInput.usage) ? billingInput.usage as UsageInput[] : [])
-      setCredits(Array.isArray(billingInput.credits) ? billingInput.credits as CreditInput[] : [])
-      setAdjustments(Array.isArray(billingInput.adjustments) ? billingInput.adjustments as AdjustmentInput[] : [])
+      setUsage(billingInput.usage as UsageInput[])
+      setCredits(billingInput.credits as CreditInput[])
+      setAdjustments(billingInput.adjustments as AdjustmentInput[])
       setUnpaidAmount(billingInput.unpaidAmount ?? BILLING_FORM_DEFAULTS.UNPAID_AMOUNT)
       setIsOverdue(billingInput.isOverdue ?? BILLING_FORM_DEFAULTS.IS_OVERDUE)
     }
