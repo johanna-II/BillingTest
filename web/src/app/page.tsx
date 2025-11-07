@@ -27,11 +27,18 @@ export default function HomePage() {
   const handleLoadHistoryEntry = (entryId: string): void => {
     const entry = getEntry(entryId)
     if (entry) {
-      // Reset refs to match loaded entry
-      // This prevents duplicate entries and ensures payment updates go to the correct entry
-      const entryKey = `${entry.input.uuid}-${entry.input.billingGroupId}-${entry.input.targetDate.toISOString()}-${entry.statement?.statementId || 'none'}`
-      lastSavedRef.current = entryKey
+      // Track the loaded entry ID for updates
       savedEntryIdRef.current = entryId
+
+      // Only set lastSavedRef if entry has a statement
+      // This prevents key mismatch when calculating billing for entries without statements
+      if (entry.statement) {
+        const entryKey = `${entry.input.uuid}-${entry.input.billingGroupId}-${entry.input.targetDate.toISOString()}-${entry.statement.statementId}`
+        lastSavedRef.current = entryKey
+      } else {
+        // Clear lastSavedRef - calculation will update the loaded entry via savedEntryIdRef
+        lastSavedRef.current = undefined
+      }
 
       // Restore billing input
       actions.setBillingInput(entry.input)
@@ -77,6 +84,19 @@ export default function HomePage() {
           payment: state.paymentResult,
         })
       }
+      return
+    }
+
+    // Check if we have a loaded entry to update (e.g., loaded entry without statement, now calculated)
+    if (savedEntryIdRef.current && !lastSavedRef.current) {
+      // Update the loaded entry with the new calculation
+      updateEntry(savedEntryIdRef.current, {
+        input: state.billingInput,
+        statement: state.calculatedStatement,
+        payment: state.paymentResult,
+      })
+      // Set the ref to prevent duplicate saves on subsequent updates
+      lastSavedRef.current = entryKey
       return
     }
 

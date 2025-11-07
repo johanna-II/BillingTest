@@ -21,6 +21,11 @@ enum AdjustmentMethod {
   RATE = 'RATE',
 }
 
+enum AdjustmentLevel {
+  BILLING_GROUP = 'BILLING_GROUP',
+  PROJECT = 'PROJECT',
+}
+
 enum BillingStatus {
   PENDING = 'PENDING',
   PAID = 'PAID',
@@ -169,9 +174,9 @@ interface AppliedCredit {
 interface AppliedAdjustment {
   readonly adjustmentId: string
   readonly type: AdjustmentType
-  readonly description?: string
+  readonly description: string
   readonly amount: number
-  readonly level?: string
+  readonly level: AdjustmentLevel
   readonly targetId?: string
 }
 
@@ -647,14 +652,29 @@ class BillingCalculator {
     adjustments: ReadonlyArray<AdjustmentItem>,
     subtotal: number
   ): ReadonlyArray<AppliedAdjustment> {
-    return adjustments.map((adj, idx) => ({
-      adjustmentId: `${CONFIG.ID_PREFIX.ADJUSTMENT}${idx}`,
-      type: adj.type,
-      description: adj.description,
-      amount: AdjustmentService.calculateAmount(adj, subtotal),
-      level: adj.level,
-      targetId: adj.targetProjectId,
-    }))
+    return adjustments.map((adj, idx) => {
+      // Provide default values for required fields
+      const description = adj.description ||
+        (adj.type === AdjustmentType.DISCOUNT ? 'Discount Applied' : 'Surcharge Applied')
+
+      // Validate and default level
+      let level: AdjustmentLevel = AdjustmentLevel.BILLING_GROUP
+      if (adj.level !== undefined) {
+        if (isValidEnum(AdjustmentLevel, adj.level)) {
+          level = adj.level as AdjustmentLevel
+        }
+        // Silently default to BILLING_GROUP for invalid values
+      }
+
+      return {
+        adjustmentId: `${CONFIG.ID_PREFIX.ADJUSTMENT}${idx}`,
+        type: adj.type,
+        description,
+        amount: AdjustmentService.calculateAmount(adj, subtotal),
+        level,
+        targetId: adj.targetProjectId,
+      }
+    })
   }
 }
 

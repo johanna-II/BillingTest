@@ -5,7 +5,15 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BillingInput, BillingStatement, PaymentResult, CreditInput } from '@/types/billing'
+import type {
+  BillingInput,
+  BillingStatement,
+  PaymentResult,
+  CreditInput,
+  UsageInput,
+  AdjustmentInput,
+} from '@/types/billing'
+import { generateCreditId, generateUsageId, generateAdjustmentId } from '@/lib/utils/id'
 
 // ============================================================================
 // Configuration
@@ -56,10 +64,13 @@ interface SerializedCreditInput extends Omit<CreditInput, 'expirationDate'> {
 /**
  * Serialized BillingInput type
  * Converts targetDate and credits[].expirationDate from Date to string
+ * Note: usage and adjustments may be undefined in old localStorage data
  */
-interface SerializedBillingInput extends Omit<BillingInput, 'targetDate' | 'credits'> {
+interface SerializedBillingInput extends Omit<BillingInput, 'targetDate' | 'credits' | 'usage' | 'adjustments'> {
   readonly targetDate: string
   readonly credits: ReadonlyArray<SerializedCreditInput>
+  readonly usage?: ReadonlyArray<Partial<UsageInput>>
+  readonly adjustments?: ReadonlyArray<Partial<AdjustmentInput>>
 }
 
 interface SerializedBillingStatement extends Omit<BillingStatement, 'dueDate' | 'createdAt'> {
@@ -102,6 +113,103 @@ const deserializeDate = (dateStr: string | undefined): Date | undefined => {
   return Number.isNaN(date.getTime()) ? undefined : date
 }
 
+// ============================================================================
+// Migration Helpers
+// ============================================================================
+
+/**
+ * Validate and migrate UsageInput with required fields
+ * Returns null if validation fails (incomplete data)
+ * @public - Exported for testing and verification
+ */
+export const migrateUsageInput = (usage: Partial<UsageInput>): UsageInput | null => {
+  // Validate all required fields are present
+  if (
+    typeof usage.counterName !== 'string' ||
+    typeof usage.counterType !== 'string' ||
+    typeof usage.counterUnit !== 'string' ||
+    typeof usage.counterVolume !== 'number' ||
+    typeof usage.resourceId !== 'string' ||
+    typeof usage.appKey !== 'string'
+  ) {
+    console.warn('Skipping invalid usage item - missing required fields:', usage)
+    return null
+  }
+
+  // All required fields present - safely migrate with id
+  return {
+    id: usage.id || generateUsageId(),
+    counterName: usage.counterName,
+    counterType: usage.counterType,
+    counterUnit: usage.counterUnit,
+    counterVolume: usage.counterVolume,
+    resourceId: usage.resourceId,
+    appKey: usage.appKey,
+    // Optional fields
+    resourceName: usage.resourceName,
+    projectId: usage.projectId,
+  }
+}
+
+/**
+ * Validate and migrate CreditInput with required fields
+ * Returns null if validation fails (incomplete data)
+ * @public - Exported for testing and verification
+ */
+export const migrateCreditInput = (credit: Partial<CreditInput>): CreditInput | null => {
+  // Validate all required fields are present
+  if (
+    typeof credit.type !== 'string' ||
+    typeof credit.amount !== 'number' ||
+    typeof credit.name !== 'string'
+  ) {
+    console.warn('Skipping invalid credit item - missing required fields:', credit)
+    return null
+  }
+
+  // All required fields present - safely migrate with id
+  return {
+    id: credit.id || generateCreditId(),
+    type: credit.type,
+    amount: credit.amount,
+    name: credit.name,
+    // Optional fields
+    expirationDate: credit.expirationDate,
+    campaignId: credit.campaignId,
+  }
+}
+
+/**
+ * Validate and migrate AdjustmentInput with required fields
+ * Returns null if validation fails (incomplete data)
+ * @public - Exported for testing and verification
+ */
+export const migrateAdjustmentInput = (adjustment: Partial<AdjustmentInput>): AdjustmentInput | null => {
+  // Validate all required fields are present
+  if (
+    typeof adjustment.type !== 'string' ||
+    typeof adjustment.level !== 'string' ||
+    typeof adjustment.method !== 'string' ||
+    typeof adjustment.value !== 'number' ||
+    typeof adjustment.description !== 'string'
+  ) {
+    console.warn('Skipping invalid adjustment item - missing required fields:', adjustment)
+    return null
+  }
+
+  // All required fields present - safely migrate with id
+  return {
+    id: adjustment.id || generateAdjustmentId(),
+    type: adjustment.type,
+    level: adjustment.level,
+    method: adjustment.method,
+    value: adjustment.value,
+    description: adjustment.description,
+    // Optional fields
+    targetProjectId: adjustment.targetProjectId,
+  }
+}
+
 const serializeHistoryEntry = (entry: HistoryEntry): SerializedHistoryEntry => {
   return {
     id: entry.id,
@@ -109,11 +217,15 @@ const serializeHistoryEntry = (entry: HistoryEntry): SerializedHistoryEntry => {
     input: {
       ...entry.input,
       targetDate: entry.input.targetDate.toISOString(),
+      // Explicitly serialize usage array (already has id fields)
+      usage: entry.input.usage,
       // Serialize credits array, converting expirationDate to string
       credits: entry.input.credits.map(credit => ({
         ...credit,
         expirationDate: credit.expirationDate ? credit.expirationDate.toISOString() : undefined,
       })),
+      // Explicitly serialize adjustments array (already has id fields)
+      adjustments: entry.input.adjustments,
     },
     statement: entry.statement
       ? {
@@ -166,11 +278,23 @@ const deserializeHistoryEntry = (serialized: SerializedHistoryEntry): HistoryEnt
     input: {
       ...serialized.input,
       targetDate,
-      // Deserialize credits array, converting expirationDate strings back to Date objects
-      credits: serialized.input.credits.map((credit): CreditInput => ({
-        ...credit,
-        expirationDate: credit.expirationDate ? deserializeDate(credit.expirationDate) : undefined,
-      })),
+      // Migrate usage array: validate and filter out invalid items
+      usage: (serialized.input.usage || [])
+        .map(migrateUsageInput)
+        .filter((item): item is UsageInput => item !== null),
+      // Migrate credits array: validate, deserialize dates, and filter out invalid items
+      credits: serialized.input.credits
+        .map((credit) => {
+          return migrateCreditInput({
+            ...credit,
+            expirationDate: credit.expirationDate ? deserializeDate(credit.expirationDate) : undefined,
+          })
+        })
+        .filter((item): item is CreditInput => item !== null),
+      // Migrate adjustments array: validate and filter out invalid items
+      adjustments: (serialized.input.adjustments || [])
+        .map(migrateAdjustmentInput)
+        .filter((item): item is AdjustmentInput => item !== null),
     },
     statement: serialized.statement
       ? {

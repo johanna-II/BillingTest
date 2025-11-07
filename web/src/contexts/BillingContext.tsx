@@ -236,17 +236,21 @@ export const useBillingError = (): CalculationError | null => {
 
 /**
  * Selector hook for loading states
+ * Returns memoized object to prevent unnecessary re-renders
  */
 export const useBillingLoading = (): {
   readonly isCalculating: boolean
   readonly isProcessingPayment: boolean
 } => {
   const { state } = useBilling()
-  // Return simple object - no useMemo needed for primitive values
-  return {
+  // Memoize returned object to maintain stable reference
+  return useMemo(
+    () => ({
       isCalculating: state.isCalculating,
       isProcessingPayment: state.isProcessingPayment,
-  }
+    }),
+    [state.isCalculating, state.isProcessingPayment]
+  )
 }
 
 /**
