@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useBilling } from '@/contexts/BillingContext'
 import { calculateBilling } from '@/lib/api/billing-api'
 import { ErrorCode } from '@/types/billing'
@@ -41,6 +41,33 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
   const [credits, setCredits] = useState<CreditInput[]>([])
   const [adjustments, setAdjustments] = useState<AdjustmentInput[]>([])
 
+  // Track the last synced billingInput to detect external changes (e.g., history loads)
+  const lastSyncedInputRef = useRef<BillingInput | null>(null)
+
+  // Sync form state with BillingContext when a history entry is loaded
+  // Uses ref to prevent infinite loops - only updates when billingInput reference changes
+  // This pattern is intentional for syncing external state (history load) into form
+  useEffect(() => {
+    const billingInput = state.billingInput
+
+    // Only update if billingInput reference has changed (external update from history)
+    if (billingInput && billingInput !== lastSyncedInputRef.current) {
+      lastSyncedInputRef.current = billingInput
+
+      // Update form state to match loaded history entry
+      // Note: Data comes from trusted sources (BillingContext/HistoryStore)
+      // and is already type-validated. Array.isArray checks are defensive fallbacks.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTargetDate(new Date(billingInput.targetDate))
+      setUuid(billingInput.uuid ?? BILLING_FORM_DEFAULTS.UUID)
+      setBillingGroupId(billingInput.billingGroupId ?? BILLING_FORM_DEFAULTS.BILLING_GROUP_ID)
+      setUsage(Array.isArray(billingInput.usage) ? billingInput.usage as UsageInput[] : [])
+      setCredits(Array.isArray(billingInput.credits) ? billingInput.credits as CreditInput[] : [])
+      setAdjustments(Array.isArray(billingInput.adjustments) ? billingInput.adjustments as AdjustmentInput[] : [])
+      setUnpaidAmount(billingInput.unpaidAmount ?? BILLING_FORM_DEFAULTS.UNPAID_AMOUNT)
+      setIsOverdue(billingInput.isOverdue ?? BILLING_FORM_DEFAULTS.IS_OVERDUE)
+    }
+  }, [state.billingInput])
   const handleCalculate = async (): Promise<void> => {
     // Validation
     if (!uuid || !billingGroupId) {
