@@ -27,7 +27,7 @@ pip-audit = "^2.9.0"
 detect-secrets = "^1.5.0"
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.3.3"
+pytest = "^9.0.0"
 pytest-html = "^4.1.1"
 pytest-cov = "^7.0.0"
 pytest-asyncio = "^1.2.0"
