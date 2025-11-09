@@ -205,3 +205,12 @@ dist/
 # Wrangler (Cloudflare)
 .wrangler/
 .dev.vars
+
+# Local E2E Testing (not for production)
+mock_server/api_routes.py
+web/scripts/run-e2e-with-local-server.bat
+web/scripts/run-e2e-with-local-server.sh
+
+# Root Cypress files (E2E is in web/ only)
+/cypress/
+/cypress.config.js

@@ -164,10 +164,15 @@ export const API_CONFIG = {
   get BASE_URL(): string {
     return getBaseUrl()
   },
-  ENDPOINTS: {
-    CALCULATE: '/api/billing/admin/calculate',
-    STATEMENTS: '/api/billing/payments',
-    PAYMENT: '/api/billing/payments',
+  get ENDPOINTS() {
+    // Check if using local mock server (no /api prefix needed)
+    const isLocalMock = process.env.NEXT_PUBLIC_API_URL?.includes('localhost:5000')
+
+    return {
+      CALCULATE: isLocalMock ? '/billing/admin/calculate' : '/api/billing/admin/calculate',
+      STATEMENTS: isLocalMock ? '/billing/payments' : '/api/billing/payments',
+      PAYMENT: isLocalMock ? '/billing/payments' : '/api/billing/payments',
+    }
   },
   HEADERS: {
     CONTENT_TYPE: 'Content-Type',
