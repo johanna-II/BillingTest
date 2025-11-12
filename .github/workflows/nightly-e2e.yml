@@ -53,7 +53,7 @@ jobs:
           sleep 5
 
       - name: 🎭 Run Cypress E2E Tests (Regression + PR Tests)
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
         with:
           working-directory: web
           start: npm run dev
