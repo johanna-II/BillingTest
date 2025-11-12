@@ -428,9 +428,12 @@ async function main() {
 // Execution
 // ============================================================================
 
-try {
-  await main()
-} catch (error) {
-  console.error('❌ Error:', error)
-  process.exit(1)
-}
+// Using async IIFE for tsx compatibility (top-level await causes CJS error)
+void (async function main Execution() {
+  try {
+    await main()
+  } catch (error) {
+    console.error('❌ Error:', error)
+    process.exit(1)
+  }
+})()
