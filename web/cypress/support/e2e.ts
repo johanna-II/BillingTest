@@ -6,9 +6,6 @@
 // Import Cypress commands
 import './commands'
 
-// Preserve cookies across tests for better performance
-Cypress.Cookies.debug(true)
-
 // Global before hook
 before(() => {
   cy.log('🚀 Starting E2E Test Suite')

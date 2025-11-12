@@ -98,7 +98,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd web
-          npm install
+          npm ci
 
           # Create smart test generator
           cat > generate-pr-tests.js << 'EOFJS'
@@ -204,6 +204,14 @@ jobs:
             # npm run generate:tests -- pr-test-${{ github.event.pull_request.number }}
           fi
 
+      - name: 📤 Upload generated test file
+        if: steps.generate.outputs.test-generated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-generated-test
+          path: web/cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts
+          retention-days: 30
+
   run-new-tests:
     name: 🎭 Run Generated E2E Tests
     needs: analyze-changes
@@ -301,11 +309,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📥 Download generated tests
+      - name: 📥 Download generated test file
         uses: actions/download-artifact@v4
         with:
-          name: pr-e2e-results
-          path: ./artifacts
+          name: pr-generated-test
+          path: web/cypress/e2e/pr-generated/
 
       - name: 📝 Commit new tests
         run: |

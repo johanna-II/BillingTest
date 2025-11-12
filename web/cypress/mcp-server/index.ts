@@ -116,103 +116,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request: MCPRequest) => {
 
   try {
     switch (name) {
-      case 'run_cypress_tests': {
-        const spec = (args as { spec?: string }).spec
-        const command = spec
-          ? `npx cypress run --spec "cypress/e2e/${spec}"`
-          : 'npx cypress run'
-
-        const result = await runCommand(command)
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        }
-      }
-
-      case 'generate_test': {
-        const { testName, description, scenarios } = args as {
-          testName: string
-          description: string
-          scenarios: string[]
-        }
-
-        const testContent = generateTestContent(testName, description, scenarios)
-        const filePath = path.join(
-          process.cwd(),
-          'cypress',
-          'e2e',
-          'generated',
-          `${testName}.cy.ts`
-        )
-
-        // Ensure directory exists
-        await fs.mkdir(path.dirname(filePath), { recursive: true })
-
-        // Write test file
-        await fs.writeFile(filePath, testContent, 'utf-8')
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `✅ Generated test file: ${filePath}\n\n${testContent}`,
-            },
-          ],
-        }
-      }
-
-      case 'read_test_results': {
-        // Read latest test results from Cypress reports
-        const resultsPath = path.join(
-          process.cwd(),
-          'cypress',
-          'results',
-          'results.json'
-        )
-
-        try {
-          const results = await fs.readFile(resultsPath, 'utf-8')
-          return {
-            content: [
-              {
-                type: 'text',
-                text: results,
-              },
-            ],
-          }
-        } catch (error) {
-          // Log error for debugging
-          console.error('Failed to read test results:', error instanceof Error ? error.message : String(error))
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: 'No test results found. Run tests first.',
-              },
-            ],
-          }
-        }
-      }
-
-      case 'list_tests': {
-        const testsDir = path.join(process.cwd(), 'cypress', 'e2e')
-        const files = await listCypressFiles(testsDir)
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Available Cypress tests:\n${files.join('\n')}`,
-            },
-          ],
-        }
-      }
-
+      case 'run_cypress_tests':
+        return await handleRunCypressTests(args ?? {})
+      case 'generate_test':
+        return await handleGenerateTest(args ?? {})
+      case 'read_test_results':
+        return await handleReadTestResults()
+      case 'list_tests':
+        return await handleListTests()
       default:
         throw new Error(`Unknown tool: ${name}`)
     }
@@ -230,16 +141,178 @@ server.setRequestHandler(CallToolRequestSchema, async (request: MCPRequest) => {
 })
 
 // ============================================================================
+// Tool Handler Functions
+// ============================================================================
+
+/**
+ * Handle running Cypress tests
+ */
+async function handleRunCypressTests(args: Record<string, unknown>) {
+  const spec = (args as { spec?: string }).spec
+
+  // Validate spec path to prevent command injection
+  if (spec) {
+    // Check for path traversal attempts
+    if (spec.includes('..') || spec.startsWith('/')) {
+      throw new Error('Invalid spec path: path traversal not allowed')
+    }
+
+    // Check for command injection characters
+    const dangerousChars = [';', '&', '|', '`', '$', '(', ')', '<', '>', '\n', '\r']
+    if (dangerousChars.some(char => spec.includes(char))) {
+      throw new Error('Invalid spec path: contains forbidden characters')
+    }
+
+    // Validate file extension
+    if (!spec.endsWith('.cy.ts') && !spec.endsWith('.cy.js')) {
+      throw new Error('Invalid spec path: must be a .cy.ts or .cy.js file')
+    }
+  }
+
+  // Build command args array directly (safer than string concatenation)
+  const commandArgs = spec
+    ? ['cypress', 'run', '--spec', `cypress/e2e/${spec}`]
+    : ['cypress', 'run']
+
+  const result = await runCommandWithArgs('npx', commandArgs)
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(result, null, 2),
+      },
+    ],
+  }
+}
+
+/**
+ * Handle generating a new test file
+ */
+async function handleGenerateTest(args: Record<string, unknown>) {
+  const { testName, description, scenarios } = args as {
+    testName: string
+    description: string
+    scenarios: string[]
+  }
+
+  // Validate testName to prevent path traversal attacks
+  if (!testName || typeof testName !== 'string') {
+    throw new Error('Invalid testName: must be a non-empty string')
+  }
+
+  // Check for path traversal attempts
+  if (testName.includes('..') || testName.startsWith('/') || testName.startsWith('\\')) {
+    throw new Error('Invalid testName: path traversal not allowed')
+  }
+
+  // Check for directory separators (prevent nested paths)
+  if (testName.includes('/') || testName.includes('\\')) {
+    throw new Error('Invalid testName: directory separators not allowed')
+  }
+
+  // Validate filename format (alphanumeric, hyphens, underscores only)
+  if (!/^[a-zA-Z0-9_-]+$/.test(testName)) {
+    throw new Error('Invalid testName: only alphanumeric characters, hyphens, and underscores allowed')
+  }
+
+  // Validate length (prevent extremely long filenames)
+  if (testName.length > 100) {
+    throw new Error('Invalid testName: maximum length is 100 characters')
+  }
+
+  const testContent = generateTestContent(testName, description, scenarios)
+  const filePath = path.join(
+    process.cwd(),
+    'cypress',
+    'e2e',
+    'generated',
+    `${testName}.cy.ts`
+  )
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
+
+  // Write test file
+  await fs.writeFile(filePath, testContent, 'utf-8')
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `✅ Generated test file: ${filePath}\n\n${testContent}`,
+      },
+    ],
+  }
+}
+
+/**
+ * Handle reading test results
+ */
+async function handleReadTestResults() {
+  const resultsPath = path.join(
+    process.cwd(),
+    'cypress',
+    'results',
+    'results.json'
+  )
+
+  try {
+    const results = await fs.readFile(resultsPath, 'utf-8')
+    return {
+      content: [
+        {
+          type: 'text',
+          text: results,
+        },
+      ],
+    }
+  } catch {
+    // Gracefully handle missing file - this is expected when tests haven't run yet
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `No test results found. Run tests first.\n\nExpected location: ${resultsPath}`,
+        },
+      ],
+    }
+  }
+}
+
+/**
+ * Handle listing all test files
+ */
+async function handleListTests() {
+  const testsDir = path.join(process.cwd(), 'cypress', 'e2e')
+  const files = await listCypressFiles(testsDir)
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Available Cypress tests:\n${files.join('\n')}`,
+      },
+    ],
+  }
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
-async function runCommand(command: string): Promise<{ stdout: string; stderr: string }> {
+/**
+ * Run command with arguments array (secure, no shell injection risk)
+ * This is the preferred method for executing commands
+ *
+ * @param executable - The executable to run (e.g., 'npx', 'npm', 'node')
+ * @param args - Array of arguments to pass to the executable
+ * @returns Promise with stdout and stderr
+ */
+async function runCommandWithArgs(
+  executable: string,
+  args: string[]
+): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    // Parse command safely - avoid shell injection
-    const parts = command.split(' ')
-    const executable = parts[0]
-    const args = parts.slice(1)
-
     // Security: Only allow specific whitelisted commands
     const allowedCommands = ['npx', 'npm', 'node']
     if (!allowedCommands.includes(executable)) {
@@ -247,10 +320,10 @@ async function runCommand(command: string): Promise<{ stdout: string; stderr: st
       return
     }
 
-    // Execute without shell for security
+    // Execute without shell for security (prevents command injection)
     const child = spawn(executable, args, {
       cwd: process.cwd(),
-      shell: false,  // Security: Prevent shell injection
+      shell: false, // Security: Prevent shell injection
     })
 
     let stdout = ''
@@ -333,4 +406,7 @@ ${scenarioTests}
 
 const transport = new StdioServerTransport()
 await server.connect(transport)
+
+// Note: console.error writes to stderr, which is the correct channel for
+// MCP server diagnostics (stdout is reserved for MCP protocol messages)
 console.error('🚀 Cypress MCP Server running on stdio')

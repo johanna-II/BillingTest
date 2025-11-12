@@ -155,6 +155,23 @@ const getBaseUrl = (): string => {
 }
 
 /**
+ * Determine if using local mock endpoints
+ * Cached at module initialization to avoid repeated environment checks
+ *
+ * Priority:
+ * 1. Explicit NEXT_PUBLIC_USE_LOCAL_MOCK flag (if set)
+ * 2. Fallback to localhost:5000 substring check (for backward compatibility)
+ */
+const isLocalMock = (() => {
+  const explicitFlag = process.env.NEXT_PUBLIC_USE_LOCAL_MOCK
+  if (explicitFlag !== undefined) {
+    return explicitFlag === 'true'
+  }
+  // Fallback to existing check for backward compatibility
+  return process.env.NEXT_PUBLIC_API_URL?.includes('localhost:5000') ?? false
+})()
+
+/**
  * API Configuration
  * Uses 'as const satisfies' for literal types with shape validation
  *
@@ -165,9 +182,6 @@ export const API_CONFIG = {
     return getBaseUrl()
   },
   get ENDPOINTS() {
-    // Check if using local mock server (no /api prefix needed)
-    const isLocalMock = process.env.NEXT_PUBLIC_API_URL?.includes('localhost:5000')
-
     return {
       CALCULATE: isLocalMock ? '/billing/admin/calculate' : '/api/billing/admin/calculate',
       STATEMENTS: isLocalMock ? '/billing/payments' : '/api/billing/payments',

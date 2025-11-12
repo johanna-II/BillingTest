@@ -120,5 +120,3 @@ Cypress.Commands.add('processPayment', () => {
   // Wait for success message or payment result
   cy.contains(/Payment.*success|Payment Result/i, { timeout: 10000 }).should('be.visible')
 })
-
-export {}
