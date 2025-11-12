@@ -286,8 +286,8 @@ const deserializeHistoryEntry = (serialized: SerializedHistoryEntry): HistoryEnt
       credits: serialized.input.credits
         .map((credit) => {
           return migrateCreditInput({
-            ...credit,
-            expirationDate: credit.expirationDate ? deserializeDate(credit.expirationDate) : undefined,
+        ...credit,
+        expirationDate: credit.expirationDate ? deserializeDate(credit.expirationDate) : undefined,
           })
         })
         .filter((item): item is CreditInput => item !== null),
