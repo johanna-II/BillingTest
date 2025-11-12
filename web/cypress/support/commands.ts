@@ -90,8 +90,10 @@ Cypress.Commands.add('addAdjustment', (type: 'DISCOUNT' | 'SURCHARGE', value: nu
 })
 
 Cypress.Commands.add('calculateBilling', () => {
-  // Set up API intercept before clicking with precise endpoint match
-  cy.intercept('POST', '**/api/billing/admin/calculate').as('calculateRequest')
+  // Set up API intercept for both local mock and production endpoints
+  // Local mock: /billing/admin/calculate
+  // Production: /api/billing/admin/calculate
+  cy.intercept('POST', '**/billing/admin/calculate').as('calculateRequest')
 
   cy.contains('button', 'Calculate Billing').click()
 
@@ -109,8 +111,10 @@ Cypress.Commands.add('calculateBilling', () => {
 })
 
 Cypress.Commands.add('processPayment', () => {
-  // Intercept payment API call with precise endpoint match
-  cy.intercept('POST', '**/api/billing/payments/*').as('paymentAPI')
+  // Intercept payment API call for both local mock and production endpoints
+  // Local mock: /billing/payments/*
+  // Production: /api/billing/payments/*
+  cy.intercept('POST', '**/billing/payments/*').as('paymentAPI')
 
   cy.contains('button', 'Process Payment').click()
 
