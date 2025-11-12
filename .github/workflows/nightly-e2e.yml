@@ -54,7 +54,9 @@ jobs:
           echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
           echo "Backend started with PID: $BACKEND_PID"
 
-          # Wait for backend to become healthy
+          # Wait for backend to become healthy (30s timeout)
+          # NOTE: This health check logic is shared across workflows
+          # If updating, ensure consistency with pr-e2e-auto.yml
           for i in {1..30}; do
             if curl -f http://localhost:8787/health 2>/dev/null; then
               echo "✅ Backend is healthy"
@@ -102,13 +104,14 @@ jobs:
       - name: 📈 Generate Test Report
         if: always()
         run: |
-          cd web
           echo "## 🎭 Cypress E2E Test Results (${{ matrix.browser }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f cypress/results/results.json ]; then
-            echo "✅ Tests completed. Check artifacts for details." >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ No test results found." >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Some tests failed. Check artifacts for details." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: 🧹 Cleanup

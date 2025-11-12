@@ -332,11 +332,13 @@ async function handleListTests() {
  *
  * @param executable - The executable to run (e.g., 'npx', 'npm', 'node')
  * @param args - Array of arguments to pass to the executable
+ * @param timeoutMs - Timeout in milliseconds (default: 300000 = 5 minutes)
  * @returns Promise with stdout and stderr
  */
 async function runCommandWithArgs(
   executable: string,
-  args: string[]
+  args: string[],
+  timeoutMs: number = 300000
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     // Security: Only allow specific whitelisted commands
@@ -354,6 +356,37 @@ async function runCommandWithArgs(
 
     let stdout = ''
     let stderr = ''
+    let isResolved = false
+    let killTimer: NodeJS.Timeout | null = null
+
+    // Cleanup function to prevent resource leaks
+    const cleanup = (timer: NodeJS.Timeout) => {
+      if (isResolved) return
+      isResolved = true
+
+      clearTimeout(timer)
+      if (killTimer) clearTimeout(killTimer)
+      child.stdout?.removeAllListeners()
+      child.stderr?.removeAllListeners()
+      child.removeAllListeners()
+    }
+
+    // Set up timeout to prevent hanging
+    const timer = setTimeout(() => {
+      if (isResolved) return
+
+      cleanup(timer)
+      child.kill('SIGTERM')
+
+      // Force kill if SIGTERM doesn't work
+      killTimer = setTimeout(() => {
+        if (child.exitCode === null) {
+          child.kill('SIGKILL')
+        }
+      }, 5000)
+
+      reject(new Error(`Command timed out after ${timeoutMs}ms: ${executable} ${args.join(' ')}`))
+    }, timeoutMs)
 
     child.stdout?.on('data', (data) => {
       stdout += data.toString()
@@ -364,11 +397,22 @@ async function runCommandWithArgs(
     })
 
     child.on('close', (code) => {
+      if (isResolved) return
+
+      cleanup(timer)
+
       if (code === 0) {
         resolve({ stdout, stderr })
       } else {
         reject(new Error(`Command failed with code ${code}: ${stderr}`))
       }
+    })
+
+    child.on('error', (error) => {
+      if (isResolved) return
+
+      cleanup(timer)
+      reject(new Error(`Failed to spawn process: ${error.message}`))
     })
   })
 }
@@ -380,6 +424,11 @@ async function listCypressFiles(dir: string): Promise<string[]> {
     const entries = await fs.readdir(currentPath, { withFileTypes: true })
 
     for (const entry of entries) {
+      // Skip symbolic links to prevent circular references and unauthorized access
+      if (entry.isSymbolicLink()) {
+        continue
+      }
+
       const fullPath = path.join(currentPath, entry.name)
 
       if (entry.isDirectory()) {

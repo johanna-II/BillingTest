@@ -90,8 +90,8 @@ Cypress.Commands.add('addAdjustment', (type: 'DISCOUNT' | 'SURCHARGE', value: nu
 })
 
 Cypress.Commands.add('calculateBilling', () => {
-  // Set up API intercept before clicking
-  cy.intercept('POST', '**/calculate').as('calculateRequest')
+  // Set up API intercept before clicking with precise endpoint match
+  cy.intercept('POST', '**/api/billing/admin/calculate').as('calculateRequest')
 
   cy.contains('button', 'Calculate Billing').click()
 
@@ -109,8 +109,8 @@ Cypress.Commands.add('calculateBilling', () => {
 })
 
 Cypress.Commands.add('processPayment', () => {
-  // Intercept payment API call
-  cy.intercept('POST', '**/payments/**').as('paymentAPI')
+  // Intercept payment API call with precise endpoint match
+  cy.intercept('POST', '**/api/billing/payments/*').as('paymentAPI')
 
   cy.contains('button', 'Process Payment').click()
 
