@@ -261,6 +261,8 @@ jobs:
           wait-on: 'http://localhost:3000'
           wait-on-timeout: 120
           spec: cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8787
 
       - name: 📊 Upload test results
         uses: actions/upload-artifact@v4
@@ -526,6 +528,8 @@ jobs:
           browser: chrome
           # Run all tests including new ones
           spec: cypress/e2e/**/*.cy.ts
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8787
 
       - name: 📊 Upload results
         uses: actions/upload-artifact@v4
