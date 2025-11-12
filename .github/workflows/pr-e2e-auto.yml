@@ -80,107 +80,18 @@ jobs:
           cd web
           npm ci
 
-          # Create smart test generator
-          cat > generate-pr-tests.js << 'EOFJS'
-          const fs = require('fs');
-          const path = require('path');
+          # Use the centralized TypeScript test generator
+          CHANGED_FILES_PATH=../changed-files.txt PR_NUMBER=${{ github.event.pull_request.number }} npm run generate:pr-tests
 
-          // Read changed files
-          const changedFiles = fs.readFileSync('../changed-files.txt', 'utf-8')
-            .split('\n')
-            .filter(f => f.trim());
-
-          console.log('📝 Changed files:', changedFiles);
-
-          // Filter to only web/src changes
-          const webSrcChanges = changedFiles.filter(f => f.startsWith('web/src/'));
-
-          if (webSrcChanges.length === 0) {
-            console.log('ℹ️ No web/src changes detected - skipping E2E test generation');
-            process.exit(0);
-          }
-
-          console.log('✅ web/src changes:', webSrcChanges);
-
-          // Analyze what changed in web/src
-          const hasComponentChanges = webSrcChanges.some(f => f.includes('/components/'));
-          const hasHookChanges = webSrcChanges.some(f => f.includes('/hooks/'));
-          const hasPageChanges = webSrcChanges.some(f => f.includes('/app/'));
-          const hasApiChanges = webSrcChanges.some(f => f.includes('/api/') || f.includes('/constants/api'));
-
-          // Generate test based on changes
-          let testScenarios = [];
-
-          if (hasComponentChanges) {
-            testScenarios.push('should render updated components correctly');
-            testScenarios.push('should handle user interactions in modified components');
-          }
-
-          if (hasHookChanges) {
-            testScenarios.push('should maintain state consistency after hook changes');
-          }
-
-          if (hasPageChanges) {
-            testScenarios.push('should navigate and display updated pages');
-          }
-
-          if (hasApiChanges) {
-            testScenarios.push('should integrate with updated API client logic');
-            testScenarios.push('should handle API communication correctly');
-          }
-
-          // Generate test header
-          let testContent = '// Auto-generated PR E2E Test\n';
-          testContent += '// PR: #' + process.env.PR_NUMBER + '\n';
-          testContent += '// Generated: ' + new Date().toISOString() + '\n';
-          testContent += '//\n';
-          testContent += '// Tests for changes in web/src:\n';
-          webSrcChanges.forEach(f => {
-            testContent += '// - ' + f + '\n';
-          });
-          testContent += '\n';
-
-          testContent += 'describe(\'PR #' + process.env.PR_NUMBER + ' - Regression Tests\', () => {\n';
-          testContent += '  beforeEach(() => {\n';
-          testContent += '    cy.visit(\'/\')\n';
-          testContent += '  })\n\n';
-
-          // Generate test cases
-          testScenarios.forEach((scenario) => {
-            testContent += '  it(\'' + scenario + '\', () => {\n';
-            testContent += '    // Test implementation\n';
-            testContent += '    cy.log(\'Testing: ' + scenario + '\')\n\n';
-            testContent += '    // Basic smoke test\n';
-            testContent += '    cy.get(\'body\').should(\'exist\')\n';
-            if (hasComponentChanges) {
-              testContent += '    cy.contains(\'Billing Parameters\').should(\'be.visible\')\n';
-            }
-            if (hasApiChanges) {
-              testContent += '    cy.get(\'button\').first().click()\n';
-              testContent += '    cy.wait(1000)\n';
-            }
-            testContent += '  })\n\n';
-          });
-
-          testContent += '})\n';
-
-          // Save test file
-          const outputDir = path.join(process.cwd(), 'cypress', 'e2e', 'pr-generated');
-          fs.mkdirSync(outputDir, { recursive: true });
-
-          const outputFile = path.join(outputDir, 'pr-' + process.env.PR_NUMBER + '.cy.ts');
-          fs.writeFileSync(outputFile, testContent);
-
-          console.log('✅ Generated test:', outputFile);
-          console.log(testContent);
-
-          // Output for GitHub Actions
-          fs.writeFileSync(process.env.GITHUB_OUTPUT, 'test-generated=true\n', { flag: 'a' });
-          fs.writeFileSync(process.env.GITHUB_OUTPUT, 'test-file=pr-' + process.env.PR_NUMBER + '.cy.ts\n', { flag: 'a' });
-          EOFJS
-
-          # Run generator
-          PR_NUMBER=${{ github.event.pull_request.number }} node generate-pr-tests.js
+          # Check if test was generated
+          if [ -f cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts ]; then
+            echo "test-generated=true" >> $GITHUB_OUTPUT
+            echo "test-file=pr-${{ github.event.pull_request.number }}.cy.ts" >> $GITHUB_OUTPUT
+            echo "✅ Test generated successfully"
+          else
+            echo "test-generated=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No test generated"
+          fi
 
       - name: 📤 Upload generated test file
         if: steps.generate.outputs.test-generated == 'true'

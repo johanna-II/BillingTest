@@ -67,26 +67,47 @@ Cypress.Commands.add('fillBasicInfo', (uuid: string, billingGroupId: string) => 
 })
 
 Cypress.Commands.add('addUsage', (volume: number) => {
-  // Click Add Usage button
-  cy.contains('button', 'Add Usage').click()
+  // Get count before adding to target the new element deterministically
+  cy.get('input[id^="usage-volume-"]').its('length').then((initialCount) => {
+    // Click Add Usage button
+    cy.contains('button', 'Add Usage').click()
 
-  // Fill in the volume for the newly added usage entry
-  cy.get('input[id^="usage-volume-"]').last().clear().type(volume.toString())
+    // Wait for new input to be added to DOM
+    cy.get('input[id^="usage-volume-"]').should('have.length', initialCount + 1)
+
+    // Target the newly added input by index (more reliable than .last())
+    cy.get('input[id^="usage-volume-"]').eq(initialCount).clear().type(volume.toString())
+  })
 })
 
 Cypress.Commands.add('addCredit', (amount: number) => {
-  cy.contains('button', 'Add Credit').click()
-  cy.get('input[id^="credit-amount-"]').last().clear().type(amount.toString())
+  // Get count before adding to target the new element deterministically
+  cy.get('input[id^="credit-amount-"]').its('length').then((initialCount) => {
+    // Click Add Credit button
+    cy.contains('button', 'Add Credit').click()
+
+    // Wait for new input to be added to DOM
+    cy.get('input[id^="credit-amount-"]').should('have.length', initialCount + 1)
+
+    // Target the newly added input by index
+    cy.get('input[id^="credit-amount-"]').eq(initialCount).clear().type(amount.toString())
+  })
 })
 
 Cypress.Commands.add('addAdjustment', (type: 'DISCOUNT' | 'SURCHARGE', value: number) => {
-  cy.contains('button', 'Add Adjustment').click()
+  // Get count before adding to target the new element deterministically
+  cy.get('select[id^="adj-type-"]').its('length').then((initialCount) => {
+    // Click Add Adjustment button
+    cy.contains('button', 'Add Adjustment').click()
 
-  // Select type
-  cy.get('select[id^="adj-type-"]').last().select(type)
+    // Wait for new inputs to be added to DOM
+    cy.get('select[id^="adj-type-"]').should('have.length', initialCount + 1)
+    cy.get('input[id^="adj-value-"]').should('have.length', initialCount + 1)
 
-  // Fill value
-  cy.get('input[id^="adj-value-"]').last().clear().type(value.toString())
+    // Target the newly added inputs by index
+    cy.get('select[id^="adj-type-"]').eq(initialCount).select(type)
+    cy.get('input[id^="adj-value-"]').eq(initialCount).clear().type(value.toString())
+  })
 })
 
 Cypress.Commands.add('calculateBilling', () => {
@@ -100,7 +121,7 @@ Cypress.Commands.add('calculateBilling', () => {
 Cypress.Commands.add('processPayment', () => {
   cy.contains('button', 'Process Payment').click()
 
-  // Wait for payment result to appear (verifies API call succeeded)
-  // This is the most reliable way to verify the payment completed
-  cy.contains(/Payment.*success|Payment Result/i, { timeout: 15000 }).should('be.visible')
+  // Wait for payment result to appear
+  // The UI displays either "Payment Successful" or "Payment Failed"
+  cy.contains('Payment Successful', { timeout: 15000 }).should('be.visible')
 })

@@ -154,21 +154,32 @@ const getBaseUrl = (): string => {
   return cachedBaseUrl
 }
 
+
 /**
  * Determine if using local mock endpoints
  * Cached at module initialization to avoid repeated environment checks
  *
  * Priority:
  * 1. Explicit NEXT_PUBLIC_USE_LOCAL_MOCK flag (if set)
- * 2. Fallback to localhost:5000 substring check (for backward compatibility)
+ * 2. Check actual resolved BASE_URL (consistent with getApiBaseUrl logic)
  */
 const isLocalMock = (() => {
   const explicitFlag = process.env.NEXT_PUBLIC_USE_LOCAL_MOCK
   if (explicitFlag !== undefined) {
     return explicitFlag === 'true'
   }
-  // Fallback to existing check for backward compatibility
-  return process.env.NEXT_PUBLIC_API_URL?.includes('localhost:5000') ?? false
+
+  // Use the same logic as getApiBaseUrl() to ensure consistency
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+
+  // If env var is set, check if it points to localhost:5000
+  if (envUrl) {
+    return envUrl.includes('localhost:5000')
+  }
+
+  // If not set, getApiBaseUrl() will fallback to localhost:5000 in development
+  // So we should return true in development when no URL is configured
+  return process.env.NODE_ENV !== 'production'
 })()
 
 /**
