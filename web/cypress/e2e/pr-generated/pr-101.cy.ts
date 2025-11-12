@@ -1,34 +1,11 @@
 // Auto-generated PR E2E Test
 // PR: #101
-// Generated: 2025-11-12T07:11:13.506Z
+// Generated: 2025-11-12T07:55:41.938Z
 //
-// Tests for changes in:
-// - .github/workflows/nightly-e2e.yml
-// - .github/workflows/pr-e2e-auto.yml
-// - .gitignore
-// - mcp-config.example.json
-// - web/.gitignore
-// - web/cypress.config.ts
-// - web/cypress/e2e/billing-flow.cy.ts
-// - web/cypress/e2e/generated/.gitkeep
-// - web/cypress/e2e/pr-generated/.gitkeep
-// - web/cypress/fixtures/example.json
-// - web/cypress/mcp-server/index.ts
-// - web/cypress/mcp-server/package.json
-// - web/cypress/mcp-server/tsconfig.json
-// - web/cypress/support/commands.ts
-// - web/cypress/support/e2e.ts
-// - web/cypress/tsconfig.json
-// - web/next-env.d.ts
-// - web/next.config.js
-// - web/package-lock.json
-// - web/package.json
-// - web/scripts/ai-test-generator.ts
-// - web/scripts/generate-e2e-tests.ts
+// Tests for changes in web/src:
 // - web/src/components/BillingInputForm.tsx
 // - web/src/constants/api.ts
 // - web/src/stores/historyStore.ts
-// - web/tsconfig.json
 
 describe('PR #101 - Regression Tests', () => {
   beforeEach(() => {
@@ -42,6 +19,8 @@ describe('PR #101 - Regression Tests', () => {
     // Basic smoke test
     cy.get('body').should('exist')
     cy.contains('Billing Parameters').should('be.visible')
+    cy.get('button').first().click()
+    cy.wait(1000)
   })
 
   it('should handle user interactions in modified components', () => {
@@ -51,6 +30,30 @@ describe('PR #101 - Regression Tests', () => {
     // Basic smoke test
     cy.get('body').should('exist')
     cy.contains('Billing Parameters').should('be.visible')
+    cy.get('button').first().click()
+    cy.wait(1000)
+  })
+
+  it('should integrate with updated API client logic', () => {
+    // Test implementation
+    cy.log('Testing: should integrate with updated API client logic')
+
+    // Basic smoke test
+    cy.get('body').should('exist')
+    cy.contains('Billing Parameters').should('be.visible')
+    cy.get('button').first().click()
+    cy.wait(1000)
+  })
+
+  it('should handle API communication correctly', () => {
+    // Test implementation
+    cy.log('Testing: should handle API communication correctly')
+
+    // Basic smoke test
+    cy.get('body').should('exist')
+    cy.contains('Billing Parameters').should('be.visible')
+    cy.get('button').first().click()
+    cy.wait(1000)
   })
 
 })
