@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "MCP Server for Cypress test control and generation",
   "type": "module",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",

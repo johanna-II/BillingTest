@@ -3,7 +3,7 @@ name: PR - Auto E2E Test Generation
 # Trigger on PR to main/master
 on:
   pull_request:
-    branches: [main, master, refactor-3]
+    branches: [main, master]
     types: [opened, synchronize, reopened]
     paths:
       - 'web/src/**'
@@ -38,8 +38,19 @@ jobs:
       - name: 🔎 Detect changed files
         id: changed
         run: |
-          # Get changed files in this PR
-          git diff --name-only origin/${{ github.base_ref }}...HEAD > changed-files.txt
+          # Get changed files in this PR with error handling
+          if ! git fetch origin ${{ github.base_ref }} 2>/dev/null; then
+            echo "⚠️ Base ref not available; comparing against HEAD~1"
+            git diff --name-only HEAD~1...HEAD > changed-files.txt || {
+              echo "❌ Failed to detect changes"
+              exit 1
+            }
+          else
+            git diff --name-only origin/${{ github.base_ref }}...HEAD > changed-files.txt || {
+              echo "❌ Failed to detect changes against base ref"
+              exit 1
+            }
+          fi
 
           echo "Changed files:"
           cat changed-files.txt
@@ -94,8 +105,6 @@ jobs:
       - name: 🤖 Generate E2E tests with AI
         id: generate
         if: steps.detect.outputs.has-new-features == 'true'
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd web
           npm ci
@@ -125,7 +134,6 @@ jobs:
 
           // Generate test based on changes
           let testScenarios = [];
-          let testName = 'pr-' + Date.now();
 
           if (hasComponentChanges) {
             testScenarios.push('should render updated components correctly');
@@ -198,12 +206,6 @@ jobs:
           # Run generator
           PR_NUMBER=${{ github.event.pull_request.number }} node generate-pr-tests.js
 
-          # If using Claude API (optional)
-          if [ -n "$ANTHROPIC_API_KEY" ]; then
-            echo "🤖 Enhanced test generation with Claude API available"
-            # npm run generate:tests -- pr-test-${{ github.event.pull_request.number }}
-          fi
-
       - name: 📤 Upload generated test file
         if: steps.generate.outputs.test-generated == 'true'
         uses: actions/upload-artifact@v4
@@ -236,9 +238,34 @@ jobs:
           cd web && npm ci
           cd ../workers/billing-api && npm ci
 
+      - name: 📥 Download generated test file
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-generated-test
+          path: web/cypress/e2e/pr-generated/
+
       - name: 🚀 Start Backend
         working-directory: workers/billing-api
-        run: npm run dev &
+        run: |
+          npm run dev > backend.log 2>&1 &
+          BACKEND_PID=$!
+          echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
+          echo "Backend started with PID: $BACKEND_PID"
+
+          # Wait for backend to become healthy
+          for i in {1..30}; do
+            if curl -f http://localhost:8787/health 2>/dev/null; then
+              echo "✅ Backend is healthy"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Backend failed to start within 30 seconds"
+              cat backend.log
+              exit 1
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 1
+          done
 
       - name: 🎭 Run new E2E tests
         uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
@@ -292,10 +319,22 @@ jobs:
               body: comment
             });
 
+      - name: 🧹 Cleanup Backend Process
+        if: always()
+        run: |
+          if [ ! -z "$BACKEND_PID" ]; then
+            echo "Stopping backend process: $BACKEND_PID"
+            kill $BACKEND_PID 2>/dev/null || true
+            sleep 1
+          fi
+          # Fallback: kill any remaining wrangler processes
+          pkill -f "wrangler" || true
+          pkill -f "npm run dev" || true
+
   commit-tests:
     name: 📝 Commit New Tests to Repo
-    needs: run-new-tests
-    if: success()
+    needs: [analyze-changes, run-new-tests]
+    if: always() && needs.analyze-changes.outputs.test-generated == 'true'
     runs-on: ubuntu-latest
 
     permissions:
@@ -395,8 +434,25 @@ jobs:
 
       - name: 🚀 Start services
         run: |
-          cd workers/billing-api && npm run dev &
-          sleep 5
+          cd workers/billing-api && npm run dev > backend.log 2>&1 &
+          BACKEND_PID=$!
+          echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
+          echo "Backend started with PID: $BACKEND_PID"
+
+          # Wait for backend to become healthy
+          for i in {1..30}; do
+            if curl -f http://localhost:8787/health 2>/dev/null; then
+              echo "✅ Backend is healthy"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Backend failed to start within 30 seconds"
+              cat workers/billing-api/backend.log
+              exit 1
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 1
+          done
 
       - name: 🎭 Run ALL E2E tests (Regression)
         uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
@@ -447,3 +503,15 @@ jobs:
               repo: context.repo.repo,
               body: comment
             });
+
+      - name: 🧹 Cleanup Backend Process
+        if: always()
+        run: |
+          if [ ! -z "$BACKEND_PID" ]; then
+            echo "Stopping backend process: $BACKEND_PID"
+            kill $BACKEND_PID 2>/dev/null || true
+            sleep 1
+          fi
+          # Fallback: kill any remaining wrangler processes
+          pkill -f "wrangler" || true
+          pkill -f "npm run dev" || true
