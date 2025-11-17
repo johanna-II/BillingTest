@@ -170,6 +170,7 @@ const BillingInputForm: React.FC<BillingInputFormProps> = ({ onComplete }) => {
       {/* Calculate Button */}
       <div className="mt-12 flex justify-center">
         <button
+          data-testid="calculate-billing-btn"
           onClick={handleCalculate}
           disabled={state.isCalculating}
           className="kinfolk-button disabled:opacity-50 disabled:cursor-not-allowed"

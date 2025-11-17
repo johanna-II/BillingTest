@@ -1,36 +1,42 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Cypress
+cypress/downloads
+cypress/screenshots
+cypress/videos
+cypress/results
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+# AI-generated tests (tracked in git for regression)
+# cypress/e2e/generated/*.cy.ts are COMMITTED (manual generation)
+# cypress/e2e/pr-generated/*.cy.ts are COMMITTED (PR auto-generation)
 
-# testing
-/coverage
+# Temporary files
+cypress/e2e/generated/.tmp
+cypress/e2e/pr-generated/.tmp
 
-# next.js
-/.next/
-/out/
+# Node modules
+node_modules
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-.env
-
-# vercel
-.vercel
-
-# typescript
+# Next.js
+.next
+out
 *.tsbuildinfo
-next-env.d.ts
+
+# Build
+dist
+build
+
+# Environment
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
