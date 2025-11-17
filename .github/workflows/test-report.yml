@@ -39,7 +39,7 @@ jobs:
           find test-results -name "*.xml" -type f 2>/dev/null || echo "No XML files found"
 
       - name: Publish Test Report
-        uses: dorny/test-reporter@dc3a92680fcc15842eef52e8c4606ea7ce6bd3f3  # v2.1.1
+        uses: dorny/test-reporter@7b7927aa7da8b82e81e755810cb51f39941a2cc7  # v2.2.0
         if: success() || failure()
         with:
           name: Test Results
