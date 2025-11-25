@@ -1,0 +1,17 @@
+name: 'Cleanup Backend'
+description: 'Stop Cloudflare Workers backend process and clean up'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 🧹 Cleanup Backend Process
+      shell: bash
+      run: |
+        if [ ! -z "$BACKEND_PID" ]; then
+          echo "Stopping backend process: $BACKEND_PID"
+          kill $BACKEND_PID 2>/dev/null || true
+          sleep 1
+        fi
+        # Fallback: kill any remaining wrangler processes
+        pkill -f "wrangler" || true
+        pkill -f "npm run dev" || true

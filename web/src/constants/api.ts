@@ -154,6 +154,40 @@ const getBaseUrl = (): string => {
   return cachedBaseUrl
 }
 
+
+/**
+ * Determine if using local/development endpoints (without /api prefix)
+ * Cached at module initialization to avoid repeated environment checks
+ *
+ * Priority:
+ * 1. Explicit NEXT_PUBLIC_USE_LOCAL_MOCK flag (if set)
+ * 2. Check if URL points to localhost (any port)
+ * 3. Default to true in development mode
+ *
+ * Local endpoints (localhost:5000, localhost:8787, etc):
+ *   - /billing/admin/calculate
+ * Production endpoints (*.workers.dev, etc):
+ *   - /api/billing/admin/calculate
+ */
+const isLocalMock = (() => {
+  const explicitFlag = process.env.NEXT_PUBLIC_USE_LOCAL_MOCK
+  if (explicitFlag !== undefined) {
+    return explicitFlag === 'true'
+  }
+
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+
+  // If env var is set, check if it points to localhost (any port)
+  // This covers both localhost:5000 (mock server) and localhost:8787 (wrangler)
+  if (envUrl) {
+    return envUrl.includes('localhost') || envUrl.includes('127.0.0.1')
+  }
+
+  // If not set, getApiBaseUrl() will fallback to localhost:5000 in development
+  // So we should return true in development when no URL is configured
+  return process.env.NODE_ENV !== 'production'
+})()
+
 /**
  * API Configuration
  * Uses 'as const satisfies' for literal types with shape validation
@@ -164,10 +198,12 @@ export const API_CONFIG = {
   get BASE_URL(): string {
     return getBaseUrl()
   },
-  ENDPOINTS: {
-    CALCULATE: '/api/billing/admin/calculate',
-    STATEMENTS: '/api/billing/payments',
-    PAYMENT: '/api/billing/payments',
+  get ENDPOINTS() {
+    return {
+      CALCULATE: isLocalMock ? '/billing/admin/calculate' : '/api/billing/admin/calculate',
+      STATEMENTS: isLocalMock ? '/billing/payments' : '/api/billing/payments',
+      PAYMENT: isLocalMock ? '/billing/payments' : '/api/billing/payments',
+    }
   },
   HEADERS: {
     CONTENT_TYPE: 'Content-Type',

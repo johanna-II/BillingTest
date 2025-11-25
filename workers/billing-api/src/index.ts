@@ -750,7 +750,8 @@ app.get('/health', (c) => {
   )
 })
 
-app.post('/api/billing/admin/calculate', async (c) => {
+// Handler function for billing calculation (reused for both routes)
+const handleBillingCalculate = async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid')
     const vatRate = getVatRate(c.env)
@@ -765,9 +766,15 @@ app.post('/api/billing/admin/calculate', async (c) => {
     const message = error instanceof Error ? error.message : 'Billing calculation failed'
     return c.json(createErrorResponse(message), statusCode)
   }
-})
+}
 
-app.get('/api/billing/payments/:month/statements', async (c) => {
+// Primary route (production)
+app.post('/api/billing/admin/calculate', handleBillingCalculate)
+// Alias route (local development compatibility)
+app.post('/billing/admin/calculate', handleBillingCalculate)
+
+// Handler function for getting statements (reused for both routes)
+const handleGetStatements = async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid') ?? 'default'
     const month = c.req.param('month')
@@ -805,9 +812,15 @@ app.get('/api/billing/payments/:month/statements', async (c) => {
     const message = error instanceof Error ? error.message : 'Failed to retrieve statements'
     return c.json(createErrorResponse(message), 500)
   }
-})
+}
 
-app.post('/api/billing/payments/:month', async (c) => {
+// Primary route (production)
+app.get('/api/billing/payments/:month/statements', handleGetStatements)
+// Alias route (local development compatibility)
+app.get('/billing/payments/:month/statements', handleGetStatements)
+
+// Handler function for processing payment (reused for both routes)
+const handleProcessPayment = async (c: Context<{ Bindings: Env }>) => {
   try {
     const uuid = c.req.header('uuid') ?? 'default'
     const body = await parseJsonBody<PaymentRequest>(c)
@@ -827,6 +840,11 @@ app.post('/api/billing/payments/:month', async (c) => {
     const message = error instanceof Error ? error.message : 'Payment processing failed'
     return c.json(createErrorResponse(message), 500)
   }
-})
+}
+
+// Primary route (production)
+app.post('/api/billing/payments/:month', handleProcessPayment)
+// Alias route (local development compatibility)
+app.post('/billing/payments/:month', handleProcessPayment)
 
 export default app

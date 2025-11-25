@@ -1,0 +1,32 @@
+{
+  "testUsers": [
+    {
+      "uuid": "test-uuid-001",
+      "billingGroupId": "bg-kr-test"
+    },
+    {
+      "uuid": "test-uuid-002",
+      "billingGroupId": "bg-jp-test"
+    }
+  ],
+  "testUsage": [
+    {
+      "volume": 100,
+      "instanceType": "t2.micro"
+    },
+    {
+      "volume": 500,
+      "instanceType": "t2.small"
+    }
+  ],
+  "testCredits": [
+    {
+      "amount": 5000,
+      "type": "FREE"
+    },
+    {
+      "amount": 10000,
+      "type": "PAID"
+    }
+  ]
+}

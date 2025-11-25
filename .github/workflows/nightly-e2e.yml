@@ -1,0 +1,118 @@
+name: Nightly E2E Tests
+
+# Run every night at 2 AM KST (5 PM UTC previous day)
+on:
+  schedule:
+    - cron: '0 17 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: 'Specific test file to run (optional)'
+        required: false
+        type: string
+
+jobs:
+  e2e-tests:
+    name: Cypress E2E Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      max-parallel: 1  # Serialize execution to avoid port conflicts
+      matrix:
+        # Run tests sequentially to prevent port binding conflicts
+        browser: [chrome, firefox]
+
+    steps:
+      - name: 🔍 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+            workers/billing-api/package-lock.json
+
+      - name: 📥 Install Web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: 📥 Install Worker dependencies
+        working-directory: workers/billing-api
+        run: npm ci
+
+      - name: 🚀 Start Backend (Cloudflare Workers)
+        uses: ./.github/actions/start-backend
+
+      - name: 🎭 Run Cypress E2E Tests (Regression + PR Tests)
+        uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
+        with:
+          working-directory: web
+          start: npm run dev
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120
+          browser: ${{ matrix.browser }}
+          # Run all tests including PR-generated ones
+          spec: ${{ github.event.inputs.spec || 'cypress/e2e/**/*.cy.ts' }}
+          config: video=true,screenshotOnRunFailure=true
+        env:
+          CYPRESS_BASE_URL: http://localhost:3000
+          NEXT_PUBLIC_API_URL: http://localhost:8787
+
+      - name: 📊 Upload Cypress Screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots-${{ matrix.browser }}
+          path: web/cypress/screenshots
+          retention-days: 7
+
+      - name: 📹 Upload Cypress Videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos-${{ matrix.browser }}
+          path: web/cypress/videos
+          retention-days: 7
+
+      - name: 📈 Generate Test Report
+        if: always()
+        run: |
+          echo "## 🎭 Cypress E2E Test Results (${{ matrix.browser }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Some tests failed. Check artifacts for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 🧹 Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup-backend
+
+  notify-results:
+    name: Notify Test Results
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: 📢 Notify on Success
+        if: ${{ needs.e2e-tests.result == 'success' }}
+        run: |
+          echo "✅ All nightly E2E tests passed!"
+          echo "🎉 Application is stable."
+
+      - name: 📢 Notify on Failure
+        if: ${{ needs.e2e-tests.result == 'failure' }}
+        run: |
+          echo "❌ Some E2E tests failed!"
+          echo "🔍 Check the artifacts for details."
+          exit 1
