@@ -51,10 +51,10 @@ function analyzeChanges(changedFiles: string[]): {
   categories: Set<FileChange["category"]>;
   files: FileChange[];
 } {
-  const files: FileChange[] = changedFiles.map((path) => ({
-    path,
+  const files: FileChange[] = changedFiles.map((filePath) => ({
+    path: filePath,
     type: "modified",
-    category: categorizeFile(path),
+    category: categorizeFile(filePath),
   }));
 
   const categories = new Set(files.map((f) => f.category));
@@ -296,7 +296,7 @@ Start with: describe('${prLabel}...`;
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     }),

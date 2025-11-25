@@ -137,29 +137,7 @@ jobs:
           path: web/cypress/e2e/pr-generated/
 
       - name: 🚀 Start Backend
-        working-directory: workers/billing-api
-        run: |
-          npm run dev > backend.log 2>&1 &
-          BACKEND_PID=$!
-          echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
-          echo "Backend started with PID: $BACKEND_PID"
-
-          # Wait for backend to become healthy (30s timeout)
-          # NOTE: This health check logic is shared between multiple jobs
-          # If updating, ensure consistency across all backend startup steps
-          for i in {1..30}; do
-            if curl -f http://localhost:8787/health 2>/dev/null; then
-              echo "✅ Backend is healthy"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "❌ Backend failed to start within 30 seconds"
-              cat backend.log
-              exit 1
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 1
-          done
+        uses: ./.github/actions/start-backend
 
       - name: 🎭 Run new E2E tests
         uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
@@ -217,15 +195,7 @@ jobs:
 
       - name: 🧹 Cleanup Backend Process
         if: always()
-        run: |
-          if [ ! -z "$BACKEND_PID" ]; then
-            echo "Stopping backend process: $BACKEND_PID"
-            kill $BACKEND_PID 2>/dev/null || true
-            sleep 1
-          fi
-          # Fallback: kill any remaining wrangler processes
-          pkill -f "wrangler" || true
-          pkill -f "npm run dev" || true
+        uses: ./.github/actions/cleanup-backend
 
   commit-tests:
     name: 📝 Commit Tests to Original PR
@@ -340,29 +310,7 @@ jobs:
           cd ../workers/billing-api && npm ci
 
       - name: 🚀 Start Backend
-        working-directory: workers/billing-api
-        run: |
-          npm run dev > backend.log 2>&1 &
-          BACKEND_PID=$!
-          echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
-          echo "Backend started with PID: $BACKEND_PID"
-
-          # Wait for backend to become healthy (30s timeout)
-          # NOTE: This health check logic is shared between multiple jobs
-          # If updating, ensure consistency across all backend startup steps
-          for i in {1..30}; do
-            if curl -f http://localhost:8787/health 2>/dev/null; then
-              echo "✅ Backend is healthy"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "❌ Backend failed to start within 30 seconds"
-              cat backend.log
-              exit 1
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 1
-          done
+        uses: ./.github/actions/start-backend
 
       - name: 🎭 Run ALL E2E tests (Regression)
         uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
@@ -418,12 +366,4 @@ jobs:
 
       - name: 🧹 Cleanup Backend Process
         if: always()
-        run: |
-          if [ ! -z "$BACKEND_PID" ]; then
-            echo "Stopping backend process: $BACKEND_PID"
-            kill $BACKEND_PID 2>/dev/null || true
-            sleep 1
-          fi
-          # Fallback: kill any remaining wrangler processes
-          pkill -f "wrangler" || true
-          pkill -f "npm run dev" || true
+        uses: ./.github/actions/cleanup-backend
