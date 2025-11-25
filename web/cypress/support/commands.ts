@@ -67,22 +67,26 @@ Cypress.Commands.add('fillBasicInfo', (uuid: string, billingGroupId: string) => 
 })
 
 Cypress.Commands.add('addUsage', (volume: number) => {
-  // Get count before adding to target the new element deterministically
-  cy.get('input[id^="usage-volume-"]').its('length').then((initialCount) => {
+  // Get initial count using jQuery (works even when 0 elements exist)
+  cy.get('body').then(($body) => {
+    const initialCount = $body.find('input[id^="usage-volume-"]').length
+
     // Click Add Usage button
     cy.contains('button', 'Add Usage').click()
 
     // Wait for new input to be added to DOM
     cy.get('input[id^="usage-volume-"]').should('have.length', initialCount + 1)
 
-    // Target the newly added input by index (more reliable than .last())
+    // Target the newly added input by index
     cy.get('input[id^="usage-volume-"]').eq(initialCount).clear().type(volume.toString())
   })
 })
 
 Cypress.Commands.add('addCredit', (amount: number) => {
-  // Get count before adding to target the new element deterministically
-  cy.get('input[id^="credit-amount-"]').its('length').then((initialCount) => {
+  // Get initial count using jQuery (works even when 0 elements exist)
+  cy.get('body').then(($body) => {
+    const initialCount = $body.find('input[id^="credit-amount-"]').length
+
     // Click Add Credit button
     cy.contains('button', 'Add Credit').click()
 
@@ -95,8 +99,10 @@ Cypress.Commands.add('addCredit', (amount: number) => {
 })
 
 Cypress.Commands.add('addAdjustment', (type: 'DISCOUNT' | 'SURCHARGE', value: number) => {
-  // Get count before adding to target the new element deterministically
-  cy.get('select[id^="adj-type-"]').its('length').then((initialCount) => {
+  // Get initial count using jQuery (works even when 0 elements exist)
+  cy.get('body').then(($body) => {
+    const initialCount = $body.find('select[id^="adj-type-"]').length
+
     // Click Add Adjustment button
     cy.contains('button', 'Add Adjustment').click()
 

@@ -204,12 +204,12 @@ function generateCypressCode(
       return `  it('${scenario.description}', () => {
 ${steps}
 
-    // Basic smoke test
-    cy.visit('/')
+    // Basic smoke test (visit already done in beforeEach)
     cy.get('body').should('exist')
+    cy.get('main').should('be.visible')
 
     // TODO: Implement specific test based on changes
-    // Changed files: ${changedFiles.slice(0, 3).join(", ")}
+    // Example: Use custom commands like cy.fillBasicInfo(), cy.addUsage()
     ${
       changedFiles.some((f) => f.includes("Billing"))
         ? `
@@ -242,13 +242,6 @@ ${changedFiles.map((f) => ` * - ${f}`).join("\n")}
 describe('${prLabel} - Feature & Regression Tests', () => {
   beforeEach(() => {
     cy.visit('/')
-    // Clear any previous state
-    cy.clearLocalStorage()
-  })
-
-  afterEach(() => {
-    // Cleanup after each test
-    cy.clearCookies()
   })
 
 ${scenarioTests}
@@ -409,8 +402,20 @@ async function main() {
     process.env.CHANGED_FILES_PATH || "../changed-files.txt";
   const prNumber = Number.parseInt(process.env.PR_NUMBER || "0", 10);
 
-  // Read and display changed files
-  const changedFiles = await readChangedFiles(changedFilesPath);
+  // Read and display all changed files
+  const allChangedFiles = await readChangedFiles(changedFilesPath);
+  console.log(`\n📝 All changed files (${allChangedFiles.length})`);
+
+  // Filter to only web/src changes (E2E tests only for frontend code)
+  const changedFiles = allChangedFiles.filter((f) => f.startsWith("web/src/"));
+
+  if (changedFiles.length === 0) {
+    console.log("\n⏭️  No web/src changes detected - skipping E2E test generation");
+    console.log("E2E tests are only generated for frontend code changes");
+    return;
+  }
+
+  console.log(`\n✅ web/src changes (${changedFiles.length}):`);
   logChangedFiles(changedFiles);
 
   // Analyze changes

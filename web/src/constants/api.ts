@@ -156,12 +156,18 @@ const getBaseUrl = (): string => {
 
 
 /**
- * Determine if using local mock endpoints
+ * Determine if using local/development endpoints (without /api prefix)
  * Cached at module initialization to avoid repeated environment checks
  *
  * Priority:
  * 1. Explicit NEXT_PUBLIC_USE_LOCAL_MOCK flag (if set)
- * 2. Check actual resolved BASE_URL (consistent with getApiBaseUrl logic)
+ * 2. Check if URL points to localhost (any port)
+ * 3. Default to true in development mode
+ *
+ * Local endpoints (localhost:5000, localhost:8787, etc):
+ *   - /billing/admin/calculate
+ * Production endpoints (*.workers.dev, etc):
+ *   - /api/billing/admin/calculate
  */
 const isLocalMock = (() => {
   const explicitFlag = process.env.NEXT_PUBLIC_USE_LOCAL_MOCK
@@ -169,12 +175,12 @@ const isLocalMock = (() => {
     return explicitFlag === 'true'
   }
 
-  // Use the same logic as getApiBaseUrl() to ensure consistency
   const envUrl = process.env.NEXT_PUBLIC_API_URL
 
-  // If env var is set, check if it points to localhost:5000
+  // If env var is set, check if it points to localhost (any port)
+  // This covers both localhost:5000 (mock server) and localhost:8787 (wrangler)
   if (envUrl) {
-    return envUrl.includes('localhost:5000')
+    return envUrl.includes('localhost') || envUrl.includes('127.0.0.1')
   }
 
   // If not set, getApiBaseUrl() will fallback to localhost:5000 in development
