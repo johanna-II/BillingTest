@@ -15,8 +15,8 @@ beautifulsoup4 = "^4.14.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.9.0"
-ruff = "^0.14.6"
-mypy = "^1.13.0"
+ruff = "^0.14.7"
+mypy = "^1.19.0"
 types-requests = "^2.32.0"
 types-python-dateutil = "^2.9.0"
 bandit = "^1.8.0"
