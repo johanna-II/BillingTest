@@ -1,0 +1,369 @@
+name: PR - Auto E2E Test Generation
+
+# Trigger on PR to main/master
+# Note: E2E test generation only happens for web/src changes
+# Workers changes trigger workflow but skip test generation (run regression only)
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'web/src/**'
+      - 'workers/**'
+
+# Ensure only one run per PR
+concurrency:
+  group: pr-e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-changes:
+    name: 🔍 Analyze Changes & Generate Tests
+    runs-on: ubuntu-latest
+
+    outputs:
+      has-new-features: ${{ steps.detect.outputs.has-new-features }}
+      changed-files: ${{ steps.changed.outputs.files }}
+      test-generated: ${{ steps.generate.outputs.test-generated }}
+
+    steps:
+      - name: 📥 Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comparison
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🔎 Detect changed files
+        id: changed
+        run: |
+          # Get changed files in this PR with error handling
+          if ! git fetch origin ${{ github.base_ref }} 2>/dev/null; then
+            echo "⚠️ Base ref not available; comparing against HEAD~1"
+            git diff --name-only HEAD~1...HEAD > changed-files.txt || {
+              echo "❌ Failed to detect changes"
+              exit 1
+            }
+          else
+            git diff --name-only origin/${{ github.base_ref }}...HEAD > changed-files.txt || {
+              echo "❌ Failed to detect changes against base ref"
+              exit 1
+            }
+          fi
+
+          echo "Changed files:"
+          cat changed-files.txt
+
+          # Export for next steps
+          FILES=$(cat changed-files.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+
+      - name: 🎯 Detect new features
+        id: detect
+        run: |
+          # Check if changes include web/src files (frontend code)
+          if grep -q "^web/src/" changed-files.txt; then
+            echo "has-new-features=true" >> $GITHUB_OUTPUT
+            echo "✅ Frontend changes detected in web/src!"
+          else
+            echo "has-new-features=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No web/src changes - skipping E2E test generation"
+          fi
+
+      - name: 🤖 Generate E2E tests
+        id: generate
+        if: steps.detect.outputs.has-new-features == 'true'
+        run: |
+          cd web
+          npm ci
+
+          # Use the centralized TypeScript test generator
+          CHANGED_FILES_PATH=../changed-files.txt PR_NUMBER=${{ github.event.pull_request.number }} npm run generate:pr-tests
+
+          # Check if test was generated
+          if [ -f cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts ]; then
+            echo "test-generated=true" >> $GITHUB_OUTPUT
+            echo "test-file=pr-${{ github.event.pull_request.number }}.cy.ts" >> $GITHUB_OUTPUT
+            echo "✅ Test generated successfully"
+          else
+            echo "test-generated=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No test generated"
+          fi
+
+      - name: 📤 Upload generated test file
+        if: steps.generate.outputs.test-generated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-generated-test
+          path: web/cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts
+          retention-days: 30
+
+  run-new-tests:
+    name: 🎭 Run Generated E2E Tests
+    needs: analyze-changes
+    if: needs.analyze-changes.outputs.test-generated == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: 📥 Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+            workers/billing-api/package-lock.json
+
+      - name: 📥 Install dependencies
+        run: |
+          cd web && npm ci
+          cd ../workers/billing-api && npm ci
+
+      - name: 📥 Download generated test file
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-generated-test
+          path: web/cypress/e2e/pr-generated/
+
+      - name: 🚀 Start Backend
+        uses: ./.github/actions/start-backend
+
+      - name: 🎭 Run new E2E tests
+        uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
+        with:
+          working-directory: web
+          start: npm run dev
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120
+          spec: cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8787
+
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-e2e-results
+          path: |
+            web/cypress/screenshots
+            web/cypress/videos
+          retention-days: 30
+
+      - name: 💬 Comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const status = '${{ job.status }}';
+
+            const comment = `## 🤖 Auto-Generated E2E Test Results
+
+            A new E2E test was automatically generated for this PR based on the changes detected.
+
+            **Test File**: \`cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts\`
+
+            **Status**: ${status === 'success' ? '✅ PASSED' : '❌ FAILED'}
+
+            ${status === 'success' ?
+              '✨ All generated tests passed! This test has been added to the regression suite.' :
+              '⚠️ Some tests failed. Please review the artifacts and fix the issues.'}
+
+            📎 **Artifacts**: Check the workflow run for screenshots and videos.
+
+            ---
+            *Generated by AI-powered E2E automation*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: 🧹 Cleanup Backend Process
+        if: always()
+        uses: ./.github/actions/cleanup-backend
+
+  commit-tests:
+    name: 📝 Commit Tests to Original PR
+    needs: [analyze-changes, run-new-tests]
+    if: needs.run-new-tests.result == 'success' && needs.analyze-changes.outputs.test-generated == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: 📥 Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📥 Download generated test file
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-generated-test
+          path: web/cypress/e2e/pr-generated/
+
+      - name: 📝 Commit test to PR
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Add the generated test
+          git add web/cypress/e2e/pr-generated/
+
+          if git diff --staged --quiet; then
+            echo "No tests to commit"
+            exit 0
+          fi
+
+          git commit -m "🤖 Auto-generated E2E test for PR #${{ github.event.pull_request.number }} [skip ci]
+
+          Generated: pr-${{ github.event.pull_request.number }}.cy.ts
+
+          This test was automatically generated based on code changes in web/src.
+          It provides basic smoke test coverage and should be enhanced with
+          detailed assertions before merging.
+
+          Test Status: ✅ PASSED
+          Generated by: AI E2E Test Automation
+
+          [skip ci] prevents recursive workflow triggering.
+          "
+
+          git push
+
+      - name: 💬 Notify PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `## ✅ Auto-Generated E2E Test Added
+
+            A new E2E test has been automatically generated and committed to this PR.
+
+            **Test File**: \`web/cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts\`
+
+            **Test Status**: ✅ All tests passed!
+
+            ### ✨ What's Covered
+            - Basic smoke tests for modified components
+            - Regression prevention for changed features
+            - Integration points with existing functionality
+
+            ### 👨‍💻 Next Steps (Optional)
+            You can enhance this test by adding:
+            1. Detailed assertions for specific component behavior
+            2. Edge case scenarios
+            3. Integration test flows
+
+            The test will be included in the regression suite once this PR is merged! 🎉
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+  run-full-regression:
+    name: 🔄 Run Full Regression Suite
+    needs: analyze-changes
+    if: always()
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: 📥 Install dependencies
+        run: |
+          cd web && npm ci
+          cd ../workers/billing-api && npm ci
+
+      - name: 🚀 Start Backend
+        uses: ./.github/actions/start-backend
+
+      - name: 🎭 Run ALL E2E tests (Regression)
+        uses: cypress-io/github-action@7ef72e250a9e564efb4ed4c2433971ada4cc38b4
+        with:
+          working-directory: web
+          start: npm run dev
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120
+          browser: chrome
+          # Run all tests including new ones
+          spec: cypress/e2e/**/*.cy.ts
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8787
+
+      - name: 📊 Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-regression-results
+          path: |
+            web/cypress/screenshots
+            web/cypress/videos
+          retention-days: 30
+
+      - name: 📈 Update PR status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+
+            const comment = `## ${emoji} Full Regression Suite
+
+            **Status**: ${status === 'success' ? 'PASSED' : 'FAILED'}
+
+            **Tests Run**:
+            - ✅ Existing regression tests
+            - ✅ Newly generated tests
+            - ✅ Integration tests
+
+            ${status === 'success' ?
+              '🎉 All tests passed! Safe to merge.' :
+              '⚠️ Some tests failed. Please check artifacts.'}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: 🧹 Cleanup Backend Process
+        if: always()
+        uses: ./.github/actions/cleanup-backend

@@ -11,7 +11,14 @@
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
     "check": "npm run type-check && npm run lint",
-    "check:fix": "npm run type-check && npm run lint:fix"
+    "check:fix": "npm run type-check && npm run lint:fix",
+    "cypress": "cypress open",
+    "cypress:headless": "cypress run",
+    "e2e": "start-server-and-test dev 3000 cypress",
+    "e2e:headless": "start-server-and-test dev 3000 cypress:headless",
+    "generate:tests": "tsx scripts/generate-e2e-tests.ts",
+    "generate:pr-tests": "tsx scripts/ai-test-generator.ts",
+    "mcp:server": "cd cypress/mcp-server && npm run dev"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.9",
@@ -21,7 +28,7 @@
     "lightningcss": "^1.30.2",
     "motion": "^12.0.0",
     "next": "^16.0.0",
-    "react": "^19.0.0",
+    "react": "^19.2.1",
     "react-dom": "^19.0.0",
     "recharts": "^3.0.0",
     "swagger-ui-react": "^5.29.3",
@@ -50,10 +57,13 @@
     "@types/react-dom": "^19.0.0",
     "@types/swagger-ui-react": "^5.18.0",
     "autoprefixer": "^10.4.16",
+    "cypress": "^15.7.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.0.7",
     "postcss": "^8.4.32",
+    "start-server-and-test": "^2.1.2",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.3.3"
   }
 }

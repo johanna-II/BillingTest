@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/anthropic-sdk-typescript/main/mcp-schema.json",
+  "mcpServers": {
+    "cypress-controller": {
+      "command": "node",
+      "args": [
+        "./web/cypress/mcp-server/dist/index.js"
+      ],
+      "env": {},
+      "description": "Control Cypress E2E tests through AI",
+      "capabilities": ["tools"]
+    }
+  }
+}

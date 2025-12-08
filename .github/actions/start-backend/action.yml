@@ -1,0 +1,29 @@
+name: 'Start Backend'
+description: 'Start Cloudflare Workers backend and wait for health check'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 🚀 Start Backend
+      shell: bash
+      working-directory: workers/billing-api
+      run: |
+        npm run dev > backend.log 2>&1 &
+        BACKEND_PID=$!
+        echo "BACKEND_PID=$BACKEND_PID" >> $GITHUB_ENV
+        echo "Backend started with PID: $BACKEND_PID"
+
+        # Wait for backend to become healthy (30s timeout)
+        for i in {1..30}; do
+          if curl -f http://localhost:8787/health 2>/dev/null; then
+            echo "✅ Backend is healthy"
+            break
+          fi
+          if [ $i -eq 30 ]; then
+            echo "❌ Backend failed to start within 30 seconds"
+            cat backend.log
+            exit 1
+          fi
+          echo "Waiting for backend... ($i/30)"
+          sleep 1
+        done
