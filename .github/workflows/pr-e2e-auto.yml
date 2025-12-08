@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Full history for comparison
 
@@ -114,7 +114,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
@@ -209,7 +209,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -295,7 +295,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
