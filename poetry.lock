@@ -1703,14 +1703,14 @@ files = [
 
 [[package]]
 name = "pact-python"
-version = "3.2.0"
+version = "3.2.1"
 description = "Tool for creating and verifying consumer-driven contracts using the Pact framework."
 optional = false
 python-versions = ">=3.10"
 groups = ["test"]
 files = [
-    {file = "pact_python-3.2.0-py3-none-any.whl", hash = "sha256:66299ebf717fc6d8e1b6b92570457eb81abb5fe31c20fd5dfca1fac7e427b570"},
-    {file = "pact_python-3.2.0.tar.gz", hash = "sha256:2d7de5c4ad753c3bddcae0fc11f71e8323e88d6f0d1b12bd79d53ca1fba65502"},
+    {file = "pact_python-3.2.1-py3-none-any.whl", hash = "sha256:2902fe74da09093269cf69d007227ae15db854abb22be7520ed643efa182b42e"},
+    {file = "pact_python-3.2.1.tar.gz", hash = "sha256:bf6d9709999650feae49a085080fca95d2c1d6f94913fff8f2a6d6b9446b978d"},
 ]
 
 [package.dependencies]
@@ -1719,7 +1719,7 @@ typing-extensions = {version = ">=4.0,<5.0", markers = "python_version < \"3.13\
 yarl = ">=1.0,<2.0"
 
 [package.extras]
-compat-v2 = ["click (>=8.0,<9.0)", "pact-python-cli (>=2.0,<3.0)", "psutil (>=7.0,<8.0)", "requests (>=2.0,<3.0)", "six (>=1.0,<2.0)"]
+compat-v2 = ["click (>=8.0,<9.0)", "pact-python-cli (>=2.5,<3.0)", "psutil (>=7.0,<8.0)", "requests (>=2.0,<3.0)", "six (>=1.0,<2.0)"]
 
 [[package]]
 name = "pact-python-ffi"
