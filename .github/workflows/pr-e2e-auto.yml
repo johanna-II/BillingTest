@@ -140,7 +140,7 @@ jobs:
         uses: ./.github/actions/start-backend
 
       - name: 🎭 Run new E2E tests
-        uses: cypress-io/github-action@269d7553670d7612d9918669612e5d42d2362b96
+        uses: cypress-io/github-action@33e67f1f0ebf973c8e19c3fe49ed0f9159383742
         with:
           working-directory: web
           start: npm run dev
@@ -313,7 +313,7 @@ jobs:
         uses: ./.github/actions/start-backend
 
       - name: 🎭 Run ALL E2E tests (Regression)
-        uses: cypress-io/github-action@269d7553670d7612d9918669612e5d42d2362b96
+        uses: cypress-io/github-action@33e67f1f0ebf973c8e19c3fe49ed0f9159383742
         with:
           working-directory: web
           start: npm run dev
