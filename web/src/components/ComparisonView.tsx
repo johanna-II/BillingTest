@@ -130,7 +130,9 @@ const ComparisonView: React.FC = () => {
                         tickFormatter={(value) => `₩${(value / 1000).toFixed(0)}K`}
                       />
                       <Tooltip
-                        formatter={(value: number) => `₩${value.toLocaleString()}`}
+                        formatter={(value: number | undefined) =>
+                          value !== undefined ? `₩${value.toLocaleString()}` : ''
+                        }
                       />
                       <Legend />
                       <Bar dataKey="Subtotal" fill="#171717" />
