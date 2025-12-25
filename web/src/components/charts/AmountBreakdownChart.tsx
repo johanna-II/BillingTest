@@ -96,7 +96,9 @@ const AmountBreakdownChart: React.FC<AmountBreakdownChartProps> = ({
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip formatter={(value: number) => `₩${value.toLocaleString()}`} />
+            <Tooltip formatter={(value: number | undefined) =>
+              value !== undefined ? `₩${value.toLocaleString()}` : ''
+            } />
             <Legend />
           </PieChart>
         </ResponsiveContainer>
@@ -120,7 +122,9 @@ const AmountBreakdownChart: React.FC<AmountBreakdownChartProps> = ({
             tickFormatter={formatCurrency}
           />
           <Tooltip
-            formatter={(value: number) => `₩${value.toLocaleString()}`}
+            formatter={(value: number | undefined) =>
+              value !== undefined ? `₩${value.toLocaleString()}` : ''
+            }
             contentStyle={{
               backgroundColor: 'white',
               border: '1px solid #e5e5e5',
