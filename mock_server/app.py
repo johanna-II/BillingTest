@@ -2648,7 +2648,8 @@ def create_adjustment():
 
 if __name__ == "__main__":
     port = int(os.environ.get("MOCK_SERVER_PORT", "5000"))
-    # Note: This is a test mock server, binding to all interfaces and debug mode are acceptable
+    # Note: This is a test mock server; debug can be enabled explicitly via env var if needed.
+    debug = os.environ.get("MOCK_SERVER_DEBUG", "").lower() in {"1", "true", "yes", "on"}
     app.run(
-        host="0.0.0.0", port=port, debug=True
+        host="0.0.0.0", port=port, debug=debug
     )  # noqa: S104, S201 # NOSONAR python:S104,python:S201
