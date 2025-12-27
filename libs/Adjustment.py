@@ -366,12 +366,13 @@ class AdjustmentManager:
 
     def _delete_single_adjustment(self, endpoint: str, adj_id: str) -> None:
         """Delete a single adjustment."""
-        logger.info("Deleting adjustment %s", adj_id)
+        redacted_adj_id = f"...{adj_id[-4:]}" if adj_id and len(adj_id) > 4 else "***"
+        logger.info("Deleting adjustment %s", redacted_adj_id)
         try:
             self._client.delete(endpoint, params={"adjustmentIds": adj_id})
-            logger.info("Successfully deleted adjustment %s", adj_id)
+            logger.info("Successfully deleted adjustment %s", redacted_adj_id)
         except APIRequestException:
-            logger.exception("Failed to delete adjustment %s", adj_id)
+            logger.exception("Failed to delete adjustment %s", redacted_adj_id)
             raise
 
     def delete_adjustment(
