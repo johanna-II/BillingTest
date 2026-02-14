@@ -214,6 +214,14 @@ jobs:
     - name: Publish Pacts to Broker
       if: matrix.test-type == 'contracts' && github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
+        if [[ -z "$PACT_BROKER_URL" ]]; then
+          echo "PACT_BROKER_URL is not configured. Skipping pact publish."
+          exit 0
+        fi
+        if [[ -z "$PACT_BROKER_TOKEN" && ( -z "$PACT_BROKER_USERNAME" || -z "$PACT_BROKER_PASSWORD" ) ]]; then
+          echo "PACT_BROKER credentials are not configured. Skipping pact publish."
+          exit 0
+        fi
         cd tests/contracts
         python publish_pacts.py \
           --version "$GIT_COMMIT" \
@@ -223,12 +231,22 @@ jobs:
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+        PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         GIT_COMMIT: ${{ github.sha }}
         GIT_BRANCH: ${{ github.ref_name }}
 
     - name: Publish Pacts to Broker (PR/Develop)
       if: matrix.test-type == 'contracts' && (github.ref == 'refs/heads/develop' || github.event_name == 'pull_request')
       run: |
+        if [[ -z "$PACT_BROKER_URL" ]]; then
+          echo "PACT_BROKER_URL is not configured. Skipping pact publish."
+          exit 0
+        fi
+        if [[ -z "$PACT_BROKER_TOKEN" && ( -z "$PACT_BROKER_USERNAME" || -z "$PACT_BROKER_PASSWORD" ) ]]; then
+          echo "PACT_BROKER credentials are not configured. Skipping pact publish."
+          exit 0
+        fi
         cd tests/contracts
         python publish_pacts.py \
           --version "$GIT_COMMIT" \
@@ -237,6 +255,8 @@ jobs:
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+        PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         GIT_COMMIT: ${{ github.sha }}
         GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
 
