@@ -108,7 +108,7 @@ class ContractManager:
 
         endpoint = f"billing/admin/billing-groups/{self.billing_group_id}/contracts"
 
-        logger.info("Deleting contract from billing group %s", self.billing_group_id)
+        logger.info("Deleting contract from a billing group")
 
         try:
             response = self._client.delete(endpoint, headers=headers)
