@@ -108,23 +108,23 @@ type APIConfigShape = {
 
 /**
  * Get API Base URL with environment-aware fallback
- * - Production: Requires NEXT_PUBLIC_API_URL to be set (fails fast if missing)
+ * - Production: Uses NEXT_PUBLIC_API_URL when set, otherwise falls back to default API
  * - Development: Falls back to localhost:5000 for local testing
  */
+const DEFAULT_PRODUCTION_API_URL = 'https://billing-api.janetheglory.workers.dev'
+
 const getApiBaseUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL
 
-  // Production: Require environment variable
+  // Production: Prefer env var, fallback to stable hosted API
   if (process.env.NODE_ENV === 'production') {
     if (!envUrl) {
-      const errorMessage =
-        'NEXT_PUBLIC_API_URL environment variable is required in production. ' +
-        'Please configure it in your deployment settings (GitHub Secrets, Vercel, etc.)'
-
-      // Log to console for easier debugging
-      console.error('❌ Configuration Error:', errorMessage)
-
-      throw new Error(errorMessage)
+      console.warn(
+        '⚠️ NEXT_PUBLIC_API_URL not set in production. ' +
+        `Using fallback: ${DEFAULT_PRODUCTION_API_URL}. ` +
+        'Set NEXT_PUBLIC_API_URL in deployment settings to override this value.'
+      )
+      return DEFAULT_PRODUCTION_API_URL
     }
     return envUrl
   }

@@ -27,10 +27,10 @@ jobs:
     name: Lint and Type Check
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Set up Python
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -65,12 +65,12 @@ jobs:
 
     steps:
     # Skip comprehensive tests unless on main branch or tagged with [full-test]
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
 
     - name: Set up Python
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -126,17 +126,15 @@ jobs:
     - name: Run Tests with Coverage
       if: matrix.test-type != 'comprehensive' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[full-test]')
       run: |
-        # coverage 파일명을 명시적으로 지정
+        # coverage 파일명을 명시적으로 지정 (단일/병렬 조각 모두 이 접두사 사용)
         export COVERAGE_FILE=.coverage.${{ matrix.test-type }}
 
-        # 단위 테스트는 병렬 실행 (auto) + 60초 타임아웃
+        # 단위 테스트는 순차 실행 (Hypothesis + xdist 호환 이슈 회피) + 60초 타임아웃
         # 계약 테스트는 순차 실행 + 300초 타임아웃
         # 통합 테스트는 integration-tests-service.yml에서 별도 실행
         if [[ "${{ matrix.test-type }}" = "unit" ]]; then
-          # Unit tests run in parallel (auto workers) + 60s timeout
-          # Note: property-based tests (hypothesis) skipped on Python 3.12+
+          # Unit tests run sequentially to avoid Hypothesis/xdist INTERNALERROR (is_local_module_file)
           pytest tests/${{ matrix.test-type }}/ -v --tb=short \
-            -n auto \
             --timeout=60 \
             --cov=libs --cov-report=term-missing \
             --cov-report=xml:coverage-${{ matrix.test-type }}.xml \
@@ -214,6 +212,14 @@ jobs:
     - name: Publish Pacts to Broker
       if: matrix.test-type == 'contracts' && github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
+        if [[ -z "$PACT_BROKER_URL" ]]; then
+          echo "PACT_BROKER_URL is not configured. Skipping pact publish."
+          exit 0
+        fi
+        if [[ -z "$PACT_BROKER_TOKEN" && ( -z "$PACT_BROKER_USERNAME" || -z "$PACT_BROKER_PASSWORD" ) ]]; then
+          echo "PACT_BROKER credentials are not configured. Skipping pact publish."
+          exit 0
+        fi
         cd tests/contracts
         python publish_pacts.py \
           --version "$GIT_COMMIT" \
@@ -223,12 +229,22 @@ jobs:
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+        PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         GIT_COMMIT: ${{ github.sha }}
         GIT_BRANCH: ${{ github.ref_name }}
 
     - name: Publish Pacts to Broker (PR/Develop)
       if: matrix.test-type == 'contracts' && (github.ref == 'refs/heads/develop' || github.event_name == 'pull_request')
       run: |
+        if [[ -z "$PACT_BROKER_URL" ]]; then
+          echo "PACT_BROKER_URL is not configured. Skipping pact publish."
+          exit 0
+        fi
+        if [[ -z "$PACT_BROKER_TOKEN" && ( -z "$PACT_BROKER_USERNAME" || -z "$PACT_BROKER_PASSWORD" ) ]]; then
+          echo "PACT_BROKER credentials are not configured. Skipping pact publish."
+          exit 0
+        fi
         cd tests/contracts
         python publish_pacts.py \
           --version "$GIT_COMMIT" \
@@ -237,6 +253,8 @@ jobs:
       env:
         PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
         PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+        PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+        PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         GIT_COMMIT: ${{ github.sha }}
         GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
 
@@ -257,6 +275,7 @@ jobs:
           test-results-${{ matrix.test-type }}.xml
           coverage-${{ matrix.test-type }}.xml
           .coverage.${{ matrix.test-type }}
+          .coverage.${{ matrix.test-type }}.*
           htmlcov/
 
   performance:
@@ -265,10 +284,10 @@ jobs:
     # ⚠️ IMPORTANT: These tests MUST run sequentially (no -n flag)
     # Sequential execution ensures accurate performance measurements
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Set up Python
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -353,10 +372,10 @@ jobs:
     name: Security Tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Set up Python
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -401,10 +420,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, integration-tests, component-tests]
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Set up Python
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
@@ -458,7 +477,7 @@ jobs:
     # Temporarily disabled - coverage already published to Codecov
     if: false && github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Download coverage reports
       uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
@@ -495,10 +514,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -616,10 +635,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548  # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
