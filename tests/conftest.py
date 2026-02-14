@@ -77,6 +77,43 @@ def setup_logging():
 logger = setup_logging()
 
 
+def _patch_hypothesis_path_check() -> None:
+    """Patch Hypothesis path checker to tolerate non-path inputs.
+
+    On Python 3.12 in CI, Hypothesis may pass a function object into
+    `is_local_module_file()`, which raises:
+    TypeError: argument of type 'function' is not iterable
+    """
+    if sys.version_info < (3, 12):
+        return
+
+    try:
+        from hypothesis.internal import constants_ast
+        from hypothesis.internal.conjecture import providers
+    except Exception:
+        # Hypothesis may not be installed for every environment.
+        return
+
+    original_checker = getattr(providers, "is_local_module_file", None)
+    if not callable(original_checker):
+        return
+
+    # Prevent re-patching if conftest is reloaded.
+    if getattr(original_checker, "__name__", "") == "_safe_is_local_module_file":
+        return
+
+    def _safe_is_local_module_file(path: object) -> bool:
+        if not isinstance(path, (str, os.PathLike)):
+            return False
+        try:
+            return bool(original_checker(path))
+        except TypeError:
+            return False
+
+    constants_ast.is_local_module_file = _safe_is_local_module_file  # type: ignore[assignment]
+    providers.is_local_module_file = _safe_is_local_module_file  # type: ignore[assignment]
+
+
 @dataclass
 class TestConfig:
     """Test configuration container."""
@@ -167,6 +204,8 @@ def pytest_configure(config: Config) -> None:
     Args:
         config: Pytest configuration object
     """
+    _patch_hypothesis_path_check()
+
     # Register custom markers
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
