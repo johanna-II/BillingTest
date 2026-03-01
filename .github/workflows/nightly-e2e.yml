@@ -50,7 +50,7 @@ jobs:
         uses: ./.github/actions/start-backend
 
       - name: 🎭 Run Cypress E2E Tests (Regression + PR Tests)
-        uses: cypress-io/github-action@be9c221b90b2fb97daedfa8699d1f08b662efc70
+        uses: cypress-io/github-action@664c54f85c4eb4c65b4bf341f9f622b81ddf482d
         with:
           working-directory: web
           start: npm run dev
