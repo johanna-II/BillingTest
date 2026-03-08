@@ -65,7 +65,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8787
 
       - name: 📊 Upload Cypress Screenshots
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.0
         if: failure()
         with:
           name: cypress-screenshots-${{ matrix.browser }}
@@ -73,7 +73,7 @@ jobs:
           retention-days: 7
 
       - name: 📹 Upload Cypress Videos
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.0
         if: always()
         with:
           name: cypress-videos-${{ matrix.browser }}
