@@ -95,7 +95,7 @@ jobs:
 
       - name: 📤 Upload generated test file
         if: steps.generate.outputs.test-generated == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: pr-generated-test
           path: web/cypress/e2e/pr-generated/pr-${{ github.event.pull_request.number }}.cy.ts
@@ -151,7 +151,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8787
 
       - name: 📊 Upload test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: pr-e2e-results
@@ -326,7 +326,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8787
 
       - name: 📊 Upload results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: full-regression-results
