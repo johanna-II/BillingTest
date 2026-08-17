@@ -131,7 +131,7 @@ jobs:
           cd ../workers/billing-api && npm ci
 
       - name: 📥 Download generated test file
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: pr-generated-test
           path: web/cypress/e2e/pr-generated/
@@ -215,7 +215,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📥 Download generated test file
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: pr-generated-test
           path: web/cypress/e2e/pr-generated/
