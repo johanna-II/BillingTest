@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export', // Static site generation for Cloudflare Pages
-  trailingSlash: true, // Better compatibility with static hosting
+  // Static export for Cloudflare Pages; standard build on Vercel
+  ...(process.env.VERCEL ? {} : { output: 'export', trailingSlash: true }),
   images: {
     unoptimized: true, // Image optimization not available in static export
   },

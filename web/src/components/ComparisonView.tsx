@@ -130,8 +130,8 @@ const ComparisonView: React.FC = () => {
                         tickFormatter={(value) => `₩${(value / 1000).toFixed(0)}K`}
                       />
                       <Tooltip
-                        formatter={(value: number | undefined) =>
-                          value !== undefined ? `₩${value.toLocaleString()}` : ''
+                        formatter={(value) =>
+                          typeof value === 'number' ? `₩${value.toLocaleString()}` : ''
                         }
                       />
                       <Legend />
