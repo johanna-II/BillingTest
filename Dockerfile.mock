@@ -1,4 +1,4 @@
-FROM python:3.14.7-slim
+FROM python:3.15.0-slim
 
 # Create non-root user for security
 # Note: Using a non-root user prevents potential container breakout attacks
